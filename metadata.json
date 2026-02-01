@@ -1,0 +1,5 @@
+{
+  "name": "Poke-Edu",
+  "description": "A gamified educational RPG where students battle monsters using math and language skills. Features a Holo-Dark UI, turn-based combat, and an adaptive learning engine.",
+  "requestFramePermissions": []
+}

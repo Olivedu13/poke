@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Poke-Edu | Learn & Battle</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              display: ['Orbitron', 'sans-serif'],
+            },
+            colors: {
+              slate: {
+                850: '#151e2e',
+                950: '#020617', // Main BG
+              },
+              cyan: {
+                500: '#06b6d4', // Cyber accent
+                400: '#22d3ee',
+              }
+            },
+            animation: {
+              'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+              'float': 'float 3s ease-in-out infinite',
+            },
+            keyframes: {
+              float: {
+                '0%, 100%': { transform: 'translateY(0)' },
+                '50%': { transform: 'translateY(-10px)' },
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <style>
+      body {
+        background-color: #020617;
+        color: #f8fafc;
+        overflow-x: hidden;
+      }
+      /* Custom scrollbar for Holo-feel */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #0f172a; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #06b6d4; 
+        border-radius: 4px;
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client?external=react",
+    "react-dom": "https://esm.sh/react-dom@18.3.1?external=react",
+    "react": "https://esm.sh/react@18.3.1",
+    "react/": "https://esm.sh/react@18.3.1/",
+    "zustand": "https://esm.sh/zustand@4.5.2?external=react",
+    "axios": "https://esm.sh/axios@1.6.8",
+    "framer-motion": "https://esm.sh/framer-motion@11.0.8?external=react,react-dom",
+    "canvas-confetti": "https://esm.sh/canvas-confetti@1.9.2",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "child_process": "https://esm.sh/child_process@^1.0.2",
+    "path": "https://esm.sh/path@^0.12.7",
+    "dotenv": "https://esm.sh/dotenv@^17.2.3",
+    "url": "https://esm.sh/url@^0.11.4",
+    "ssh2-sftp-client": "https://esm.sh/ssh2-sftp-client@^12.0.1"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
