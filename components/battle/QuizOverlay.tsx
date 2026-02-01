@@ -1,0 +1,162 @@
+
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Question, ApiResponse, User } from '../../types';
+import { API_BASE_URL } from '../../config';
+
+interface QuizOverlayProps {
+  user: User;
+  onComplete: (isCorrect: boolean, dmgDealt: number) => void;
+  onClose: () => void;
+}
+
+export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onClose }) => {
+  const [loading, setLoading] = useState(true);
+  const [question, setQuestion] = useState<Question | null>(null);
+  const [selectedOption, setSelectedOption] = useState<number | null>(null);
+  const [result, setResult] = useState<{correct: boolean, explanation: string} | null>(null);
+  const [error, setError] = useState<string>('');
+
+  useEffect(() => {
+    const fetchQuestion = async () => {
+      try {
+        // Timeout augmenté à 6000ms pour laisser le temps au serveur
+        const res = await axios.get<ApiResponse<Question>>(`${API_BASE_URL}/get_question.php?user_id=${user.id}`, { timeout: 6000 });
+        if (res.data.success && res.data.data) {
+          setQuestion(res.data.data);
+        } else {
+            setError('Impossible de récupérer une question (Format invalide).');
+        }
+      } catch (err) {
+        setError('Erreur de connexion au QG (Timeout ou Serveur HS).');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchQuestion();
+  }, [user.id]);
+
+  const handleAnswer = async (index: number) => {
+    if (selectedOption !== null || !question) return;
+    setSelectedOption(index);
+
+    const isCorrect = index === question.correct_index;
+    
+    // Combat Calc
+    let damage = 0;
+    try {
+        const combatRes = await axios.post(`${API_BASE_URL}/combat_engine.php`, {
+            is_correct: isCorrect,
+            attacker_level: Math.floor(user.global_xp / 100) + 1,
+            attacker_type: 'FIRE', 
+            enemy_type: 'PLANTE'
+        }, { timeout: 2000 });
+        damage = combatRes.data.damage || 0;
+    } catch (e) {
+        // Fallback ajusté à 25 pour correspondre au nouveau backend
+        damage = isCorrect ? 25 : 0; 
+    }
+
+    setResult({
+        correct: isCorrect,
+        explanation: question.explanation
+    });
+
+    setTimeout(() => {
+        onComplete(isCorrect, damage);
+    }, 2500); // Temps augmenté pour bien lire l'explication
+  };
+
+  return (
+    <div className="absolute inset-0 z-50 flex items-end md:items-center justify-center bg-slate-950/80 backdrop-blur-xl p-0 md:p-4 animate-in fade-in duration-300">
+      <AnimatePresence>
+        {loading ? (
+            <div className="flex flex-col items-center justify-center h-full pb-20">
+                <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                <div className="text-cyan-400 font-display text-xl animate-pulse">DÉCRYPTAGE DES DONNÉES...</div>
+            </div>
+        ) : error ? (
+            <div className="bg-red-900/80 border border-red-500 p-6 rounded-xl text-center max-w-sm">
+                <div className="text-4xl mb-2">📡⚠️</div>
+                <h3 className="text-white font-bold mb-2">SIGNAL PERDU</h3>
+                <p className="text-red-200 text-sm mb-4">{error}</p>
+                <button onClick={onClose} className="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded font-bold">RETOUR</button>
+            </div>
+        ) : question ? (
+            <motion.div 
+                initial={{ y: 100, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: 100, opacity: 0 }}
+                className="w-full h-[90%] md:h-auto md:max-w-2xl bg-slate-900/90 border-t-2 md:border border-cyan-500 md:rounded-2xl shadow-2xl overflow-y-auto flex flex-col"
+            >
+                {/* Header Question */}
+                <div className="p-6 border-b border-cyan-900/50 bg-slate-950/50">
+                    <div className="flex justify-between items-center mb-2">
+                        <span className="text-xs font-mono text-cyan-400 uppercase tracking-widest border border-cyan-900 px-2 py-0.5 rounded">
+                            {question.subject}
+                        </span>
+                        <button onClick={onClose} className="text-slate-500 hover:text-white px-2">✕</button>
+                    </div>
+                    <h3 className="text-xl md:text-2xl font-bold text-white leading-snug">
+                        {question.question_text}
+                    </h3>
+                </div>
+
+                {/* Options Grid */}
+                <div className="flex-1 p-6 flex flex-col justify-center gap-3">
+                    {Array.isArray(question.options) && question.options.map((opt, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => handleAnswer(idx)}
+                            disabled={selectedOption !== null}
+                            className={`
+                                w-full p-4 rounded-xl border-2 text-left transition-all relative overflow-hidden active:scale-[0.98]
+                                flex items-center gap-4
+                                ${selectedOption === null 
+                                    ? 'border-slate-700 bg-slate-800/50 hover:bg-slate-800 hover:border-cyan-500/50' 
+                                    : idx === question.correct_index 
+                                        ? 'border-green-500 bg-green-900/40 text-green-100 shadow-[0_0_20px_rgba(34,197,94,0.3)]' 
+                                        : selectedOption === idx 
+                                            ? 'border-red-500 bg-red-900/40 text-red-100' 
+                                            : 'border-slate-800 opacity-30'
+                                }
+                            `}
+                        >
+                            <div className={`
+                                w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0
+                                ${idx === question.correct_index && selectedOption !== null ? 'bg-green-500 text-black' : 'bg-slate-700 text-slate-300'}
+                            `}>
+                                {['A', 'B', 'C', 'D'][idx]}
+                            </div>
+                            <span className="font-bold text-md md:text-lg">{opt}</span>
+                        </button>
+                    ))}
+                </div>
+
+                {/* Footer Feedback */}
+                <AnimatePresence>
+                    {result && (
+                        <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            className={`p-4 border-t ${result.correct ? 'bg-green-900/30 border-green-500/30' : 'bg-red-900/30 border-red-500/30'}`}
+                        >
+                             <div className="flex items-center gap-3 mb-1">
+                                <span className="text-2xl">{result.correct ? '🎯' : '⚠️'}</span>
+                                <span className={`font-display font-black text-lg ${result.correct ? 'text-green-400' : 'text-red-400'}`}>
+                                    {result.correct ? 'EXCELLENT !' : 'ERREUR'}
+                                </span>
+                             </div>
+                             <p className="text-sm text-slate-300 pl-10 leading-relaxed">
+                                {result.explanation}
+                             </p>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </motion.div>
+        ) : null}
+      </AnimatePresence>
+    </div>
+  );
+};

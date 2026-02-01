@@ -1,0 +1,53 @@
+
+[
+  {
+    "subject": "MATHS",
+    "grade_level": "CE1",
+    "difficulty": "EASY",
+    "category": "ADDITION",
+    "question_text": "Combien font 5 + 7 ?",
+    "options_json": ["11", "12", "13", "10"],
+    "correct_index": 1,
+    "explanation": "5 + 7 est égal à 12. Tu peux faire 7 + 3 = 10, puis ajouter 2."
+  },
+  {
+    "subject": "MATHS",
+    "grade_level": "CE1",
+    "difficulty": "MEDIUM",
+    "category": "NUMERATION",
+    "question_text": "Quel nombre est juste avant 90 ?",
+    "options_json": ["88", "91", "89", "80"],
+    "correct_index": 2,
+    "explanation": "C'est 89. Si tu comptes : 88, 89, 90."
+  },
+  {
+    "subject": "FRANCAIS",
+    "grade_level": "CE1",
+    "difficulty": "MEDIUM",
+    "category": "GRAMMAIRE",
+    "question_text": "Dans la phrase 'Le chat dort', quel est le verbe ?",
+    "options_json": ["Le", "chat", "dort", "aucun"],
+    "correct_index": 2,
+    "explanation": "'Dort' est l'action du chat. C'est le verbe dormir."
+  },
+  {
+    "subject": "MATHS",
+    "grade_level": "CM2",
+    "difficulty": "HARD",
+    "category": "MULTIPLICATION",
+    "question_text": "Combien font 12 x 11 ?",
+    "options_json": ["121", "132", "144", "130"],
+    "correct_index": 1,
+    "explanation": "Une astuce pour multiplier par 11 : 1+2 = 3, on met le 3 au milieu de 12. Donc 132."
+  },
+  {
+    "subject": "FRANCAIS",
+    "grade_level": "CM2",
+    "difficulty": "HARD",
+    "category": "CONJUGAISON",
+    "question_text": "Quel est le participe passé du verbe 'prendre' ?",
+    "options_json": ["prené", "prendu", "pris", "prisse"],
+    "correct_index": 2,
+    "explanation": "Le verbe prendre est irrégulier. On dit 'j'ai pris'."
+  }
+]
