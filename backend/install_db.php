@@ -34,8 +34,7 @@ try {
     $pdo->exec($sqlPoke);
     echo "✅ Table 'user_pokemon' vérifiée.<br>";
 
-    // 3. Colonnes manquantes dans USERS (au cas où)
-    // On vérifie si 'global_xp' existe, sinon on l'ajoute
+    // 3. Colonnes manquantes dans USERS
     $cols = $pdo->query("DESCRIBE users")->fetchAll(PDO::FETCH_COLUMN);
     
     if (!in_array('global_xp', $cols)) {
@@ -46,9 +45,14 @@ try {
         $pdo->exec("ALTER TABLE users ADD COLUMN `gold` INT(11) DEFAULT 100");
         echo "✅ Colonne 'gold' ajoutée.<br>";
     }
+    // NEW COLUMN FOR CATEGORIES
+    if (!in_array('focus_categories', $cols)) {
+        $pdo->exec("ALTER TABLE users ADD COLUMN `focus_categories` JSON DEFAULT NULL COMMENT 'Map Subject -> Category'");
+        echo "✅ Colonne 'focus_categories' ajoutée.<br>";
+    }
 
     echo "<hr><h3>🎉 Installation terminée avec succès !</h3>";
-    echo "<p>Vous pouvez retourner sur l'application et rafraichir la boutique.</p>";
+    echo "<p>Vous pouvez retourner sur l'application.</p>";
 
 } catch (PDOException $e) {
     echo "❌ Erreur SQL : " . $e->getMessage();

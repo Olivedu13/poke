@@ -5,6 +5,7 @@ import axios from 'axios';
 import { useGameStore } from '../../store/gameStore';
 import confetti from 'canvas-confetti';
 import { API_BASE_URL, ASSETS_BASE_URL } from '../../config';
+import { playSfx } from '../../utils/soundEngine'; // NEW
 
 // Segments type matching Backend
 interface WheelSegment {
@@ -32,11 +33,9 @@ const getItemIcon = (id: string | number | undefined) => {
 };
 
 // --- PREVIEW GENERATOR (GENERIC) ---
-// On utilise des images génériques pour la prévisualisation pour éviter
-// que l'utilisateur ne voie un "Bulbizarre" se transformer en "Salamèche" au moment du spin.
 const generatePreviewSegments = (bet: number): WheelSegment[] => {
     const genericPoke = `${ASSETS_BASE_URL}/pokeball.webp`;
-    const genericItem = `${ASSETS_BASE_URL}/jetons.webp`; // Ou une icone 'sac'
+    const genericItem = `${ASSETS_BASE_URL}/jetons.webp`; 
 
     let goldMin = 50;
     let goldMax = 200;
@@ -72,6 +71,7 @@ export const Wheel: React.FC = () => {
 
   const handleBetChange = (newBet: number) => {
       if (spinning) return;
+      playSfx('CLICK');
       setBet(newBet);
       setSegments(generatePreviewSegments(newBet));
   };
@@ -82,17 +82,18 @@ export const Wheel: React.FC = () => {
     setSpinning(true);
     setWonSegment(null);
     spendCurrency('TOKEN', bet);
+    
+    playSfx('SPIN'); // START SOUND
 
-    // 1. DÉMARRAGE IMMÉDIAT (Feedback visuel instantané)
-    // On lance une rotation rapide "infinie" en attendant le résultat
-    const startRotation = rotationRef.current + 360 * 5; // 5 tours rapides
+    // 1. DÉMARRAGE IMMÉDIAT
+    const startRotation = rotationRef.current + 360 * 5; 
     controls.start({
         rotate: startRotation,
-        transition: { duration: 2, ease: "linear", repeat: Infinity } // Tourne en boucle
+        transition: { duration: 2, ease: "linear", repeat: Infinity } 
     });
 
     try {
-      // 2. APPEL API (Pendant que ça tourne)
+      // 2. APPEL API
       let targetIndex = 0;
       let newSegments = segments; 
       
@@ -105,14 +106,12 @@ export const Wheel: React.FC = () => {
           if (res.data.success) {
             targetIndex = res.data.result_index;
             if (res.data.segments && Array.isArray(res.data.segments) && res.data.segments.length > 0) {
-                 // On remplace les segments génériques par les vrais résultats du backend
                  newSegments = res.data.segments.map((s: any) => ({
                      ...s,
                      img: s.type === 'POKEMON' ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${s.id}.png` : s.img
                  }));
             }
           } else {
-             // Erreur logique backend (ex: pas de jetons)
              controls.stop();
              setSpinning(false);
              return;
@@ -123,14 +122,10 @@ export const Wheel: React.FC = () => {
       }
 
       // 3. ARRÊT CONTRÔLÉ
-      // On arrête la boucle infinie et on cible l'angle final
       controls.stop();
-      
-      // Mise à jour silencieuse des segments (l'utilisateur ne voit pas le switch car ça tourne vite/flou)
       setSegments(newSegments);
 
       const segmentBaseAngle = (targetIndex * 45) + 22.5;
-      // On ajoute assez de tours pour que la décélération soit naturelle
       const targetRotation = rotationRef.current + 1440 + (360 - segmentBaseAngle - (rotationRef.current % 360));
       
       rotationRef.current = targetRotation;
@@ -142,6 +137,7 @@ export const Wheel: React.FC = () => {
 
       const winner = newSegments[targetIndex];
       setWonSegment(winner);
+      playSfx('REWARD'); // WIN SOUND
       
       if (winner.type === 'POKEMON' || winner.type === 'ITEM' || (winner.value && winner.value > 100)) {
             confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, zIndex: 100 });
@@ -156,7 +152,6 @@ export const Wheel: React.FC = () => {
   };
 
   const getSegmentImage = (seg: WheelSegment) => {
-      // Si c'est un mystère (preview), on affiche l'asset local
       if (seg.isMystery) return seg.img;
 
       if (seg.type === 'POKEMON') return seg.img || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${seg.id}.png`;
@@ -219,7 +214,6 @@ export const Wheel: React.FC = () => {
                     className="absolute top-0 left-0 w-full h-full"
                     style={{ transform: `rotate(${i * 45}deg)` }}
                  >
-                    {/* Positionnement ajusté vers le bord extérieur (top-5%) et centré visuellement */}
                     <div 
                         className="absolute left-1/2 top-[5%] -translate-x-1/2 flex flex-col items-center justify-center w-[25vw] max-w-[120px]"
                         style={{ transform: `rotate(22.5deg)` }}
