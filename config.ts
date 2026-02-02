@@ -11,13 +11,14 @@ const isDev = (import.meta as any)?.env?.DEV ?? false;
 const PROD_URL = 'https://poke.sarlatc.com/backend';
 
 // URL du Backend Local (Développement)
-// Assurez-vous que votre serveur PHP tourne sur le port 80 ou adaptez cette URL
 const LOCAL_URL = 'http://localhost/backend';
 
 // ------------------------------------------------------------------
 
-// Si on est en dev, on tape sur localhost, sinon sur la prod.
-export const API_BASE_URL = isDev ? LOCAL_URL : PROD_URL;
+// API : On force la PROD pour avoir la BDD partagée même en local
+export const API_BASE_URL = PROD_URL;
 
-// URL pour les assets (images)
-export const ASSETS_BASE_URL = 'https://poke.sarlatc.com/assets';
+// ASSETS : 
+// - En DEV (localhost) : on utilise '/assets' pour charger vos fichiers MP3 locaux (dossier public/assets)
+// - En PROD : on utilise l'URL absolue du serveur
+export const ASSETS_BASE_URL = isDev ? '/assets' : 'https://poke.sarlatc.com/assets';

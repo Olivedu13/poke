@@ -1,3 +1,4 @@
+
 -- Poke-Edu V1.0 Schema
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
@@ -13,6 +14,7 @@ CREATE TABLE IF NOT EXISTS `users` (
   `password_hash` VARCHAR(255) NOT NULL,
   `grade_level` ENUM('CP', 'CE1', 'CE2', 'CM1', 'CM2', '6EME', '5EME', '4EME', '3EME') NOT NULL DEFAULT 'CE1',
   `active_subjects` JSON NOT NULL COMMENT 'Array of active subjects e.g. ["MATHS", "FRANCAIS"]',
+  `focus_categories` JSON DEFAULT NULL COMMENT 'Map Subject -> Category Name',
   `custom_prompt_active` TINYINT(1) DEFAULT 0,
   `custom_prompt_text` TEXT DEFAULT NULL COMMENT 'Specific topic for AI generation',
   `gold` INT(11) DEFAULT 0,

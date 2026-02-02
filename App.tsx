@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useGameStore } from './store/gameStore';
 import { AuthForm } from './components/auth/AuthForm';
 import { ParentDashboard } from './components/dashboard/ParentDashboard';
@@ -8,9 +8,25 @@ import { Wheel } from './components/metagame/Wheel';
 import { Collection } from './components/metagame/Collection';
 import { Shop } from './components/metagame/Shop';
 import { ASSETS_BASE_URL } from './config';
+import { playSfx } from './utils/soundEngine';
 
 const App: React.FC = () => {
   const { currentView, user, logout, setView } = useGameStore();
+
+  // "Réveil" du moteur audio au premier clic utilisateur
+  useEffect(() => {
+    const unlockAudio = () => {
+        playSfx('CLICK'); // Joue un son silencieux ou très court pour débloquer le contexte
+        window.removeEventListener('click', unlockAudio);
+        window.removeEventListener('touchstart', unlockAudio);
+    };
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
+    return () => {
+        window.removeEventListener('click', unlockAudio);
+        window.removeEventListener('touchstart', unlockAudio);
+    };
+  }, []);
 
   return (
     <div className="min-h-screen w-full bg-slate-950 text-white font-sans selection:bg-cyan-500 selection:text-black flex flex-col">

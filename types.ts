@@ -7,6 +7,7 @@ export interface User {
   username: string;
   grade_level: GradeLevel;
   active_subjects: Subject[]; 
+  focus_categories?: Record<string, string>; // NEW: Map Subject -> CategoryName
   custom_prompt_active: boolean; 
   custom_prompt_text: string | null;
   gold: number;
@@ -46,13 +47,15 @@ export interface Pokemon {
   tyradex_id: number;
   is_team?: boolean; // Active squad
   stats?: PokemonStats; // Added stats
+  isBoss?: boolean; // NEW: Boss Flag
 }
 
 export interface Question {
   id: string | number;
-  source: 'DB' | 'AI';
+  source: 'DB' | 'AI' | 'LOCAL';
   subject: string;
   difficulty: string;
+  category?: string; // Ajouté pour compatibilité backend
   question_text: string;
   options: string[];
   correct_index: number;

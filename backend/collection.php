@@ -213,15 +213,27 @@ try {
             $itemData = $stmtInv->fetch(PDO::FETCH_ASSOC);
             
             if (!$itemData) {
-                echo json_encode(['success' => false, 'message' => 'Objet introuvable dans votre inventaire']);
-                exit;
+                 // Fallback: Si l'objet n'existe pas dans la table `items` mais est dans l'inventaire (ex: généré par roue)
+                 $stmtRaw = $pdo->prepare("SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ?");
+                 $stmtRaw->execute([$userId, $itemId]);
+                 $qty = $stmtRaw->fetchColumn();
+                 
+                 if ($qty) {
+                     $itemData = ['quantity' => $qty, 'effect_type' => 'UNKNOWN', 'value' => 0];
+                 } else {
+                    echo json_encode(['success' => false, 'message' => 'Objet introuvable dans votre inventaire']);
+                    exit;
+                 }
             }
 
+            // HEURISTIQUE & CORRECTIONS EFFECT_TYPE
+            // Si le type est inconnu (ou pour forcer), on déduit du nom ID
             if ($itemId === 'evolution') $itemData['effect_type'] = 'EVOLUTION';
             if ($itemId === 'evolution_ultime') $itemData['effect_type'] = 'EVOLUTION_MAX';
+            if (strpos($itemId, 'joker') !== false) $itemData['effect_type'] = 'JOKER';
 
-            // WHITELIST
-            $allowedEffects = ['HEAL', 'EVOLUTION', 'EVOLUTION_MAX'];
+            // WHITELIST - Ajout de JOKER
+            $allowedEffects = ['HEAL', 'EVOLUTION', 'EVOLUTION_MAX', 'JOKER'];
             if (!in_array($itemData['effect_type'], $allowedEffects)) {
                 echo json_encode(['success' => false, 'message' => "Cet objet ne peut être utilisé qu'en combat !"]);
                 exit;
@@ -262,10 +274,17 @@ try {
                      $msg = "PV Restaurés (+{$healAmount}) !";
                  }
             }
+
+            // --- LOGIQUE JOKER ---
+            elseif ($itemData['effect_type'] === 'JOKER') {
+                // Le Joker est purement visuel/logique côté client (valide la question)
+                // Côté serveur, on consomme juste l'item.
+                $msg = "Joker utilisé ! Réponse validée.";
+            }
             
             // --- LOGIQUE EVOLUTION ---
             elseif ($itemData['effect_type'] === 'EVOLUTION' || $itemData['effect_type'] === 'EVOLUTION_MAX') {
-                 $stmtP = $pdo->prepare("SELECT tyradex_id, nickname FROM user_pokemon WHERE id = ?");
+                 $stmtP = $pdo->prepare("SELECT tyradex_id, nickname, level FROM user_pokemon WHERE id = ?");
                  $stmtP->execute([$pokeId]);
                  $pData = $stmtP->fetch();
                  
@@ -286,14 +305,21 @@ try {
                      
                      $pdo->prepare("UPDATE user_pokemon SET nickname = ? WHERE id = ?")->execute([$nameFr, $pokeId]);
                      
-                     // Full Heal on Evolve
-                     $stmtNewStats = $pdo->prepare("SELECT level FROM user_pokemon WHERE id = ?");
-                     $stmtNewStats->execute([$pokeId]);
-                     $lvl = $stmtNewStats->fetchColumn();
-                     $newMaxHp = 20 + ($lvl * 5) + ($finalId % 10);
+                     // --- LOGIQUE NIVEAU ET HP ---
+                     $newLevel = $pData['level'];
+                     
+                     // Si Evolution Ultime -> Niveau 100 directement
+                     if ($isMax) {
+                         $newLevel = 100;
+                         $pdo->prepare("UPDATE user_pokemon SET level = ?, current_xp = 0 WHERE id = ?")->execute([$newLevel, $pokeId]);
+                     }
+                     
+                     // Full Heal on Evolve (avec nouvelles stats)
+                     // Formule : 20 + (Niveau * 5) + (ID % 10)
+                     $newMaxHp = 20 + ($newLevel * 5) + ($finalId % 10);
                      $pdo->prepare("UPDATE user_pokemon SET current_hp = ? WHERE id = ?")->execute([$newMaxHp, $pokeId]);
 
-                     $msg = "Évolution réussie !";
+                     $msg = $isMax ? "METAMORPHOSE ULTIME ! (NIV 100)" : "Évolution réussie !";
                      $evolded = true;
                      
                      array_unshift($sequence, (int)$pData['tyradex_id']);
@@ -329,7 +355,7 @@ try {
             $newState = $isTeam ? 0 : 1;
             $pdo->prepare("UPDATE user_pokemon SET is_team = ? WHERE id = ?")->execute([$newState, $pokeId]);
             
-            echo json_encode(['success' => true, 'message' => $newState ? 'Ajouté à l\'équipe' : 'Envoyé au PC']);
+            echo json_encode(['success' => true, 'message' => $newState ? 'Ajouté à l\'équipe' : 'Envoyé à la réserve']);
         }
     }
 } catch (Exception $e) {

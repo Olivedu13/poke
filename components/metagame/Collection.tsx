@@ -1,10 +1,10 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { useGameStore } from '../../store/gameStore';
 import axios from 'axios';
 import { API_BASE_URL, ASSETS_BASE_URL } from '../../config';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Pokemon, Item } from '../../types';
+import { playSfx } from '../../utils/soundEngine'; // Ensure import
 
 // --- COMPONENTS ---
 
@@ -16,6 +16,7 @@ const EvolutionOverlay = ({ sequence, onClose }: { sequence: number[], onClose: 
         if (currentIndex < sequence.length - 1) {
             const timeout = setTimeout(() => {
                 setFlash(true);
+                playSfx('EVOLVE'); // SOUND FX
                 setTimeout(() => {
                     setCurrentIndex(prev => prev + 1);
                     setFlash(false);
@@ -24,6 +25,7 @@ const EvolutionOverlay = ({ sequence, onClose }: { sequence: number[], onClose: 
             return () => clearTimeout(timeout);
         } else {
             // End
+            playSfx('LEVEL_UP'); // SOUND FX
             const timeout = setTimeout(onClose, 3000);
             return () => clearTimeout(timeout);
         }
@@ -235,7 +237,7 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
     );
 };
 
-const PokemonCard = ({ pokemon, onClick }: { pokemon: Pokemon, onClick: () => void }) => (
+const PokemonCard: React.FC<{ pokemon: Pokemon, onClick: () => void }> = ({ pokemon, onClick }) => (
     <motion.div 
         layoutId={`poke-${pokemon.id}`}
         onClick={onClick}
@@ -324,6 +326,13 @@ export const Collection: React.FC = () => {
                   setSelectedPokemon(null); 
                   setEvolutionSeq(res.data.sequence); 
               } else {
+                  // SOUND FX IF NOT EVOLUTION
+                  if (itemId && (itemId.includes('heal') || itemId.includes('potion'))) {
+                      playSfx('POTION');
+                  } else {
+                      playSfx('CLICK');
+                  }
+                  
                   const updatedCollection = useGameStore.getState().collection;
                   // Re-apply map correction for selected pokemon update
                   let updatedP = updatedCollection.find(p => p.id === pokeId);
@@ -401,7 +410,7 @@ export const Collection: React.FC = () => {
           
           {activeTeam.length === 0 ? (
               <div className="border-2 border-dashed border-slate-800 rounded-2xl p-8 text-center text-slate-500">
-                  Votre équipe est vide. Sélectionnez des Pokémon dans le PC ci-dessous.
+                  Votre équipe est vide. Sélectionnez des Pokémon dans la réserve ci-dessous.
               </div>
           ) : (
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -420,7 +429,7 @@ export const Collection: React.FC = () => {
       <div>
           <h3 className="text-xl font-display font-bold text-slate-400 mb-4 flex items-center gap-2">
               <span className="w-2 h-8 bg-slate-700 rounded-full"></span>
-              STOCKAGE PC ({boxPokemon.length})
+              RÉSERVE ({boxPokemon.length})
           </h3>
           
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
