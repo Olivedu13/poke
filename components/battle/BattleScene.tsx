@@ -227,10 +227,14 @@ export const BattleScene: React.FC = () => {
         );
     }
 
-    if (!playerPokemon || !enemyPokemon) return null;
+    // Utiliser les données de preview si le store n'est pas encore synchronisé
+    const activePla = playerPokemon || selectedPlayer;
+    const activeEnemy = enemyPokemon || previewEnemy;
+
+    if (!activePla || !activeEnemy) return null;
 
     return (
-        <div className={`relative w-full h-full max-h-screen bg-slate-950 overflow-hidden flex flex-col ${shake ? 'animate-shake' : ''}`}>
+        <div className={`relative w-full h-full bg-slate-950 overflow-hidden flex flex-col ${shake ? 'animate-shake' : ''}`}>
             {user && <GradeGauge current={gradeGauge} grade={user.grade_level} />}
             <div className="absolute top-1 md:top-4 right-1 md:right-4 z-40 flex flex-col items-end gap-1">
                  {combo > 1 && (
@@ -245,12 +249,12 @@ export const BattleScene: React.FC = () => {
                     {flash && <motion.div initial={{ opacity: 0.5 }} animate={{ opacity: 0 }} exit={{ opacity: 0 }} className="absolute inset-0 bg-red-600 z-40 mix-blend-overlay pointer-events-none" />}
                 </AnimatePresence>
                 <div className="absolute top-[8%] right-[8%] w-[35%] h-[25%] flex flex-col items-center justify-center z-10">
-                    <BattleHud pokemon={enemyPokemon} isEnemy />
-                    <motion.img src={enemyPokemon.sprite_url} animate={controlsEnemy} initial={{ y: 0 }} className={`object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)] z-20 ${enemyPokemon.isBoss ? 'w-32 h-32 md:w-80 md:h-80 drop-shadow-[0_0_30px_rgba(255,0,0,0.6)]' : 'w-24 h-24 md:w-56 md:h-56'}`} style={{ filter: enemyPokemon.isBoss ? 'drop-shadow(0px 0px 10px rgba(255,0,0,0.8))' : 'drop-shadow(0px 0px 10px rgba(255,0,0,0.2))' }} />
+                    <BattleHud pokemon={activeEnemy} isEnemy />
+                    <motion.img src={activeEnemy.sprite_url} animate={controlsEnemy} initial={{ y: 0 }} className={`object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)] z-20 ${activeEnemy.isBoss ? 'w-32 h-32 md:w-80 md:h-80 drop-shadow-[0_0_30px_rgba(255,0,0,0.6)]' : 'w-24 h-24 md:w-56 md:h-56'}`} style={{ filter: activeEnemy.isBoss ? 'drop-shadow(0px 0px 10px rgba(255,0,0,0.8))' : 'drop-shadow(0px 0px 10px rgba(255,0,0,0.2))' }} />
                 </div>
                 <div className="absolute bottom-[3%] left-[8%] w-[40%] h-[35%] flex flex-col items-center justify-center z-20">
-                    <motion.img src={playerPokemon.sprite_url} animate={controlsPlayer} className="w-28 h-28 md:w-72 md:h-72 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)] z-20" style={{ filter: 'drop-shadow(0px 0px 15px rgba(6,182,212,0.3))' }} />
-                    <BattleHud pokemon={playerPokemon} />
+                    <motion.img src={activePla.sprite_url} animate={controlsPlayer} className="w-28 h-28 md:w-72 md:h-72 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)] z-20" style={{ filter: 'drop-shadow(0px 0px 15px rgba(6,182,212,0.3))' }} />
+                    <BattleHud pokemon={activePla} />
                 </div>
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
                     <AnimatePresence>

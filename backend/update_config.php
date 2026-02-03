@@ -50,21 +50,21 @@ try {
             
             if (!empty($generatedQuestions)) {
                 // Supprimer les anciennes questions IA de cet utilisateur
-                $deleteStmt = $pdo->prepare("DELETE FROM question_bank WHERE source_override = 'IA' AND grade_level = ?");
+                $deleteStmt = $pdo->prepare("DELETE FROM question_bank WHERE category = 'IA' AND grade_level = ?");
                 $deleteStmt->execute([$userGrade]);
                 
                 // Insérer les nouvelles questions
                 $insertStmt = $pdo->prepare("
                     INSERT INTO question_bank 
-                    (question_text, options_json, correct_index, explanation, subject, difficulty, category, grade_level, source_override)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'IA')
+                    (question_text, options_json, correct_index, explanation, subject, difficulty, category, grade_level)
+                    VALUES (?, ?, ?, ?, ?, ?, 'IA', ?)
                 ");
                 
                 foreach ($generatedQuestions as $q) {
                     $optionsJson = json_encode($q['options'], JSON_UNESCAPED_UNICODE);
                     $insertStmt->execute([
                         $q['text'], $optionsJson, $q['correct'], $q['expl'],
-                        $q['subject'], $q['difficulty'], $q['category'], $userGrade
+                        $q['subject'], $q['difficulty'], $userGrade
                     ]);
                 }
             }
