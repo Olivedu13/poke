@@ -87,6 +87,38 @@ async function deploy() {
 
         await client.uploadDir(localBackend, remoteBackend);
 
+        // 3. Cleanup old test/debug files on server
+        console.log('🧹 Nettoyage des fichiers obsolètes sur le serveur...');
+        const filesToDelete = [
+            'test_ai_generation.php',
+            'test_jwt.php',
+            'test_api.php',
+            'test_simple_auth.php',
+            'test_protected.php',
+            'test_auth_flow.php',
+            'debug_token.php',
+            'debug_headers.php',
+            'check_config.php'
+        ];
+        
+        let deletedCount = 0;
+        for (const file of filesToDelete) {
+            const remotePath = `${remoteBackend}/${file}`;
+            try {
+                const fileExists = await client.exists(remotePath);
+                if (fileExists) {
+                    await client.delete(remotePath);
+                    console.log(`  ✓ Supprimé: ${file}`);
+                    deletedCount++;
+                }
+            } catch (err) {
+                // Ignore errors, file may not exist
+            }
+        }
+        if (deletedCount > 0) {
+            console.log(`✅ ${deletedCount} fichier(s) obsolète(s) supprimé(s).`);
+        }
+
         console.log('✨ DÉPLOIEMENT TERMINÉ !');
         if (backendOnly) {
             console.log('🐘 API PHP mise à jour.');

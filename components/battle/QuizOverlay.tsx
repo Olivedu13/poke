@@ -142,27 +142,27 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
                 exit={{ y: 100, opacity: 0 }}
                 className="w-full h-[90%] md:h-auto md:max-w-2xl bg-slate-900/90 border-t-2 md:border border-cyan-500 md:rounded-2xl shadow-2xl overflow-y-auto flex flex-col relative"
             >
-                <div className="p-6 border-b border-cyan-900/50 bg-slate-950/50 flex flex-col gap-2">
+                <div className="p-4 md:p-6 border-b border-cyan-900/50 bg-slate-950/50 flex flex-col gap-3">
                     <div className="flex justify-between items-start">
                         <div className="flex flex-wrap gap-2">
-                            <span className="text-xs font-mono text-cyan-400 uppercase tracking-widest border border-cyan-900 px-2 py-0.5 rounded">
+                            <span className="text-[10px] md:text-xs font-mono text-cyan-400 uppercase tracking-widest border border-cyan-900 px-2 py-1 rounded">
                                 {question.subject}
                             </span>
-                             <span className={`text-xs font-mono uppercase tracking-widest border px-2 py-0.5 rounded ${question.difficulty === 'HARD' ? 'text-red-400 border-red-900' : question.difficulty === 'MEDIUM' ? 'text-yellow-400 border-yellow-900' : 'text-green-400 border-green-900'}`}>
+                             <span className={`text-[10px] md:text-xs font-mono uppercase tracking-widest border px-2 py-1 rounded ${question.difficulty === 'HARD' ? 'text-red-400 border-red-900' : question.difficulty === 'MEDIUM' ? 'text-yellow-400 border-yellow-900' : 'text-green-400 border-green-900'}`}>
                                 {question.difficulty}
                             </span>
                         </div>
-                        <button onClick={onClose} className="text-slate-500 hover:text-white px-2">✕</button>
+                        <button onClick={onClose} className="text-slate-500 hover:text-white px-3 py-1 -mr-2 -mt-1 text-xl">✕</button>
                     </div>
-                    <h3 className="text-xl md:text-2xl font-bold text-white leading-snug mt-2">{question.question_text}</h3>
+                    <h3 className="text-lg md:text-2xl font-bold text-white leading-relaxed">{question.question_text}</h3>
                 </div>
 
                 {jokerItem && jokerItem.quantity > 0 && selectedOption === null && (
-                    <div className="px-6 pt-4 flex justify-end">
+                    <div className="px-4 md:px-6 pt-3 md:pt-4 flex justify-center md:justify-end">
                          <button 
                             onClick={handleJokerUse}
                             disabled={isUsingJoker}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-full border border-purple-500/50 bg-purple-900/20 text-purple-300 font-bold text-xs uppercase hover:bg-purple-900/40 hover:scale-105 transition-all ${isUsingJoker ? 'opacity-50 cursor-wait' : ''}`}
+                            className={`flex items-center gap-2 px-4 md:px-5 py-2.5 md:py-2 rounded-full border border-purple-500/50 bg-purple-900/20 text-purple-300 font-bold text-xs md:text-xs uppercase hover:bg-purple-900/40 active:scale-95 hover:scale-105 transition-all ${isUsingJoker ? 'opacity-50 cursor-wait' : ''}`}
                          >
                              <img src={`${ASSETS_BASE_URL}/joker.webp`} className="w-5 h-5 object-contain" onError={(e) => e.currentTarget.style.display='none'}/>
                              <span>UTILISER JOKER (x{jokerItem.quantity})</span>
@@ -170,17 +170,17 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
                     </div>
                 )}
 
-                <div className="flex-1 p-6 flex flex-col justify-center gap-3">
+                <div className="flex-1 p-4 md:p-6 flex flex-col justify-center gap-3 md:gap-4">
                     {Array.isArray(question.options) && question.options.map((opt, idx) => (
                         <button
                             key={idx}
                             onClick={() => handleAnswer(idx)}
                             disabled={selectedOption !== null || isUsingJoker}
                             className={`
-                                w-full p-4 rounded-xl border-2 text-left transition-all relative overflow-hidden active:scale-[0.98]
-                                flex items-center gap-4
+                                w-full p-4 md:p-5 rounded-xl border-2 text-left transition-all relative overflow-hidden active:scale-[0.96] md:active:scale-[0.98]
+                                flex items-center gap-3 md:gap-4 min-h-[60px] md:min-h-[auto]
                                 ${selectedOption === null 
-                                    ? 'border-slate-700 bg-slate-800/50 hover:bg-slate-800 hover:border-cyan-500/50' 
+                                    ? 'border-slate-700 bg-slate-800/50 hover:bg-slate-800 hover:border-cyan-500/50 active:border-cyan-500' 
                                     : idx === question.correct_index 
                                         ? 'border-green-500 bg-green-900/40 text-green-100' 
                                         : selectedOption === idx 
@@ -189,10 +189,10 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
                                 }
                             `}
                         >
-                            <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shrink-0 ${idx === question.correct_index && selectedOption !== null ? 'bg-green-500 text-black' : 'bg-slate-700 text-slate-300'}`}>
+                            <div className={`w-9 h-9 md:w-10 md:h-10 rounded-full flex items-center justify-center font-bold text-sm md:text-base shrink-0 ${idx === question.correct_index && selectedOption !== null ? 'bg-green-500 text-black' : 'bg-slate-700 text-slate-300'}`}>
                                 {['A', 'B', 'C', 'D'][idx]}
                             </div>
-                            <span className="font-bold text-md md:text-lg">{opt}</span>
+                            <span className="font-bold text-base md:text-lg leading-snug">{opt}</span>
                         </button>
                     ))}
                 </div>
@@ -202,15 +202,15 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
                         <motion.div 
                             initial={{ height: 0, opacity: 0 }}
                             animate={{ height: 'auto', opacity: 1 }}
-                            className={`p-4 border-t ${result.correct ? 'bg-green-900/30 border-green-500/30' : 'bg-red-900/30 border-red-500/30'}`}
+                            className={`p-4 md:p-5 border-t ${result.correct ? 'bg-green-900/30 border-green-500/30' : 'bg-red-900/30 border-red-500/30'}`}
                         >
-                             <div className="flex items-center gap-3 mb-1">
-                                <span className="text-2xl">{result.correct ? '🎯' : '⚠️'}</span>
-                                <span className={`font-display font-black text-lg ${result.correct ? 'text-green-400' : 'text-red-400'}`}>
+                             <div className="flex items-center gap-3 mb-2">
+                                <span className="text-2xl md:text-3xl">{result.correct ? '🎯' : '⚠️'}</span>
+                                <span className={`font-display font-black text-lg md:text-xl ${result.correct ? 'text-green-400' : 'text-red-400'}`}>
                                     {result.correct ? 'EXCELLENT !' : 'ERREUR'}
                                 </span>
                              </div>
-                             <p className="text-sm text-slate-300 pl-10 leading-relaxed">{result.explanation}</p>
+                             <p className="text-sm md:text-base text-slate-300 pl-10 md:pl-11 leading-relaxed">{result.explanation}</p>
                         </motion.div>
                     )}
                 </AnimatePresence>

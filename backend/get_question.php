@@ -11,33 +11,6 @@ function send_response($data) {
     exit;
 }
 
-// --- SIMULATEUR IA ---
-function mockAiGenerator($topic, $grade) {
-    $topic = strtolower($topic);
-    $questions = [];
-    if (strpos($topic, 'table') !== false) {
-        preg_match('/\d+/', $topic, $matches);
-        $num = isset($matches[0]) ? (int)$matches[0] : rand(2, 9);
-        for ($i=0; $i<3; $i++) {
-            $mul = rand(1, 10); $res = $num * $mul;
-            $questions[] = [
-                'subject' => 'MATHS', 'difficulty' => 'MEDIUM', 'category' => "Table de $num",
-                'text' => "Combien font $num x $mul ?",
-                'options' => [(string)($res+$num), (string)$res, (string)($res-1), (string)($res+5)],
-                'correct' => 1, 'expl' => "$num fois $mul est égal à $res."
-            ];
-        }
-    } else {
-        $questions[] = [
-            'subject' => 'FRANCAIS', 'difficulty' => 'HARD', 'category' => 'Vocabulaire',
-            'text' => "Que signifie le mot clé '$topic' ?",
-            'options' => ['Un animal', 'Un verbe', 'Un concept', 'Une ville'],
-            'correct' => 2, 'expl' => "Question générée automatiquement sur le thème $topic."
-        ];
-    }
-    return $questions;
-}
-
 try {
     $excludeStr = $_GET['exclude_ids'] ?? '';
     $excludeIds = array_filter(explode(',', $excludeStr), 'is_numeric');
@@ -61,12 +34,34 @@ try {
     }
     if (empty($subjects)) $subjects = ['MATHS', 'FRANCAIS'];
     
-    $q = null;
-
+    // Si le mode IA est actif, ajouter 'IA' comme source prioritaire
     if ($useAi && !empty($aiTopic)) {
-        // ... (Logique IA inchangée)
-        $q = ['id' => 999, 'text' => "IA Question sur $aiTopic", 'options_json' => '["A","B","C","D"]', 'correct_index' => 0, 'explanation' => 'Mock AI', 'subject'=>'AI', 'difficulty'=>'MEDIUM'];
+        // Rechercher d'abord les questions IA générées pour ce niveau
+        $sqlAi = "SELECT * FROM question_bank WHERE source_override = 'IA' AND grade_level = ? AND id NOT IN ($excludePlaceholder) ORDER BY RAND() LIMIT 1";
+        $stmtAi = $pdo->prepare($sqlAi);
+        $stmtAi->execute([$grade]);
+        $q = $stmtAi->fetch();
+        
+        if ($q) {
+            // Question IA trouvée en base
+            $opts = is_string($q['options_json']) ? json_decode($q['options_json']) : $q['options_json'];
+            if (!is_array($opts)) $opts = ["A", "B", "C", "D"];
+            $out = [
+                'id' => $q['id'],
+                'source' => 'IA',
+                'subject' => $q['subject'],
+                'difficulty' => $q['difficulty'],
+                'category' => $q['category'] ?? 'IA',
+                'question_text' => $q['question_text'],
+                'options' => $opts,
+                'correct_index' => (int)$q['correct_index'],
+                'explanation' => $q['explanation']
+            ];
+            send_response(['success' => true, 'data' => $out]);
+        }
     }
+    
+    $q = null;
 
     if (!$q) {
         $placeholders = implode(',', array_fill(0, count($subjects), '?'));

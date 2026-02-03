@@ -1,0 +1,50 @@
+# .htaccess pour le dossier assets
+# Force les bons types MIME pour les fichiers multimédias
+
+<IfModule mod_mime.c>
+    # Audio
+    AddType audio/mpeg mp3
+    AddType audio/mp3 mp3
+    AddType audio/mpeg3 mp3
+    AddType audio/x-mpeg-3 mp3
+    
+    # Images WebP
+    AddType image/webp webp
+    
+    # Vidéos (si nécessaire)
+    AddType video/mp4 mp4
+    AddType video/webm webm
+</IfModule>
+
+# Headers pour permettre le chargement cross-origin des assets
+<IfModule mod_headers.c>
+    # CORS pour tous les assets
+    Header set Access-Control-Allow-Origin "*"
+    Header set Access-Control-Allow-Methods "GET, OPTIONS"
+    Header set Access-Control-Allow-Headers "Range"
+    
+    # Cache pour optimiser les performances
+    <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|ico)$">
+        Header set Cache-Control "max-age=2592000, public"
+    </FilesMatch>
+    
+    <FilesMatch "\.(mp3|mp4|webm|wav|ogg)$">
+        Header set Cache-Control "max-age=2592000, public"
+        # Important : permettre les requêtes de range pour l'audio
+        Header set Accept-Ranges "bytes"
+    </FilesMatch>
+</IfModule>
+
+# Compression pour économiser la bande passante
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE image/svg+xml
+</IfModule>
+
+# Empêcher le listing des fichiers
+Options -Indexes
+
+# Permettre l'accès aux fichiers
+<FilesMatch "\.(webp|png|jpg|jpeg|gif|svg|mp3|mp4|wav|ogg|webm)$">
+    Order Allow,Deny
+    Allow from all
+</FilesMatch>
