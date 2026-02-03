@@ -85,48 +85,48 @@ const TeamManager = ({ team, box, currentId, onSelect, onClose, onStartBattle }:
     };
 
     return (
-        <div className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-xl p-4 flex flex-col animate-in fade-in slide-in-from-bottom-10">
-            <div className="flex justify-between items-center mb-4">
-                 <h3 className="text-xl font-display font-bold text-white flex items-center gap-2">
-                    <img src={`${ASSETS_BASE_URL}/pokeball.webp`} className="w-6 h-6"/> GESTION
+        <div className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-xl p-2 md:p-4 flex flex-col animate-in fade-in slide-in-from-bottom-10">
+            <div className="flex justify-between items-center mb-2">
+                 <h3 className="text-base md:text-xl font-display font-bold text-white flex items-center gap-1.5">
+                    <img src={`${ASSETS_BASE_URL}/pokeball.webp`} className="w-4 h-4 md:w-6 md:h-6"/> GESTION
                 </h3>
-                <button onClick={onClose} className="text-slate-400 hover:text-white font-bold px-3 py-1 bg-slate-800 rounded">RETOUR</button>
+                <button onClick={onClose} className="text-slate-400 hover:text-white font-bold px-2 py-1 bg-slate-800 rounded text-xs md:text-sm">RETOUR</button>
             </div>
-            <div className="flex md:hidden gap-2 mb-4 bg-slate-900 p-1 rounded-lg shrink-0">
-                <button onClick={() => setMobileTab('TEAM')} className={`flex-1 py-2 rounded font-bold text-sm ${mobileTab === 'TEAM' ? 'bg-cyan-600 text-white' : 'text-slate-500'}`}>ÉQUIPE ({team.length}/3)</button>
-                <button onClick={() => setMobileTab('BOX')} className={`flex-1 py-2 rounded font-bold text-sm ${mobileTab === 'BOX' ? 'bg-cyan-600 text-white' : 'text-slate-500'}`}>RÉSERVE</button>
+            <div className="flex md:hidden gap-1.5 mb-2 bg-slate-900 p-0.5 rounded-lg shrink-0">
+                <button onClick={() => setMobileTab('TEAM')} className={`flex-1 py-1.5 rounded font-bold text-xs ${mobileTab === 'TEAM' ? 'bg-cyan-600 text-white' : 'text-slate-500'}`}>ÉQUIPE ({team.length}/3)</button>
+                <button onClick={() => setMobileTab('BOX')} className={`flex-1 py-1.5 rounded font-bold text-xs ${mobileTab === 'BOX' ? 'bg-cyan-600 text-white' : 'text-slate-500'}`}>RÉSERVE</button>
             </div>
-            <div className="flex-1 overflow-hidden flex flex-col md:flex-row gap-4 pb-32 md:pb-0">
-                <div className={`flex-1 bg-slate-900/50 rounded-xl p-3 border border-cyan-500/30 overflow-y-auto ${mobileTab === 'BOX' ? 'hidden md:block' : ''}`}>
-                    <div className="space-y-3">
+            <div className="flex-1 overflow-hidden flex flex-col md:flex-row gap-2 md:gap-4 pb-24 md:pb-0">
+                <div className={`flex-1 bg-slate-900/50 rounded-lg md:rounded-xl p-1.5 md:p-3 border border-cyan-500/30 overflow-y-auto ${mobileTab === 'BOX' ? 'hidden md:block' : ''}`}>
+                    <div className="space-y-1.5 md:space-y-3">
                         {team.map((p: Pokemon) => (
                             <div key={p.id} onClick={() => setSelected(p)} 
-                                className={`p-2 rounded-lg border bg-slate-800 flex items-center gap-3 cursor-pointer transition-colors ${selected?.id === p.id ? 'border-cyan-400 bg-cyan-900/30' : 'border-slate-700 hover:bg-cyan-900/20'} ${p.id === currentId ? 'shadow-[0_0_10px_rgba(34,211,238,0.1)]' : ''}`}
+                                className={`p-1.5 md:p-2 rounded-lg border bg-slate-800 flex items-center gap-2 md:gap-3 cursor-pointer transition-colors ${selected?.id === p.id ? 'border-cyan-400 bg-cyan-900/30' : 'border-slate-700 hover:bg-cyan-900/20'} ${p.id === currentId ? 'shadow-[0_0_10px_rgba(34,211,238,0.1)]' : ''}`}
                             >
-                                <img src={p.sprite_url} className="w-12 h-12" />
-                                <div><div className="font-bold text-white">{p.name}</div><div className="text-xs text-slate-400">Pv: {p.current_hp}/{p.max_hp}</div></div>
+                                <img src={p.sprite_url} className="w-10 h-10 md:w-12 md:h-12" />
+                                <div><div className="font-bold text-white text-xs md:text-sm">{p.name}</div><div className="text-[10px] md:text-xs text-slate-400">Pv: {p.current_hp}/{p.max_hp}</div></div>
                             </div>
                         ))}
                     </div>
                 </div>
-                <div className={`flex-1 bg-slate-900/50 rounded-xl p-3 border border-slate-700 overflow-y-auto ${mobileTab === 'TEAM' ? 'hidden md:block' : ''}`}>
-                    <div className="grid grid-cols-2 gap-2">
+                <div className={`flex-1 bg-slate-900/50 rounded-lg md:rounded-xl p-1.5 md:p-3 border border-slate-700 overflow-y-auto ${mobileTab === 'TEAM' ? 'hidden md:block' : ''}`}>
+                    <div className="grid grid-cols-2 gap-1.5 md:gap-2">
                         {box.map((p: Pokemon) => (
-                                <div key={p.id} onClick={() => setSelected(p)} className={`p-2 rounded border bg-slate-800 cursor-pointer flex flex-col items-center text-center transition-all ${selected?.id === p.id ? 'border-cyan-400 bg-cyan-900/30' : 'border-slate-700 hover:border-cyan-500/50'}`}>
-                                <img src={p.sprite_url} className="w-10 h-10 opacity-80" />
-                                <div className="text-xs font-bold text-slate-300 truncate w-full">{p.name}</div>
+                                <div key={p.id} onClick={() => setSelected(p)} className={`p-1.5 md:p-2 rounded border bg-slate-800 cursor-pointer flex flex-col items-center text-center transition-all ${selected?.id === p.id ? 'border-cyan-400 bg-cyan-900/30' : 'border-slate-700 hover:border-cyan-500/50'}`}>
+                                <img src={p.sprite_url} className="w-8 h-8 md:w-10 md:h-10 opacity-80" />
+                                <div className="text-[10px] md:text-xs font-bold text-slate-300 truncate w-full">{p.name}</div>
                                 </div>
                         ))}
                     </div>
                 </div>
             </div>
-            <div className="absolute bottom-0 left-0 right-0 p-4 bg-slate-950 border-t border-slate-800 flex flex-col gap-3 z-50">
+            <div className="absolute bottom-0 left-0 right-0 p-2 md:p-4 bg-slate-950 border-t border-slate-800 flex flex-col gap-2 md:gap-3 z-50">
                 {onStartBattle && team.length > 0 && (
-                     <button onClick={onStartBattle} className="w-full py-4 bg-green-600 hover:bg-green-500 text-white font-display font-black text-xl rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.4)] animate-pulse">⚔️ LANCER LE COMBAT</button>
+                     <button onClick={onStartBattle} className="w-full py-2.5 md:py-4 bg-green-600 hover:bg-green-500 text-white font-display font-black text-base md:text-xl rounded-lg md:rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.4)] animate-pulse">⚔️ LANCER LE COMBAT</button>
                 )}
-                <div className="flex gap-2">
-                    <button onClick={handleConfirm} disabled={!selected} className="flex-1 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold rounded-xl border border-slate-600">
-                        {selected ? (team.some((p: Pokemon) => p.id === selected.id) ? 'DÉFINIR COMME LEADER' : 'ÉCHANGER') : 'SÉLECTIONNER UN POKÉMON'}
+                <div className="flex gap-1.5 md:gap-2">
+                    <button onClick={handleConfirm} disabled={!selected} className="flex-1 py-2 md:py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold rounded-lg md:rounded-xl border border-slate-600 text-[10px] md:text-sm">
+                        {selected ? (team.some((p: Pokemon) => p.id === selected.id) ? 'DÉFINIR LEADER' : 'ÉCHANGER') : 'SÉLECTIONNER'}
                     </button>
                 </div>
             </div>
