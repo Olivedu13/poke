@@ -1,0 +1,15 @@
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # Ne pas rediriger les fichiers existants (images, css, js)
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_FILENAME} !-l
+  
+  # Ne pas rediriger les requêtes vers le backend (API)
+  RewriteCond %{REQUEST_URI} !^/backend/
+
+  # Rediriger tout le reste vers index.html (React Router)
+  RewriteRule ^ index.html [L]
+</IfModule>

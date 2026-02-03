@@ -1,24 +1,25 @@
 <?php
-ob_start();
-require_once 'db_connect.php';
+require_once 'protected_setup.php'; // Auth V3 (Définit $userId et $input)
+require_once 'api_response.php';
 
-// --- CONFIGURATION PHP ---
 ini_set('memory_limit', '256M'); 
 set_time_limit(60);
 ini_set('display_errors', 0);
-error_reporting(E_ALL);
 
-// --- LECTURE ROBUSTE DES ENTRÉES (JSON vs GET) ---
-$jsonInput = json_decode(file_get_contents('php://input'), true) ?? [];
-$action = $_GET['action'] ?? $jsonInput['action'] ?? 'list_items';
-// Priorité : Paramètre d'URL > JSON Body
-$userId = $_REQUEST['user_id'] ?? $jsonInput['user_id'] ?? 0;
+$action = $_GET['action'] ?? $input['action'] ?? 'list_items';
 
-function send_json($data) {
-    if (ob_get_length()) ob_clean();
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode($data, JSON_PARTIAL_OUTPUT_ON_ERROR | JSON_UNESCAPED_UNICODE);
-    exit;
+// Helper cURL pour Tyradex
+function fetchUrl($url) {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 8); // Un peu plus long pour le gros JSON
+    curl_setopt($ch, CURLOPT_USERAGENT, 'PokeEdu-Backend/1.0');
+    // curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // A activer seulement si erreur SSL
+    $data = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    return ($httpCode === 200) ? $data : false;
 }
 
 function calculatePriceAndRarity($stats) {
@@ -31,13 +32,7 @@ function calculatePriceAndRarity($stats) {
     return ['price' => 25000, 'rarity' => 'LÉGENDAIRE'];
 }
 
-if (!$userId && $action !== 'list_items' && $action !== 'fetch_external_pokemons') {
-    send_json(['success' => false, 'message' => 'User ID missing (Not found in GET or JSON)']);
-}
-
-// -------------------------------------------------------------
-// CHARGEMENT DU CATALOGUE DEPUIS LA BDD
-// -------------------------------------------------------------
+// CATALOGUE ITEMS (Cache BDD)
 $catalogItems = [];
 try {
     $stmt = $pdo->query("SELECT * FROM items");
@@ -45,57 +40,54 @@ try {
     foreach ($dbItems as $item) {
         $catalogItems[$item['id']] = $item;
     }
-} catch (Exception $e) {
-    // Fail silently
-}
+} catch (Exception $e) {}
 
 try {
+    // --- LISTING INVENTAIRE + ITEMS ---
     if ($action === 'list_items') {
         $inventory = [];
-        if ($userId) {
-            try {
-                $stmt = $pdo->prepare("SELECT item_id, quantity FROM inventory WHERE user_id = ?");
-                $stmt->execute([$userId]);
-                $inventory = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
-            } catch (Exception $e) {}
-        }
+        try {
+            $stmt = $pdo->prepare("SELECT item_id, quantity FROM inventory WHERE user_id = ?");
+            $stmt->execute([$userId]);
+            $inventory = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        } catch (Exception $e) {}
+
         $result = [];
         foreach ($catalogItems as $id => $item) {
             $qty = $inventory[$id] ?? 0;
-            $item['stock'] = $qty;
-            // IMPORTANT: Le frontend attend 'quantity' pour l'inventaire utilisateur, pas juste 'stock'
-            $item['quantity'] = $qty;
+            $item['stock'] = $qty; // Legacy
+            $item['quantity'] = $qty; // Front V3
             $result[] = $item;
         }
-        send_json(['success' => true, 'data' => array_values($result)]);
+        ApiResponse::send(array_values($result));
     }
     
-    // --- PROXY API POKEMON ---
+    // --- LISTING POKEMONS (PROXY API) ---
     elseif ($action === 'fetch_external_pokemons') {
         $fallbackData = [
-            ['pokedexId'=>1,'name'=>['fr'=>'Bulbizarre'],'types'=>[['name'=>'Plante']],'sprites'=>['regular'=>'https://raw.githubusercontent.com/Yarkis01/TyraDex/images/pokemon/1.png'],'stats'=>['hp'=>45,'atk'=>49,'def'=>49,'spe_atk'=>65,'spe_def'=>65,'vit'=>45]],
-            ['pokedexId'=>4,'name'=>['fr'=>'Salamèche'],'types'=>[['name'=>'Feu']],'sprites'=>['regular'=>'https://raw.githubusercontent.com/Yarkis01/TyraDex/images/pokemon/4.png'],'stats'=>['hp'=>39,'atk'=>52,'def'=>43,'spe_atk'=>60,'spe_def'=>50,'vit'=>65]],
-            ['pokedexId'=>7,'name'=>['fr'=>'Carapuce'],'types'=>[['name'=>'Eau']],'sprites'=>['regular'=>'https://raw.githubusercontent.com/Yarkis01/TyraDex/images/pokemon/7.png'],'stats'=>['hp'=>44,'atk'=>48,'def'=>65,'spe_atk'=>50,'spe_def'=>64,'vit'=>43]],
-            ['pokedexId'=>25,'name'=>['fr'=>'Pikachu'],'types'=>[['name'=>'Électrik']],'sprites'=>['regular'=>'https://raw.githubusercontent.com/Yarkis01/TyraDex/images/pokemon/25.png'],'stats'=>['hp'=>35,'atk'=>55,'def'=>40,'spe_atk'=>50,'spe_def'=>50,'vit'=>90]],
+            ['pokedexId'=>1,'name'=>['fr'=>'Bulbizarre'],'sprites'=>['regular'=>'https://raw.githubusercontent.com/Yarkis01/TyraDex/images/pokemon/1.png'],'stats'=>['hp'=>45,'atk'=>49,'def'=>49,'spe_atk'=>65,'spe_def'=>65,'vit'=>45]],
+            ['pokedexId'=>4,'name'=>['fr'=>'Salamèche'],'sprites'=>['regular'=>'https://raw.githubusercontent.com/Yarkis01/TyraDex/images/pokemon/4.png'],'stats'=>['hp'=>39,'atk'=>52,'def'=>43,'spe_atk'=>60,'spe_def'=>50,'vit'=>65]],
+            ['pokedexId'=>7,'name'=>['fr'=>'Carapuce'],'sprites'=>['regular'=>'https://raw.githubusercontent.com/Yarkis01/TyraDex/images/pokemon/7.png'],'stats'=>['hp'=>44,'atk'=>48,'def'=>65,'spe_atk'=>50,'spe_def'=>64,'vit'=>43]],
+            ['pokedexId'=>25,'name'=>['fr'=>'Pikachu'],'sprites'=>['regular'=>'https://raw.githubusercontent.com/Yarkis01/TyraDex/images/pokemon/25.png'],'stats'=>['hp'=>35,'atk'=>55,'def'=>40,'spe_atk'=>50,'spe_def'=>50,'vit'=>90]],
         ];
+        
         $url = "https://tyradex.app/api/v1/gen/1";
         $data = null;
         try {
-            $ctx = stream_context_create(['http'=> ['timeout' => 5, 'user_agent' => 'PokeEdu/1.0']]); 
-            $response = @file_get_contents($url, false, $ctx);
+            // Utilisation de cURL au lieu de file_get_contents
+            $response = fetchUrl($url);
             if ($response) $data = json_decode($response, true);
         } catch (Exception $e) {}
+        
         if (!$data || !is_array($data)) $data = $fallbackData;
 
-        // Owned Counts
+        // Compte des possessions
         $ownedCounts = [];
-        if ($userId) {
-            try {
-                $stmt = $pdo->prepare("SELECT tyradex_id, COUNT(*) as count FROM user_pokemon WHERE user_id = ? GROUP BY tyradex_id");
-                $stmt->execute([$userId]);
-                $ownedCounts = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
-            } catch (Exception $e) {}
-        }
+        try {
+            $stmt = $pdo->prepare("SELECT tyradex_id, COUNT(*) as count FROM user_pokemon WHERE user_id = ? GROUP BY tyradex_id");
+            $stmt->execute([$userId]);
+            $ownedCounts = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        } catch (Exception $e) {}
 
         $formatted = [];
         foreach ($data as $p) {
@@ -127,12 +119,12 @@ try {
                 'ownedCount' => $ownedCounts[$pId] ?? 0
             ];
         }
-        send_json(['success' => true, 'data' => $formatted]);
+        ApiResponse::send($formatted);
     }
     
     // --- ACHAT OBJET ---
     elseif ($action === 'buy_item') {
-        $itemId = $jsonInput['item_id'] ?? '';
+        $itemId = $input['item_id'] ?? '';
         
         if (!isset($catalogItems[$itemId])) throw new Exception('Item inconnu ou indisponible');
         
@@ -151,9 +143,8 @@ try {
     
     // --- ACHAT POKEMON ---
     elseif ($action === 'buy_pokemon') {
-        $tyradexId = $jsonInput['pokemon_id'] ?? 0; 
-        // On récupère le prix envoyé par le front pour l'instant (MVP), ou fallback 500
-        $cost = $jsonInput['price'] ?? 500; 
+        $tyradexId = $input['pokemon_id'] ?? 0; 
+        $cost = $input['price'] ?? 500; 
 
         if (!$tyradexId) throw new Exception('ID Pokemon manquant');
         
@@ -167,7 +158,7 @@ try {
     
     // --- VENTE OBJET ---
     elseif ($action === 'sell_item') {
-        $itemId = $jsonInput['item_id'];
+        $itemId = $input['item_id'];
         if (!isset($catalogItems[$itemId])) throw new Exception('Item inconnu');
         
         $item = $catalogItems[$itemId];
@@ -187,12 +178,12 @@ try {
             $pdo->prepare("UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_id = ?")->execute([$userId, $itemId]);
         }
         $pdo->commit();
-        send_json(['success' => true, 'message' => "Vendu +$sellPrice crédits"]);
+        ApiResponse::send(null, true, "Vendu +$sellPrice crédits");
     }
     
     // --- VENTE POKEMON ---
     elseif ($action === 'sell_pokemon') {
-        $pokeTyraId = $jsonInput['pokemon_id'];
+        $pokeTyraId = $input['pokemon_id'];
         $sellPrice = 500; 
         
         $stmt = $pdo->prepare("SELECT id FROM user_pokemon WHERE user_id = ? AND tyradex_id = ? LIMIT 1");
@@ -205,19 +196,18 @@ try {
         $pdo->prepare("UPDATE users SET gold = gold + ? WHERE id = ?")->execute([$sellPrice, $userId]);
         $pdo->prepare("DELETE FROM user_pokemon WHERE id = ?")->execute([$instanceId]);
         $pdo->commit();
-        send_json(['success' => true, 'message' => "Pokémon vendu +$sellPrice crédits"]);
+        ApiResponse::send(null, true, "Pokémon vendu +$sellPrice crédits");
     }
 
 } catch (Exception $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
-    send_json(['success' => false, 'message' => $e->getMessage()]);
+    ApiResponse::error($e->getMessage());
 }
 
 function handleTransaction($pdo, $userId, $cost, $callback) {
-    // Vérifier d'abord si l'utilisateur existe et a l'argent
     $stmt = $pdo->prepare("SELECT gold FROM users WHERE id = ?");
     $stmt->execute([$userId]);
-    $gold = $stmt->fetchColumn(); // Returns false if user not found
+    $gold = $stmt->fetchColumn();
     
     if ($gold === false) throw new Exception("Utilisateur introuvable");
     if ($gold < $cost) throw new Exception('Crédits insuffisants');
@@ -226,5 +216,6 @@ function handleTransaction($pdo, $userId, $cost, $callback) {
     $pdo->prepare("UPDATE users SET gold = gold - ? WHERE id = ?")->execute([$cost, $userId]);
     $callback($pdo, $userId);
     $pdo->commit();
-    send_json(['success' => true, 'message' => 'Transaction réussie !']);
+    ApiResponse::send(null, true, 'Transaction réussie !');
 }
+?>
