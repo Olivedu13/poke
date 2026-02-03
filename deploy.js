@@ -59,6 +59,16 @@ async function deploy() {
             const localDist = path.join(__dirname, 'dist');
             console.log(`🚀 Envoi du Frontend (de ${localDist} vers ${remoteRoot})...`);
             await client.uploadDir(localDist, remoteRoot);
+            
+            // Upload Assets (images, sons, etc.)
+            const localAssets = path.join(__dirname, 'assets');
+            const remoteAssets = remoteRoot.endsWith('/') ? `${remoteRoot}assets` : `${remoteRoot}/assets`;
+            console.log(`🎨 Envoi des Assets (de ${localAssets} vers ${remoteAssets})...`);
+            const assetsExist = await client.exists(remoteAssets);
+            if (!assetsExist) {
+                await client.mkdir(remoteAssets, true);
+            }
+            await client.uploadDir(localAssets, remoteAssets);
         } else {
             console.log('⏭️  Build & Frontend upload ignorés.');
         }

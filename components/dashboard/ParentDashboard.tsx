@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { api } from '../../services/api'; // UTILISER api AU LIEU DE axios
 import { useGameStore } from '../../store/gameStore';
 import { GradeLevel, Subject } from '../../types';
-import { API_BASE_URL } from '../../config';
 
 const GRADES: GradeLevel[] = ['CP', 'CE1', 'CE2', 'CM1', 'CM2', '6EME', '5EME', '4EME', '3EME'];
 const SUBJECTS: Subject[] = ['MATHS', 'FRANCAIS', 'ANGLAIS', 'HISTOIRE', 'GEO', 'PHYSIQUE', 'SVT'];
 
-// Définition des catégories standards
 const SUBJECT_CATEGORIES: Record<string, string[]> = {
     MATHS: ['Addition', 'Soustraction', 'Multiplication', 'Division', 'Géométrie', 'Numération', 'Problèmes'],
     FRANCAIS: ['Grammaire', 'Conjugaison', 'Orthographe', 'Vocabulaire', 'Lecture'],
@@ -38,7 +36,6 @@ export const ParentDashboard: React.FC = () => {
       setActiveSubjects(user.active_subjects);
       setCustomPromptActive(user.custom_prompt_active);
       setCustomPromptText(user.custom_prompt_text || '');
-      // Ensure it's an object if coming from JSON
       if (typeof user.focus_categories === 'string') {
           try { setFocusCategories(JSON.parse(user.focus_categories)); } catch(e) { setFocusCategories({}); }
       } else {
@@ -50,7 +47,6 @@ export const ParentDashboard: React.FC = () => {
   const toggleSubject = (sub: Subject) => {
     if (activeSubjects.includes(sub)) {
       setActiveSubjects(activeSubjects.filter(s => s !== sub));
-      // Clean up category if subject removed
       setFocusCategories(prev => {
           const next = { ...prev };
           delete next[sub];
@@ -65,12 +61,31 @@ export const ParentDashboard: React.FC = () => {
       setFocusCategories(prev => {
           const next = { ...prev };
           if (cat === "") {
-              delete next[sub]; // Remove key if "Tout le programme" (empty) is selected
+              delete next[sub];
           } else {
               next[sub] = cat;
           }
           return next;
       });
+  };
+
+  const runDiagnostics = async () => {
+      setMessage('Test de connexion...');
+      try {
+          const res = await api.post('/debug_token.php');
+          console.log("DIAGNOSTIC RESULT:", res.data);
+          if (res.data.step_4_token_valid) {
+              setMessage(`✅ SUCCÈS: Serveur connecté (User ID: ${res.data.user_id_found})`);
+              setIsError(false);
+          } else {
+              setMessage(`❌ ERREUR: ${res.data.message || 'Problème Token'}`);
+              setIsError(true);
+          }
+      } catch (e: any) {
+          setMessage(`❌ ERREUR HTTP: ${e.message}`);
+          setIsError(true);
+      }
+      setTimeout(() => setMessage(''), 5000);
   };
 
   const handleSave = async () => {
@@ -81,7 +96,7 @@ export const ParentDashboard: React.FC = () => {
 
     try {
       const payload = {
-        user_id: user.id,
+        // user_id REMOVED - Managed by Token
         grade_level: grade,
         active_subjects: activeSubjects,
         focus_categories: focusCategories, 
@@ -89,15 +104,9 @@ export const ParentDashboard: React.FC = () => {
         custom_prompt_text: customPromptText
       };
 
-      // Utilisation d'en-têtes explicites pour éviter certains problèmes de CORS/Network
-      const res = await axios.post(`${API_BASE_URL}/update_config.php`, payload, {
-          headers: {
-              'Content-Type': 'application/json'
-          }
-      });
+      const res = await api.post(`/update_config.php`, payload);
       
       if (res.data.success) {
-          // Update global store
           updateUserConfig({
             grade_level: grade,
             active_subjects: activeSubjects,
@@ -115,19 +124,10 @@ export const ParentDashboard: React.FC = () => {
     } catch (error: any) {
       console.error("Save Error:", error);
       setIsError(true);
-      
-      // Extraction détaillée de l'erreur
       let errorMsg = 'Échec de la sauvegarde.';
       if (error.response && error.response.data && error.response.data.message) {
           errorMsg = error.response.data.message;
-      } else if (error.message) {
-          errorMsg = error.message;
       }
-      
-      if (errorMsg === 'Network Error') {
-          errorMsg = 'Erreur Réseau : Vérifiez votre connexion ou l\'accès au serveur.';
-      }
-
       setMessage(`Erreur: ${errorMsg}`);
     } finally {
       setIsSaving(false);
@@ -136,20 +136,21 @@ export const ParentDashboard: React.FC = () => {
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-      
-      {/* Header */}
       <div className="flex justify-between items-center border-b border-slate-800 pb-4">
         <h2 className="text-2xl font-display font-bold text-white">
           CONTRÔLE <span className="text-cyan-500">PARENTAL</span>
         </h2>
-        <div className="bg-slate-900 border border-slate-700 px-4 py-1 rounded-full text-xs font-mono text-slate-400">
-          UTILISATEUR: {user?.username}
+        <div className="flex items-center gap-4">
+            <button onClick={runDiagnostics} className="text-[10px] text-slate-500 hover:text-cyan-400 font-mono border border-slate-800 px-2 py-1 rounded">
+                🛠️ DIAGNOSTIC
+            </button>
+            <div className="bg-slate-900 border border-slate-700 px-4 py-1 rounded-full text-xs font-mono text-slate-400">
+            UTILISATEUR: {user?.username}
+            </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-8">
-        
-        {/* NIVEAU SCOLAIRE */}
         <div className="bg-slate-900/50 border border-cyan-500/30 p-6 rounded-xl relative group hover:border-cyan-500/60 transition-colors">
             <h3 className="text-sm font-display text-cyan-400 mb-4 uppercase tracking-wider">1. Niveau Scolaire</h3>
             <div className="grid grid-cols-3 md:grid-cols-9 gap-2">
@@ -169,10 +170,9 @@ export const ParentDashboard: React.FC = () => {
             </div>
         </div>
 
-        {/* MATIÈRES & CATÉGORIES */}
         <div className="bg-slate-900/50 border border-cyan-500/30 p-6 rounded-xl">
             <h3 className="text-sm font-display text-cyan-400 mb-4 uppercase tracking-wider">2. Programme de Révision</h3>
-            <p className="text-xs text-slate-400 mb-4">Sélectionnez les matières. Pour cibler une notion précise (ex: justes les Additions), choisissez une catégorie. <br/> <span className="text-slate-500 italic">Si aucune catégorie n'est sélectionnée, tout le programme de la matière sera utilisé.</span></p>
+            <p className="text-xs text-slate-400 mb-4">Sélectionnez les matières. Pour cibler une notion précise, choisissez une catégorie.</p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {SUBJECTS.map((sub) => {
@@ -204,29 +204,17 @@ export const ParentDashboard: React.FC = () => {
                                 ))}
                             </select>
                         )}
-                        {isActive && currentFocus && (
-                            <div className="mt-1 text-[10px] text-green-400/80 font-mono">
-                                Focus: {currentFocus}
-                            </div>
-                        )}
                     </div>
                   );
               })}
             </div>
         </div>
 
-        {/* AI CONFIG */}
         <div className="bg-slate-900/80 border border-purple-500/30 p-6 rounded-xl shadow-[0_0_20px_rgba(168,85,247,0.1)] relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-purple-600/20 blur-[50px] pointer-events-none"></div>
-          
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-sm font-display text-purple-400 uppercase tracking-wider flex items-center gap-2">
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
               Mode "Sujet Libre" (IA)
             </h3>
-            
             <button 
               onClick={() => setCustomPromptActive(!customPromptActive)}
               className={`w-12 h-6 rounded-full p-1 transition-colors ${customPromptActive ? 'bg-purple-500' : 'bg-slate-700'}`}
@@ -234,24 +222,18 @@ export const ParentDashboard: React.FC = () => {
               <div className={`w-4 h-4 bg-white rounded-full shadow-md transform transition-transform ${customPromptActive ? 'translate-x-6' : 'translate-x-0'}`}></div>
             </button>
           </div>
-
           <div className={`space-y-4 transition-opacity duration-300 ${customPromptActive ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Si activé, le jeu ignorera les catégories ci-dessus pour générer des questions basées 100% sur ce texte.
-            </p>
             <textarea
                 value={customPromptText}
                 onChange={(e) => setCustomPromptText(e.target.value)}
-                placeholder="Ex: Les dinosaures, La Révolution Française, Verbes irréguliers..."
+                placeholder="Ex: Les dinosaures, La Révolution Française..."
                 rows={3}
-                className="w-full bg-slate-950 border border-purple-500/30 rounded-lg p-3 text-purple-100 focus:border-purple-400 focus:ring-1 focus:ring-purple-400 outline-none placeholder-slate-700 resize-none"
+                className="w-full bg-slate-950 border border-purple-500/30 rounded-lg p-3 text-purple-100 outline-none placeholder-slate-700 resize-none"
             />
           </div>
         </div>
-
       </div>
 
-      {/* Action Bar */}
       <div className="flex items-center justify-end gap-4 pt-6 border-t border-slate-800 sticky bottom-0 bg-slate-950/90 p-4 rounded-t-xl backdrop-blur-md z-50">
         {message && (
           <span className={`font-mono text-sm animate-pulse ${isError ? 'text-red-400' : 'text-green-400'}`}>
@@ -261,12 +243,11 @@ export const ParentDashboard: React.FC = () => {
         <button
           onClick={handleSave}
           disabled={isSaving}
-          className="bg-cyan-600 hover:bg-cyan-500 text-black font-display font-bold py-3 px-8 rounded-lg transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] disabled:opacity-50"
+          className="bg-cyan-600 hover:bg-cyan-500 text-black font-display font-bold py-3 px-8 rounded-lg transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)] disabled:opacity-50"
         >
-          {isSaving ? 'ENREGISTREMENT...' : 'SAUVEGARDER'}
+          {isSaving ? 'SAUVEGARDE...' : 'SAUVEGARDER'}
         </button>
       </div>
-      
     </div>
   );
 };

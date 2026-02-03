@@ -1,7 +1,17 @@
 
 <?php
 // backend/jwt_utils.php
-define('JWT_SECRET', 'POKE_EDU_SECURE_KEY_X99'); 
+
+// Charger la configuration
+if (file_exists(__DIR__ . '/config.php')) {
+    require_once __DIR__ . '/config.php';
+    // JWT_SECRET est déjà défini dans config.php, pas besoin de le redéfinir
+} else {
+    // Fallback si config.php n'existe pas
+    if (!defined('JWT_SECRET')) {
+        define('JWT_SECRET', 'POKE_EDU_SECURE_KEY_X99');
+    }
+}
 
 function base64UrlEncode($data) {
     return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');

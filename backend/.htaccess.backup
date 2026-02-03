@@ -1,0 +1,15 @@
+RewriteEngine On
+
+# 1. Autoriser le header Authorization (CRUCIAL pour JWT sur hébergement mutualisé)
+# Permet à $_SERVER['HTTP_AUTHORIZATION'] d'être rempli
+RewriteCond %{HTTP:Authorization} ^(.*)
+RewriteRule .* - [e=HTTP_AUTHORIZATION:%1]
+
+# Note: La gestion CORS est déléguée aux fichiers PHP (cors.php)
+# pour éviter l'erreur "Duplicate Access-Control-Allow-Origin".
+
+# 2. Bloquer l'accès direct aux fichiers sensibles
+<FilesMatch "^\.env|database\.sql|composer\.json">
+    Order allow,deny
+    Deny from all
+</FilesMatch>

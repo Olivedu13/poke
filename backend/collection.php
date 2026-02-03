@@ -1,103 +1,56 @@
 <?php
-require_once 'db_connect.php';
+require_once 'protected_setup.php'; // Auth V3 (Définit $userId et $input)
+require_once 'api_response.php';
 
-// Force JSON Header
-header('Content-Type: application/json');
-
-// --- 1. LECTURE DES ENTRÉES ROBUSTE ---
-$input = [];
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $rawInput = file_get_contents('php://input');
-    $input = json_decode($rawInput, true) ?? [];
+// --- HELPER CUrl (Indispensable pour IONOS) ---
+function fetchUrl($url) {
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 5);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'PokeEdu-Backend/1.0');
+    // Si SSL pose problème sur le mutualisé, décommenter la ligne suivante :
+    // curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    $data = curl_exec($ch);
+    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    
+    return ($httpCode === 200) ? $data : false;
 }
 
-// Récupération ID Utilisateur (GET ou POST)
-$userId = $_GET['user_id'] ?? $input['user_id'] ?? null;
-
-if (!$userId) {
-    echo json_encode(['success' => false, 'message' => 'User ID manquant']);
-    exit;
-}
-
-// --- HELPER EVOLUTION ---
+// --- HELPER EVOLUTION (DYNAMIQUE) ---
 function getEvolutionSequence($currentId, $isMax = false) {
     $currentId = (int)$currentId;
-    
-    // Chaines Spécifiques (Gen 1)
-    $chains = [
-        1 => [2, 3], 2 => [3], // Bulbizarre
-        4 => [5, 6], 5 => [6], // Salamèche
-        7 => [8, 9], 8 => [9], // Carapuce
-        10 => [11, 12], 11 => [12], // Chenipan
-        13 => [14, 15], 14 => [15], // Aspicot
-        16 => [17, 18], 17 => [18], // Roucool
-        19 => [20], // Rattata
-        21 => [22], // Piafabec
-        23 => [24], // Abo
-        25 => [26], // Pikachu
-        27 => [28], // Sabelette
-        29 => [30, 31], 30 => [31], // Nidoran F
-        32 => [33, 34], 33 => [34], // Nidoran M
-        35 => [36], // Melofee
-        37 => [38], // Goupix
-        39 => [40], // Rondoudou
-        41 => [42], // Nosferapti
-        43 => [44, 45], 44 => [45], // Mystherbe
-        46 => [47], // Paras
-        48 => [49], // Mimitoss
-        50 => [51], // Taupiqueur
-        52 => [53], // Miaouss
-        54 => [55], // Psykokwak
-        56 => [57], // Ferosinge
-        58 => [59], // Caninos
-        60 => [61, 62], 61 => [62], // Ptitard
-        63 => [64, 65], 64 => [65], // Abra
-        66 => [67, 68], 67 => [68], // Machoc
-        69 => [70, 71], 70 => [71], // Chetiflor
-        72 => [73], // Tentacool
-        74 => [75, 76], 75 => [76], // Racaillou
-        77 => [78], // Ponyta
-        79 => [80], // Ramoloss
-        81 => [82], // Magneti
-        83 => [84], // Canarticho (Pas d'evo gen 1)
-        84 => [85], // Doduo
-        86 => [87], // Otaria
-        88 => [89], // Tadmorv
-        90 => [91], // Kokiyas
-        92 => [93, 94], 93 => [94], // Fantominus
-        95 => [96], // Onix (Pas d'evo gen 1, mais pour le fun)
-        96 => [97], // Soporifik
-        98 => [99], // Krabby
-        100 => [101], // Voltorbe
-        102 => [103], // Noeunoeuf
-        104 => [105], // Osselait
-        109 => [110], // Smogo
-        111 => [112], // Rhinocorne
-        116 => [117], // Hypotrempe
-        118 => [119], // Poissirene
-        120 => [121], // Stari
-        129 => [130], // Magicarpe
-        133 => [134], // Eevee (Vaporeon default)
-        147 => [148, 149], 148 => [149], // Minidraco
-    ];
+    $sequence = [];
+    $loopGuard = 0; 
 
-    if ($isMax) {
-        // Evolution Ultime (Pierre Ultime)
-        if (isset($chains[$currentId])) {
-            return $chains[$currentId];
+    do {
+        $foundNext = false;
+        $url = "https://tyradex.app/api/v1/pokemon/$currentId";
+        
+        $response = fetchUrl($url);
+        
+        if ($response) {
+            $data = json_decode($response, true);
+            
+            if (isset($data['evolution']['next']) && is_array($data['evolution']['next']) && count($data['evolution']['next']) > 0) {
+                $nextEvo = $data['evolution']['next'][0];
+                $nextId = $nextEvo['pokedexId'];
+                
+                if ($nextId > 0 && $nextId != $currentId) {
+                    $sequence[] = $nextId;
+                    $currentId = $nextId;
+                    $foundNext = true;
+                }
+            }
         }
-        // Fallback générique : +1 puis +2 si < 149 (Safe limit)
-        if ($currentId < 149) return [$currentId + 1, $currentId + 2]; 
-        return [];
-    } else {
-        // Evolution Simple (Pierre Évolution)
-        if (isset($chains[$currentId])) {
-            return [$chains[$currentId][0]];
-        }
-        // Fallback Force: ID + 1 (pour que ça marche toujours si < 151)
-        if ($currentId < 151) return [$currentId + 1];
-        return [];
-    }
+
+        $loopGuard++;
+        if (!$isMax) break;
+
+    } while ($foundNext && $loopGuard < 3);
+
+    return $sequence;
 }
 
 try {
@@ -109,7 +62,7 @@ try {
         $stmt->execute([$userId]);
         $pokemons = $stmt->fetchAll();
         
-        // --- AUTO-SEED FALLBACK (Si vide) ---
+        // --- AUTO-SEED FALLBACK ---
         if (count($pokemons) === 0) {
             $starters = [
                 ['id' => 1, 'name' => 'Bulbizarre', 'hp' => 45],
@@ -129,161 +82,117 @@ try {
         }
 
         foreach ($pokemons as &$p) {
-            // Stats RPG Simplifiées
             $p['max_hp'] = 20 + ($p['level'] * 5) + ($p['tyradex_id'] % 10);
             if ($p['current_hp'] > $p['max_hp']) $p['current_hp'] = $p['max_hp'];
-
             $p['sprite_url'] = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/{$p['tyradex_id']}.png";
             $p['name'] = $p['nickname'] ?: "Pokemon #{$p['tyradex_id']}";
-            
             $p['is_team'] = (bool)$p['is_team'];
             $p['current_xp'] = (int)$p['current_xp'];
             $p['next_level_xp'] = 100 * $p['level'];
-            
-            // Stats Display
-            $p['stats'] = [
-                'atk' => 10 + $p['level'] * 2,
-                'def' => 10 + $p['level'] * 1.5,
-                'spe' => 10 + $p['level']
-            ];
+            $p['stats'] = ['atk' => 10 + $p['level'] * 2, 'def' => 10 + $p['level'] * 1.5, 'spe' => 10 + $p['level']];
         }
 
-        echo json_encode(['success' => true, 'data' => $pokemons]);
+        ApiResponse::send($pokemons);
     }
 
     // ==========================================
-    // METHODE POST : ACTIONS (FEED, USE_ITEM...)
+    // METHODE POST : ACTIONS
     // ==========================================
     elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $action = $input['action'] ?? '';
         $pokeId = $input['pokemon_id'] ?? '';
         
         if (!$action || !$pokeId) {
-            echo json_encode(['success' => false, 'message' => 'Action ou ID Pokemon manquant']);
-            exit;
+            ApiResponse::error('Action ou ID Pokemon manquant');
         }
 
-        // --- NOURRIR (GLOBAL XP) ---
+        // --- FEED ---
         if ($action === 'feed') {
             $xpCost = 100;
-            
             $pdo->beginTransaction();
-            
             $stmt = $pdo->prepare("SELECT global_xp FROM users WHERE id = ?");
             $stmt->execute([$userId]);
             $globalXp = $stmt->fetchColumn();
 
             if ($globalXp < $xpCost) {
                 $pdo->rollBack();
-                echo json_encode(['success' => false, 'message' => 'Pas assez d\'XP Global']);
-                exit;
+                ApiResponse::error('Pas assez d\'XP Global');
             }
 
-            // Dépense XP
             $pdo->prepare("UPDATE users SET global_xp = global_xp - ? WHERE id = ?")->execute([$xpCost, $userId]);
-            
-            // Gain XP Pokemon
             $pdo->prepare("UPDATE user_pokemon SET current_xp = current_xp + 100 WHERE id = ?")->execute([$pokeId]);
-            
-            // Vérification Montée de Niveau
             $stmtP = $pdo->prepare("SELECT level, current_xp FROM user_pokemon WHERE id = ?");
             $stmtP->execute([$pokeId]);
             $pInfo = $stmtP->fetch();
             
-            $newLvl = $pInfo['level'];
-            $threshold = $newLvl * 100;
             $msg = "XP Gagnée !";
-
-            if ($pInfo['current_xp'] >= $threshold) {
+            if ($pInfo && $pInfo['current_xp'] >= $pInfo['level'] * 100) {
                  $pdo->prepare("UPDATE user_pokemon SET level = level + 1, current_xp = 0, current_hp = current_hp + 10 WHERE id = ?")->execute([$pokeId]);
                  $msg = "Niveau Supérieur !";
             }
-
             $pdo->commit();
-            echo json_encode(['success' => true, 'message' => $msg]);
+            ApiResponse::send(null, true, $msg);
         }
         
-        // --- UTILISER OBJET ---
+        // --- USE ITEM ---
         elseif ($action === 'use_item') {
             $itemId = $input['item_id'];
             
-            // Vérifier Stock avec Jointure avec FORCAGE COLLATION
+            // Verif Item
             $stmtInv = $pdo->prepare("SELECT i.quantity, it.effect_type, it.value FROM inventory i LEFT JOIN items it ON i.item_id = it.id COLLATE utf8mb4_unicode_ci WHERE i.user_id = ? AND i.item_id = ?");
             $stmtInv->execute([$userId, $itemId]);
             $itemData = $stmtInv->fetch(PDO::FETCH_ASSOC);
             
             if (!$itemData) {
-                 // Fallback: Si l'objet n'existe pas dans la table `items` mais est dans l'inventaire (ex: généré par roue)
+                 // Fallback items sans table definition
                  $stmtRaw = $pdo->prepare("SELECT quantity FROM inventory WHERE user_id = ? AND item_id = ?");
                  $stmtRaw->execute([$userId, $itemId]);
                  $qty = $stmtRaw->fetchColumn();
-                 
                  if ($qty) {
-                     $itemData = ['quantity' => $qty, 'effect_type' => 'UNKNOWN', 'value' => 0];
-                 } else {
-                    echo json_encode(['success' => false, 'message' => 'Objet introuvable dans votre inventaire']);
-                    exit;
+                     $type = 'UNKNOWN';
+                     if(strpos($itemId, 'heal') !== false) $type = 'HEAL';
+                     if(strpos($itemId, 'evo') !== false) $type = 'EVOLUTION';
+                     if(strpos($itemId, 'joker') !== false) $type = 'JOKER';
+                     $itemData = ['quantity' => $qty, 'effect_type' => $type, 'value' => 20];
                  }
+                 else { ApiResponse::error('Objet introuvable'); }
             }
 
-            // HEURISTIQUE & CORRECTIONS EFFECT_TYPE
-            // Si le type est inconnu (ou pour forcer), on déduit du nom ID
+            // Normalisation des types
             if ($itemId === 'evolution') $itemData['effect_type'] = 'EVOLUTION';
             if ($itemId === 'evolution_ultime') $itemData['effect_type'] = 'EVOLUTION_MAX';
             if (strpos($itemId, 'joker') !== false) $itemData['effect_type'] = 'JOKER';
 
-            // WHITELIST - Ajout de JOKER
             $allowedEffects = ['HEAL', 'EVOLUTION', 'EVOLUTION_MAX', 'JOKER'];
             if (!in_array($itemData['effect_type'], $allowedEffects)) {
-                echo json_encode(['success' => false, 'message' => "Cet objet ne peut être utilisé qu'en combat !"]);
-                exit;
+                ApiResponse::error("Objet inutilisable ici !");
             }
-
-            if ($itemData['quantity'] < 1) {
-                echo json_encode(['success' => false, 'message' => 'Stock épuisé']);
-                exit;
-            }
+            
+            if ($itemData['quantity'] < 1) { ApiResponse::error('Stock épuisé'); }
             
             $pdo->beginTransaction();
+            if ($itemData['quantity'] == 1) $pdo->prepare("DELETE FROM inventory WHERE user_id = ? AND item_id = ?")->execute([$userId, $itemId]);
+            else $pdo->prepare("UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_id = ?")->execute([$userId, $itemId]);
             
-            // Consommer Objet
-            if ($itemData['quantity'] == 1) {
-                $pdo->prepare("DELETE FROM inventory WHERE user_id = ? AND item_id = ?")->execute([$userId, $itemId]);
-            } else {
-                $pdo->prepare("UPDATE inventory SET quantity = quantity - 1 WHERE user_id = ? AND item_id = ?")->execute([$userId, $itemId]);
-            }
-            
-            // Appliquer Effet
             $msg = "Objet utilisé.";
-            $evolutionData = [];
             $evolded = false;
             $sequence = [];
             
-            // --- LOGIQUE SOIN ---
             if ($itemData['effect_type'] === 'HEAL') {
                  $stmtStats = $pdo->prepare("SELECT level, current_hp, tyradex_id FROM user_pokemon WHERE id = ?");
                  $stmtStats->execute([$pokeId]);
                  $pStats = $stmtStats->fetch();
-                 
                  if ($pStats) {
                      $maxHp = 20 + ($pStats['level'] * 5) + ($pStats['tyradex_id'] % 10);
                      $healAmount = $itemData['value'] ?? 20;
-                     $newHp = min($maxHp, $pStats['current_hp'] + $healAmount);
-                     
-                     $pdo->prepare("UPDATE user_pokemon SET current_hp = ? WHERE id = ?")->execute([$newHp, $pokeId]);
-                     $msg = "PV Restaurés (+{$healAmount}) !";
+                     $pdo->prepare("UPDATE user_pokemon SET current_hp = ? WHERE id = ?")->execute([min($maxHp, $pStats['current_hp'] + $healAmount), $pokeId]);
+                     $msg = "PV Restaurés !";
                  }
             }
-
-            // --- LOGIQUE JOKER ---
             elseif ($itemData['effect_type'] === 'JOKER') {
-                // Le Joker est purement visuel/logique côté client (valide la question)
-                // Côté serveur, on consomme juste l'item.
-                $msg = "Joker utilisé ! Réponse validée.";
+                $msg = "Joker utilisé !";
             }
-            
-            // --- LOGIQUE EVOLUTION ---
-            elseif ($itemData['effect_type'] === 'EVOLUTION' || $itemData['effect_type'] === 'EVOLUTION_MAX') {
+            elseif (strpos($itemData['effect_type'], 'EVOLUTION') !== false) {
                  $stmtP = $pdo->prepare("SELECT tyradex_id, nickname, level FROM user_pokemon WHERE id = ?");
                  $stmtP->execute([$pokeId]);
                  $pData = $stmtP->fetch();
@@ -292,52 +201,36 @@ try {
                  $sequence = getEvolutionSequence($pData['tyradex_id'], $isMax);
                  
                  if (!empty($sequence)) {
-                     $finalId = end($sequence); // Dernier stade
+                     $finalId = end($sequence);
                      $pdo->prepare("UPDATE user_pokemon SET tyradex_id = ? WHERE id = ?")->execute([$finalId, $pokeId]);
                      
-                     // APPEL API POUR RECUPERER LE VRAI NOM (Car on n'a plus le tableau local)
                      $nameFr = "Pokemon #$finalId";
-                     $apiJson = @file_get_contents("https://tyradex.app/api/v1/pokemon/$finalId");
-                     if ($apiJson) {
-                         $apiData = json_decode($apiJson, true);
-                         if (isset($apiData['name']['fr'])) $nameFr = $apiData['name']['fr'];
-                     }
+                     $newMaxHp = 20 + ($pData['level'] * 5) + ($finalId % 10);
                      
-                     $pdo->prepare("UPDATE user_pokemon SET nickname = ? WHERE id = ?")->execute([$nameFr, $pokeId]);
-                     
-                     // --- LOGIQUE NIVEAU ET HP ---
-                     $newLevel = $pData['level'];
-                     
-                     // Si Evolution Ultime -> Niveau 100 directement
                      if ($isMax) {
-                         $newLevel = 100;
-                         $pdo->prepare("UPDATE user_pokemon SET level = ?, current_xp = 0 WHERE id = ?")->execute([$newLevel, $pokeId]);
+                         $pdo->prepare("UPDATE user_pokemon SET level = 100, current_xp = 0, current_hp = ? WHERE id = ?")->execute([$newMaxHp + 500, $pokeId]);
+                     } else {
+                         $pdo->prepare("UPDATE user_pokemon SET current_hp = ? WHERE id = ?")->execute([$newMaxHp, $pokeId]);
                      }
-                     
-                     // Full Heal on Evolve (avec nouvelles stats)
-                     // Formule : 20 + (Niveau * 5) + (ID % 10)
-                     $newMaxHp = 20 + ($newLevel * 5) + ($finalId % 10);
-                     $pdo->prepare("UPDATE user_pokemon SET current_hp = ? WHERE id = ?")->execute([$newMaxHp, $pokeId]);
+                     if (strpos($pData['nickname'], 'Pokemon #') !== false || $pData['nickname'] == '') {
+                         $pdo->prepare("UPDATE user_pokemon SET nickname = ? WHERE id = ?")->execute([$nameFr, $pokeId]);
+                     }
 
-                     $msg = $isMax ? "METAMORPHOSE ULTIME ! (NIV 100)" : "Évolution réussie !";
+                     $msg = $isMax ? "METAMORPHOSE ULTIME !" : "Évolution réussie !";
                      $evolded = true;
-                     
                      array_unshift($sequence, (int)$pData['tyradex_id']);
                  } else {
-                     $msg = "Cela n'a aucun effet sur ce Pokémon.";
+                     $msg = "Ce Pokémon ne peut plus évoluer.";
                  }
             }
-            
             $pdo->commit();
-            echo json_encode([
-                'success' => true, 
-                'message' => $msg, 
-                'evolution' => $evolded, 
-                'sequence' => $evolded ? $sequence : null
-            ]);
+            
+            // Format de réponse spécifique pour l'évolution
+            $response = ['evolution' => $evolded, 'sequence' => $evolded ? $sequence : null];
+            ApiResponse::send($response, true, $msg);
         }
 
-        // --- GESTION ÉQUIPE ---
+        // --- TOGGLE TEAM ---
         elseif ($action === 'toggle_team') {
             $stmt = $pdo->prepare("SELECT COUNT(*) FROM user_pokemon WHERE user_id = ? AND is_team = 1");
             $stmt->execute([$userId]);
@@ -347,19 +240,14 @@ try {
             $stmtP->execute([$pokeId]);
             $isTeam = $stmtP->fetchColumn();
             
-            if (!$isTeam && $count >= 3) {
-                echo json_encode(['success' => false, 'message' => 'Équipe complète (3 max)']);
-                exit;
-            }
+            if (!$isTeam && $count >= 3) { ApiResponse::error('Équipe complète'); }
             
-            $newState = $isTeam ? 0 : 1;
-            $pdo->prepare("UPDATE user_pokemon SET is_team = ? WHERE id = ?")->execute([$newState, $pokeId]);
-            
-            echo json_encode(['success' => true, 'message' => $newState ? 'Ajouté à l\'équipe' : 'Envoyé à la réserve']);
+            $pdo->prepare("UPDATE user_pokemon SET is_team = ? WHERE id = ?")->execute([$isTeam ? 0 : 1, $pokeId]);
+            ApiResponse::send(null, true, $isTeam ? 'Mis en réserve' : 'Rejoint l\'équipe');
         }
     }
 } catch (Exception $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
-    echo json_encode(['success' => false, 'message' => 'Erreur Serveur: ' . $e->getMessage()]);
+    ApiResponse::error('Erreur: ' . $e->getMessage(), 500);
 }
 ?>

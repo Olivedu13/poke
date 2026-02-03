@@ -11,7 +11,14 @@ node_modules
 dist
 dist-ssr
 *.local
+
+# Environment variables
 .env
+.env.local
+.env.production
+
+# Backend configuration (contains sensitive data)
+backend/config.php
 
 # Editor directories and files
 .vscode/*

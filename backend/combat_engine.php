@@ -1,7 +1,9 @@
 <?php
-require_once 'db_connect.php';
+// backend/combat_engine.php
+require_once 'protected_setup.php'; // V3: Requiert Auth JWT
 
-$input = json_decode(file_get_contents('php://input'), true);
+// $input et $userId sont disponibles via protected_setup
+// On n'utilise pas $userId ici pour modifier la BDD, mais l'auth garantit que c'est un joueur légitime.
 
 // Inputs
 $isCorrect   = $input['is_correct'] ?? false;
@@ -12,7 +14,6 @@ $combo       = isset($input['combo']) ? (int)$input['combo'] : 0;
 $isUltimate  = isset($input['is_ultimate']) ? (bool)$input['is_ultimate'] : false;
 
 // Constants
-// NERF: Passage de 25 à 12 pour éviter le "One Shot" et forcer 4-5 questions
 $BASE_DMG = 12;
 
 function getTypeMultiplier($atk, $def) {
@@ -44,20 +45,15 @@ $response = [
     'message' => ''
 ];
 
-// Si c'est un ULTIME, on touche d'office avec gros dégâts
 if ($isUltimate) {
     $isCorrect = true;
-    $combo = 10; // Boost artificiel pour l'ultime
+    $combo = 10;
 }
 
 if ($isCorrect) {
     $mult = getTypeMultiplier($attackerType, $enemyType);
     $levelFactor = 1 + ($attackerLvl / 10); 
-    
-    // Combo Bonus: +10% par combo
     $comboBonus = 1 + ($combo * 0.1);
-    
-    // Ultimate Bonus: x2.5 flat
     $ultBonus = $isUltimate ? 2.5 : 1.0;
 
     $rawDmg = $BASE_DMG * $levelFactor * $comboBonus * $ultBonus;
@@ -79,7 +75,6 @@ if ($isCorrect) {
         $response['message'] = "Touché !";
     }
     
-    // Ajout info combo dans le message
     if ($combo > 1 && !$isUltimate) {
         $response['message'] .= " (Combo x$combo)";
     }
