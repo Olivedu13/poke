@@ -53,19 +53,19 @@ const BattleHud = ({ pokemon, isEnemy }: { pokemon: Pokemon, isEnemy?: boolean }
 const GradeGauge = ({ current, max = 20, grade }: { current: number, max?: number, grade: string }) => {
     const percent = Math.min(100, Math.max(0, (current / max) * 100));
     return (
-        <div className="absolute top-4 left-4 z-40 flex flex-col items-start gap-1">
-            <div className="bg-slate-900/80 backdrop-blur-md px-3 py-1 rounded-full border border-purple-500/50 shadow-lg flex items-center gap-2">
-                <span className="text-xs text-purple-300 font-mono uppercase tracking-widest">Niveau</span>
-                <span className="text-lg font-display font-bold text-white">{grade}</span>
+        <div className="absolute top-2 md:top-4 left-2 md:left-4 z-40 flex flex-col items-start gap-1">
+            <div className="bg-slate-900/80 backdrop-blur-md px-2 md:px-3 py-0.5 md:py-1 rounded-full border border-purple-500/50 shadow-lg flex items-center gap-1 md:gap-2">
+                <span className="text-[9px] md:text-xs text-purple-300 font-mono uppercase tracking-widest">Niveau</span>
+                <span className="text-sm md:text-lg font-display font-bold text-white">{grade}</span>
             </div>
-            <div className="w-48 h-3 bg-slate-900 rounded-full border border-slate-700 overflow-hidden relative shadow-inner">
+            <div className="w-32 md:w-48 h-2 md:h-3 bg-slate-900 rounded-full border border-slate-700 overflow-hidden relative shadow-inner">
                  <motion.div 
                     className="h-full bg-gradient-to-r from-purple-700 via-purple-500 to-pink-500"
                     initial={{ width: '0%' }} animate={{ width: `${percent}%` }} transition={{ type: "spring", stiffness: 50 }}
                  />
             </div>
-            <div className="pl-2 flex gap-2 items-center">
-                 <span className="text-[10px] text-purple-400 font-mono opacity-80">{current} / {max} pts</span>
+            <div className="pl-1 md:pl-2 flex gap-2 items-center">
+                 <span className="text-[8px] md:text-[10px] text-purple-400 font-mono opacity-80">{current} / {max} pts</span>
             </div>
         </div>
     );
@@ -144,15 +144,15 @@ const ActionButton = ({ onClick, disabled, label, color, isUltimate }: any) => {
 
     if (isUltimate) {
         return (
-            <button onClick={onClick} disabled={disabled} className="relative w-full h-16 md:h-20 rounded-2xl border-2 border-white bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 shadow-[0_0_30px_rgba(79,70,229,0.8)] flex flex-col items-center justify-center overflow-hidden animate-pulse group active:scale-95 transition-transform">
-                <span className="relative z-10 font-display font-black text-white text-lg tracking-widest italic drop-shadow-lg">FRAPPE ULTIME</span>
+            <button onClick={onClick} disabled={disabled} className="relative w-full h-12 md:h-16 rounded-xl md:rounded-2xl border-2 border-white bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 shadow-[0_0_30px_rgba(79,70,229,0.8)] flex flex-col items-center justify-center overflow-hidden animate-pulse group active:scale-95 transition-transform">
+                <span className="relative z-10 font-display font-black text-white text-xs md:text-lg tracking-widest italic drop-shadow-lg">ULTIME</span>
             </button>
         )
     }
     
     return (
-        <button onClick={onClick} disabled={disabled} className={`relative w-full h-16 md:h-20 rounded-2xl border-t-2 border-b-4 bg-gradient-to-b ${colors[color as keyof typeof colors]} shadow-lg active:border-b-0 active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1 group overflow-hidden disabled:opacity-50 disabled:grayscale`}>
-            <span className="font-display font-black text-white text-sm md:text-base tracking-widest uppercase drop-shadow-sm">{label}</span>
+        <button onClick={onClick} disabled={disabled} className={`relative w-full h-12 md:h-16 rounded-xl md:rounded-2xl border-t-2 border-b-4 bg-gradient-to-b ${colors[color as keyof typeof colors]} shadow-lg active:border-b-0 active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1 group overflow-hidden disabled:opacity-50 disabled:grayscale`}>
+            <span className="font-display font-black text-white text-[10px] md:text-base tracking-widest uppercase drop-shadow-sm">{label}</span>
         </button>
     );
 };
@@ -230,11 +230,11 @@ export const BattleScene: React.FC = () => {
     if (!playerPokemon || !enemyPokemon) return null;
 
     return (
-        <div className={`relative w-full h-[calc(100vh-140px)] bg-slate-950 overflow-hidden flex flex-col ${shake ? 'animate-shake' : ''}`}>
+        <div className={`relative w-full h-full max-h-screen bg-slate-950 overflow-hidden flex flex-col ${shake ? 'animate-shake' : ''}`}>
             {user && <GradeGauge current={gradeGauge} grade={user.grade_level} />}
-            <div className="absolute top-4 right-4 z-40 flex flex-col items-end gap-2">
+            <div className="absolute top-2 md:top-4 right-2 md:right-4 z-40 flex flex-col items-end gap-2">
                  {combo > 1 && (
-                     <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="font-display font-black text-2xl md:text-4xl text-yellow-400 italic drop-shadow-[0_4px_0_rgba(0,0,0,1)] animate-bounce">COMBO x{combo}</motion.div>
+                     <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="font-display font-black text-xl md:text-4xl text-yellow-400 italic drop-shadow-[0_4px_0_rgba(0,0,0,1)] animate-bounce">COMBO x{combo}</motion.div>
                  )}
             </div>
             <div className="relative flex-grow w-full overflow-hidden" ref={containerRef}>
@@ -258,17 +258,17 @@ export const BattleScene: React.FC = () => {
                     </AnimatePresence>
                 </div>
             </div>
-            <div className="relative z-30 bg-slate-900 border-t border-cyan-900/50 p-3 pb-6 shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
-                <div className="absolute -top-3 left-0 right-0 h-3 bg-slate-950 flex justify-center overflow-hidden">
+            <div className="relative z-30 bg-slate-900 border-t border-cyan-900/50 p-2 md:p-3 pb-safe shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+                <div className="absolute -top-2 md:-top-3 left-0 right-0 h-2 md:h-3 bg-slate-950 flex justify-center overflow-hidden">
                     <motion.div className="h-full bg-gradient-to-r from-blue-600 via-purple-500 to-blue-600 bg-[length:200%_100%] animate-[shimmer_2s_linear_infinite]" initial={{ width: 0 }} animate={{ width: `${specialGauge}%` }} />
                 </div>
-                <div className="flex justify-between items-center mb-3 px-1">
-                    <div className="text-[10px] md:text-xs text-slate-400 font-mono">VS <span className="text-white font-bold">{enemyPokemon.name}</span></div>
-                    <div className="h-6 px-3 bg-slate-800 rounded flex items-center text-[10px] md:text-xs font-mono text-cyan-200 border border-slate-700 truncate max-w-[200px]">
+                <div className="flex justify-between items-center mb-2 px-1">
+                    <div className="text-[9px] md:text-xs text-slate-400 font-mono">VS <span className="text-white font-bold">{enemyPokemon.name}</span></div>
+                    <div className="h-5 md:h-6 px-2 md:px-3 bg-slate-800 rounded flex items-center text-[9px] md:text-xs font-mono text-cyan-200 border border-slate-700 truncate max-w-[150px] md:max-w-[200px]">
                         {battleLogs.length > 0 ? `› ${battleLogs[battleLogs.length-1].message}` : "› Prêt au combat"}
                     </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-3 gap-2">
                     {specialGauge >= 100 ? (
                         <ActionButton label="FRAPPE ULTIME" isUltimate onClick={handleUltimate} disabled={!isPlayerTurn || battleOver} />
                     ) : (
