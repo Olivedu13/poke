@@ -153,7 +153,7 @@ export const Wheel: React.FC = () => {
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-cyan-900/20 via-slate-950 to-slate-950 pointer-events-none"></div>
       <div className="text-center z-10 shrink-0">
         <h2 className="text-2xl md:text-5xl font-display font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-sm mb-1">ROUE MYSTÈRE</h2>
-        <p className="text-slate-400 font-mono text-xs md:text-lg flex items-center justify-center gap-2">JETONS : <span className="text-cyan-400 font-bold text-base md:text-xl flex items-center gap-1">{user?.tokens} <img src={`${ASSETS_BASE_URL}/jetons.webp`} className="w-4 h-4 md:w-5 md:h-5" /></span></p>
+        <p className="text-slate-400 font-mono text-xs md:text-lg flex items-center justify-center gap-2">JETONS : <span className="text-cyan-400 font-bold text-base md:text-xl flex items-center gap-1">{user?.tokens} <img src={`${ASSETS_BASE_URL}/jetons.webp`} className="w-3 h-3 md:w-5 md:h-5" /></span></p>
       </div>
       <div className="relative w-[70vw] h-[70vw] max-w-[400px] max-h-[400px] md:max-w-[500px] md:max-h-[500px] z-10 shrink-0">
          <div className="absolute -top-4 md:-top-6 left-1/2 -translate-x-1/2 z-30 w-0 h-0 border-l-[15px] md:border-l-[20px] border-l-transparent border-r-[15px] md:border-r-[20px] border-r-transparent border-t-[30px] md:border-t-[40px] border-t-white drop-shadow-xl filter drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]"></div>
@@ -161,16 +161,16 @@ export const Wheel: React.FC = () => {
             {[0, 45, 90, 135, 180, 225, 270, 315].map(deg => (<div key={deg} className="absolute top-0 left-1/2 w-[2px] h-[50%] bg-white/10 origin-bottom -translate-x-1/2" style={{ transform: `rotate(${deg}deg)` }}></div>))}
             {Array.isArray(segments) && segments.map((seg, i) => (
                  <div key={i} className="absolute top-0 left-0 w-full h-full" style={{ transform: `rotate(${i * 45}deg)` }}>
-                    <div className="absolute left-1/2 top-[5%] -translate-x-1/2 flex flex-col items-center justify-center w-[25vw] max-w-[120px]" style={{ transform: `rotate(22.5deg)` }}>
+                    <div className="absolute left-1/2 top-[5%] -translate-x-1/2 flex flex-col items-center justify-center w-[18vw] max-w-[100px]" style={{ transform: `rotate(22.5deg)` }}>
                         <div className="w-full aspect-square drop-shadow-[0_5px_5px_rgba(0,0,0,0.5)] transition-transform flex items-center justify-center mb-1">
-                             <img src={getSegmentImage(seg)} className="w-[140%] h-[140%] object-contain hover:scale-110 transition-transform" alt="Reward" />
+                             <img src={getSegmentImage(seg)} className="w-[110%] h-[110%] object-contain hover:scale-110 transition-transform" alt="Reward" />
                         </div>
                     </div>
                  </div>
              ))}
          </motion.div>
-         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[20%] h-[20%] bg-gradient-to-br from-slate-800 to-slate-950 rounded-full border-4 border-cyan-500 z-20 flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.4)]">
-             <div className="w-[80%] h-[80%] bg-slate-900 rounded-full flex items-center justify-center border border-white/10"><img src={`${ASSETS_BASE_URL}/pokeball.webp`} className={`w-[60%] h-[60%] opacity-80 ${spinning ? 'animate-spin' : ''}`} /></div>
+         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[18%] h-[18%] bg-gradient-to-br from-slate-800 to-slate-950 rounded-full border-3 md:border-4 border-cyan-500 z-20 flex items-center justify-center shadow-[0_0_30px_rgba(6,182,212,0.4)]">
+             <div className="w-[80%] h-[80%] bg-slate-900 rounded-full flex items-center justify-center border border-white/10"><img src={`${ASSETS_BASE_URL}/pokeball.webp`} className={`w-[55%] h-[55%] opacity-80 ${spinning ? 'animate-spin' : ''}`} /></div>
          </div>
       </div>
       <div className="flex flex-col items-center gap-2 md:gap-3 z-10 w-full max-w-md px-2 md:px-4 shrink-0 pb-2">
