@@ -37,7 +37,8 @@ try {
     // Si le mode IA est actif, ajouter 'IA' comme source prioritaire
     if ($useAi && !empty($aiTopic)) {
         // Rechercher d'abord les questions IA générées pour ce niveau
-        $sqlAi = "SELECT * FROM question_bank WHERE source_override = 'IA' AND grade_level = ? AND id NOT IN ($excludePlaceholder) ORDER BY RAND() LIMIT 1";
+        // Note: La colonne source_override sera ajoutée plus tard, pour l'instant on cherche par category
+        $sqlAi = "SELECT * FROM question_bank WHERE category = 'IA' AND grade_level = ? AND id NOT IN ($excludePlaceholder) ORDER BY RAND() LIMIT 1";
         $stmtAi = $pdo->prepare($sqlAi);
         $stmtAi->execute([$grade]);
         $q = $stmtAi->fetch();
@@ -83,7 +84,7 @@ try {
         if (!is_array($opts)) $opts = ["A", "B", "C", "D"];
         $out = [
             'id' => $q['id'],
-            'source' => $q['source_override'] ?? 'DB',
+            'source' => ($q['category'] ?? '') === 'IA' ? 'IA' : 'DB',
             'subject' => $q['subject'],
             'difficulty' => $q['difficulty'],
             'category' => $q['category'] ?? 'GENERAL',

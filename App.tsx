@@ -42,7 +42,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen w-full bg-slate-950 text-white font-sans selection:bg-cyan-500 selection:text-black flex flex-col">
+    <div className="h-screen w-full bg-slate-950 text-white font-sans selection:bg-cyan-500 selection:text-black flex flex-col">
       {/* Background Ambience / Grid Effect */}
       <div className="fixed inset-0 z-0 pointer-events-none bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-20"></div>
 
@@ -119,36 +119,42 @@ const App: React.FC = () => {
       </header>
 
       {/* Main Content Area - Mobile First */}
-      <main className="relative z-10 flex-1 w-full overflow-auto">
+      <main className="relative z-10 flex-1 w-full overflow-y-auto overflow-x-hidden flex flex-col">
         {currentView === 'AUTH' && (
-          <div className="p-4 md:p-8 max-w-7xl mx-auto">
+          <div className="p-4 md:p-8 max-w-7xl mx-auto w-full">
             <AuthForm />
           </div>
         )}
         
-        <div className="h-full animate-in fade-in zoom-in-95 duration-300">
-            {currentView === 'DASHBOARD' && user && (
-              <div className="p-4 md:p-8 max-w-7xl mx-auto">
-                <ParentDashboard />
-              </div>
-            )}
-            {currentView === 'GAME' && user && <BattleScene />}
-            {currentView === 'WHEEL' && user && (
-              <div className="p-4 md:p-8 max-w-7xl mx-auto">
-                <Wheel />
-              </div>
-            )}
-            {currentView === 'COLLECTION' && user && (
-              <div className="p-4 md:p-8 max-w-7xl mx-auto">
-                <Collection />
-              </div>
-            )}
-            {currentView === 'SHOP' && user && (
-              <div className="p-4 md:p-8 max-w-7xl mx-auto">
-                <Shop />
-              </div>
-            )}
-        </div>
+        {currentView === 'DASHBOARD' && user && (
+          <div className="p-4 md:p-8 max-w-7xl mx-auto w-full animate-in fade-in zoom-in-95 duration-300">
+            <ParentDashboard />
+          </div>
+        )}
+        
+        {currentView === 'GAME' && user && (
+          <div className="flex-1 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+            <BattleScene />
+          </div>
+        )}
+        
+        {currentView === 'WHEEL' && user && (
+          <div className="p-4 md:p-8 max-w-7xl mx-auto w-full animate-in fade-in zoom-in-95 duration-300">
+            <Wheel />
+          </div>
+        )}
+        
+        {currentView === 'COLLECTION' && user && (
+          <div className="p-4 md:p-8 max-w-7xl mx-auto w-full animate-in fade-in zoom-in-95 duration-300">
+            <Collection />
+          </div>
+        )}
+        
+        {currentView === 'SHOP' && user && (
+          <div className="p-4 md:p-8 max-w-7xl mx-auto w-full animate-in fade-in zoom-in-95 duration-300">
+            <Shop />
+          </div>
+        )}
       </main>
       
       {/* Footer System Status */}

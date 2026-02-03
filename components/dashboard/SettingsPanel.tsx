@@ -15,20 +15,70 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
 
   // État config
   const [gradeLevel, setGradeLevel] = useState(user?.grade_level || 'CE1');
-  const [subjects, setSubjects] = useState<string[]>(
-    user?.active_subjects ? JSON.parse(user.active_subjects as any) : ['MATHS', 'FRANCAIS']
-  );
+  const [subjects, setSubjects] = useState<string[]>(() => {
+    try {
+      if (user?.active_subjects && typeof user.active_subjects === 'string') {
+        const parsed = JSON.parse(user.active_subjects);
+        return Array.isArray(parsed) ? parsed : ['MATHS', 'FRANCAIS'];
+      }
+      return ['MATHS', 'FRANCAIS'];
+    } catch (e) {
+      console.warn('Error parsing active_subjects:', e);
+      return ['MATHS', 'FRANCAIS'];
+    }
+  });
   const [aiMode, setAiMode] = useState(user?.custom_prompt_active || false);
   const [aiTopic, setAiTopic] = useState(user?.custom_prompt_text || '');
 
   const availableSubjects = ['MATHS', 'FRANCAIS', 'ANGLAIS', 'HISTOIRE', 'GEOGRAPHIE', 'SCIENCES'];
+  
+  const [focusCategories, setFocusCategories] = useState<Record<string, string>>(() => {
+    try {
+      if (user?.focus_categories) {
+        if (typeof user.focus_categories === 'string') {
+          return JSON.parse(user.focus_categories);
+        }
+        return user.focus_categories as Record<string, string>;
+      }
+      return {};
+    } catch (e) {
+      console.warn('Error parsing focus_categories:', e);
+      return {};
+    }
+  });
+
+  const SUBJECT_CATEGORIES: Record<string, string[]> = {
+    MATHS: ['Addition', 'Soustraction', 'Multiplication', 'Division', 'Géométrie', 'Numération', 'Problèmes'],
+    FRANCAIS: ['Grammaire', 'Conjugaison', 'Orthographe', 'Vocabulaire', 'Lecture'],
+    ANGLAIS: ['Vocabulaire', 'Verbes', 'Grammaire', 'Expression'],
+    HISTOIRE: ['Antiquité', 'Moyen-Âge', 'Rois', 'Guerres', 'Contemporain'],
+    GEOGRAPHIE: ['France', 'Europe', 'Monde', 'Continents', 'Villes'],
+    SCIENCES: ['Corps humain', 'Animaux', 'Plantes', 'Matière', 'Énergie']
+  };
 
   const toggleSubject = (subject: string) => {
     if (subjects.includes(subject)) {
       setSubjects(subjects.filter(s => s !== subject));
+      setFocusCategories(prev => {
+        const next = { ...prev };
+        delete next[subject];
+        return next;
+      });
     } else {
       setSubjects([...subjects, subject]);
     }
+  };
+
+  const handleCategoryChange = (subject: string, category: string) => {
+    setFocusCategories(prev => {
+      const next = { ...prev };
+      if (category === "") {
+        delete next[subject];
+      } else {
+        next[subject] = category;
+      }
+      return next;
+    });
   };
 
   const handleSave = async () => {
@@ -39,6 +89,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
       const res = await api.post('/update_config.php', {
         grade_level: gradeLevel,
         active_subjects: subjects,
+        focus_categories: focusCategories,
         custom_prompt_active: aiMode ? 1 : 0,
         custom_prompt_text: aiTopic
       });
@@ -126,20 +177,50 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
                 <label className="block text-sm font-bold text-slate-300 mb-3 uppercase tracking-wide">
                   📖 Matières actives
                 </label>
-                <div className="grid grid-cols-2 gap-2">
-                  {availableSubjects.map((subject) => (
-                    <button
-                      key={subject}
-                      onClick={() => toggleSubject(subject)}
-                      className={`px-4 py-3 rounded-lg font-bold text-sm transition ${
-                        subjects.includes(subject)
-                          ? 'bg-cyan-600 text-white'
-                          : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
-                      }`}
-                    >
-                      {subject}
-                    </button>
-                  ))}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {availableSubjects.map((subject) => {
+                    const isActive = subjects.includes(subject);
+                    const categories = SUBJECT_CATEGORIES[subject] || [];
+                    const currentFocus = focusCategories[subject] || '';
+
+                    return (
+                      <div 
+                        key={subject} 
+                        className={`p-3 rounded-lg border-2 transition-all ${
+                          isActive 
+                            ? 'bg-slate-800 border-cyan-500/50' 
+                            : 'bg-slate-900 border-slate-700 opacity-60'
+                        }`}
+                      >
+                        <button
+                          onClick={() => toggleSubject(subject)}
+                          className={`w-full text-left font-bold mb-2 flex items-center gap-2 ${
+                            isActive ? 'text-cyan-400' : 'text-slate-500'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 border rounded flex items-center justify-center ${
+                            isActive ? 'bg-cyan-500 border-cyan-500' : 'border-slate-600'
+                          }`}>
+                            {isActive && <span className="text-black text-xs">✓</span>}
+                          </div>
+                          {subject}
+                        </button>
+                        
+                        {isActive && categories.length > 0 && (
+                          <select 
+                            value={currentFocus}
+                            onChange={(e) => handleCategoryChange(subject, e.target.value)}
+                            className="w-full bg-slate-900 border border-slate-700 text-xs text-white rounded px-3 py-2 outline-none focus:border-cyan-500"
+                          >
+                            <option value="">-- Tout le programme --</option>
+                            {categories.map(cat => (
+                              <option key={cat} value={cat}>{cat}</option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
 
