@@ -149,15 +149,15 @@ export const Wheel: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-[85vh] gap-4 p-2 bg-slate-950/50 rounded-3xl border border-slate-800 backdrop-blur-sm relative overflow-hidden">
+    <div className="flex flex-col items-center justify-start h-full max-h-screen overflow-y-auto gap-2 md:gap-4 p-2 md:p-4 bg-slate-950/50 rounded-xl md:rounded-3xl border border-slate-800 backdrop-blur-sm relative">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-cyan-900/20 via-slate-950 to-slate-950 pointer-events-none"></div>
-      <div className="text-center z-10 mt-4 md:mt-0">
-        <h2 className="text-4xl md:text-5xl font-display font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-sm mb-1">ROUE MYSTÈRE</h2>
-        <p className="text-slate-400 font-mono text-sm md:text-lg flex items-center justify-center gap-2">JETONS : <span className="text-cyan-400 font-bold text-xl flex items-center gap-1">{user?.tokens} <img src={`${ASSETS_BASE_URL}/jetons.webp`} className="w-5 h-5" /></span></p>
+      <div className="text-center z-10 shrink-0">
+        <h2 className="text-2xl md:text-5xl font-display font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-sm mb-1">ROUE MYSTÈRE</h2>
+        <p className="text-slate-400 font-mono text-xs md:text-lg flex items-center justify-center gap-2">JETONS : <span className="text-cyan-400 font-bold text-base md:text-xl flex items-center gap-1">{user?.tokens} <img src={`${ASSETS_BASE_URL}/jetons.webp`} className="w-4 h-4 md:w-5 md:h-5" /></span></p>
       </div>
-      <div className="relative w-[90vw] h-[90vw] max-w-[500px] max-h-[500px] z-10 my-4">
-         <div className="absolute -top-6 left-1/2 -translate-x-1/2 z-30 w-0 h-0 border-l-[20px] border-l-transparent border-r-[20px] border-r-transparent border-t-[40px] border-t-white drop-shadow-xl filter drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]"></div>
-         <motion.div className="w-full h-full rounded-full border-[6px] md:border-8 border-slate-800 bg-slate-900 relative overflow-hidden shadow-[0_0_80px_rgba(6,182,212,0.2)]" animate={controls} style={{ background: buildGradient() }}>
+      <div className="relative w-[70vw] h-[70vw] max-w-[400px] max-h-[400px] md:max-w-[500px] md:max-h-[500px] z-10 shrink-0">
+         <div className="absolute -top-4 md:-top-6 left-1/2 -translate-x-1/2 z-30 w-0 h-0 border-l-[15px] md:border-l-[20px] border-l-transparent border-r-[15px] md:border-r-[20px] border-r-transparent border-t-[30px] md:border-t-[40px] border-t-white drop-shadow-xl filter drop-shadow-[0_0_10px_rgba(255,255,255,0.8)]"></div>
+         <motion.div className="w-full h-full rounded-full border-[4px] md:border-8 border-slate-800 bg-slate-900 relative overflow-hidden shadow-[0_0_80px_rgba(6,182,212,0.2)]" animate={controls} style={{ background: buildGradient() }}>
             {[0, 45, 90, 135, 180, 225, 270, 315].map(deg => (<div key={deg} className="absolute top-0 left-1/2 w-[2px] h-[50%] bg-white/10 origin-bottom -translate-x-1/2" style={{ transform: `rotate(${deg}deg)` }}></div>))}
             {Array.isArray(segments) && segments.map((seg, i) => (
                  <div key={i} className="absolute top-0 left-0 w-full h-full" style={{ transform: `rotate(${i * 45}deg)` }}>
@@ -173,15 +173,15 @@ export const Wheel: React.FC = () => {
              <div className="w-[80%] h-[80%] bg-slate-900 rounded-full flex items-center justify-center border border-white/10"><img src={`${ASSETS_BASE_URL}/pokeball.webp`} className={`w-[60%] h-[60%] opacity-80 ${spinning ? 'animate-spin' : ''}`} /></div>
          </div>
       </div>
-      <div className="flex flex-col items-center gap-3 z-10 w-full max-w-md px-4">
+      <div className="flex flex-col items-center gap-2 md:gap-3 z-10 w-full max-w-md px-2 md:px-4 shrink-0 pb-2">
          <div className="flex gap-2 w-full justify-center bg-slate-900/80 p-2 rounded-xl border border-slate-800 shadow-xl backdrop-blur-md">
             {[1, 5, 10].map(amt => (
-                <button key={amt} onClick={() => handleBetChange(amt)} disabled={spinning} className={`flex-1 py-3 rounded-lg font-display font-bold text-lg transition-all flex flex-col items-center gap-1 ${bet === amt ? 'bg-cyan-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)] scale-105' : 'bg-slate-950 text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-600'}`}>
-                    <span>x{amt}</span><span className="text-[9px] md:text-[10px] font-mono opacity-70 uppercase">{amt === 1 ? 'Commun' : amt === 5 ? 'Rare' : 'Légend.'}</span>
+                <button key={amt} onClick={() => handleBetChange(amt)} disabled={spinning} className={`flex-1 py-2 md:py-3 rounded-lg font-display font-bold text-base md:text-lg transition-all flex flex-col items-center gap-0.5 md:gap-1 ${bet === amt ? 'bg-cyan-600 text-white shadow-[0_0_15px_rgba(6,182,212,0.5)] scale-105' : 'bg-slate-950 text-slate-500 hover:text-slate-300 border border-slate-800 hover:border-slate-600'}`}>
+                    <span>x{amt}</span><span className="text-[8px] md:text-[10px] font-mono opacity-70 uppercase">{amt === 1 ? 'Commun' : amt === 5 ? 'Rare' : 'Légend.'}</span>
                 </button>
             ))}
          </div>
-         <button onClick={spin} disabled={spinning || (user?.tokens || 0) < bet} className={`w-full py-4 rounded-xl font-display font-black text-xl md:text-2xl tracking-widest text-black shadow-2xl transition-all ${spinning || (user?.tokens || 0) < bet ? 'bg-slate-700 cursor-not-allowed opacity-50' : 'bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-300 hover:to-yellow-500 hover:scale-[1.02] shadow-[0_0_30px_rgba(234,179,8,0.4)]'}`}>{spinning ? 'LA ROUE TOURNE...' : 'LANCER !'}</button>
+         <button onClick={spin} disabled={spinning || (user?.tokens || 0) < bet} className={`w-full py-3 md:py-4 rounded-xl font-display font-black text-lg md:text-2xl tracking-widest text-black shadow-2xl transition-all ${spinning || (user?.tokens || 0) < bet ? 'bg-slate-700 cursor-not-allowed opacity-50' : 'bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-300 hover:to-yellow-500 hover:scale-[1.02] shadow-[0_0_30px_rgba(234,179,8,0.4)]'}`}>{spinning ? 'LA ROUE TOURNE...' : 'LANCER !'}</button>
       </div>
       <AnimatePresence>
         {wonSegment && (
