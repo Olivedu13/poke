@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGameStore } from './store/gameStore';
 import { AuthForm } from './components/auth/AuthForm';
 import { ParentDashboard } from './components/dashboard/ParentDashboard';
@@ -7,11 +7,15 @@ import { BattleScene } from './components/battle/BattleScene';
 import { Wheel } from './components/metagame/Wheel';
 import { Collection } from './components/metagame/Collection';
 import { Shop } from './components/metagame/Shop';
+import { SettingsPanel } from './components/dashboard/SettingsPanel';
+import { PinCodeModal } from './components/dashboard/PinCodeModal';
 import { ASSETS_BASE_URL } from './config';
 import { playSfx } from './utils/soundEngine';
 
 const App: React.FC = () => {
   const { currentView, user, logout, setView } = useGameStore();
+  const [showSettings, setShowSettings] = useState(false);
+  const [showPinModal, setShowPinModal] = useState(false);
 
   // "Réveil" du moteur audio au premier clic utilisateur
   useEffect(() => {
@@ -27,6 +31,15 @@ const App: React.FC = () => {
         window.removeEventListener('touchstart', unlockAudio);
     };
   }, []);
+
+  const handleSettingsClick = () => {
+    setShowPinModal(true);
+  };
+
+  const handlePinSuccess = () => {
+    setShowPinModal(false);
+    setShowSettings(true);
+  };
 
   return (
     <div className="min-h-screen w-full bg-slate-950 text-white font-sans selection:bg-cyan-500 selection:text-black flex flex-col">
@@ -86,6 +99,14 @@ const App: React.FC = () => {
                   ))}
                 </div>
                 <button 
+                  onClick={handleSettingsClick} 
+                  className="text-[10px] md:text-sm bg-purple-900/20 text-purple-400 hover:bg-purple-900/40 px-2 md:px-3 py-1.5 rounded-lg transition-colors uppercase font-bold shrink-0"
+                  title="Paramètres (Code requis)"
+                >
+                  <span className="md:hidden">⚙️</span>
+                  <span className="hidden md:inline">PARAM</span>
+                </button>
+                <button 
                   onClick={logout} 
                   className="text-[10px] md:text-xs text-red-400 hover:text-red-300 bg-red-900/20 px-2 md:px-3 py-1.5 rounded-lg hover:bg-red-900/40 transition-colors uppercase font-bold shrink-0"
                 >
@@ -139,6 +160,17 @@ const App: React.FC = () => {
             </span>
          </div>
       </footer>
+
+      {/* Modals */}
+      {showPinModal && (
+        <PinCodeModal
+          onSuccess={handlePinSuccess}
+          onCancel={() => setShowPinModal(false)}
+        />
+      )}
+      {showSettings && (
+        <SettingsPanel onClose={() => setShowSettings(false)} />
+      )}
     </div>
   );
 };
