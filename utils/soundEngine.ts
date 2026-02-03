@@ -60,25 +60,34 @@ const playAudioFile = async (ctx: AudioContext, dest: AudioNode, filename: strin
         
         if (!buffer) {
             // Construction de l'URL
-            // Si ASSETS_BASE_URL est '/assets', l'URL sera relative à l'origine actuelle.
             const url = `${ASSETS_BASE_URL}/${filename}`;
-            console.log(`[Audio] Tentative de lecture : ${url}`);
+            console.log(`[Audio] 🎵 Chargement : ${url}`);
 
             const response = await fetch(url);
             if (!response.ok) {
-                console.error(`[Audio] ECHEC ❌ - Le fichier n'existe pas à cette adresse : ${response.url}`);
-                console.error(`[Audio] Vérifiez que '${filename}' est bien dans le dossier 'public/assets/' de votre projet.`);
+                console.error(`[Audio] ❌ ÉCHEC HTTP ${response.status} - ${response.statusText}`);
+                console.error(`[Audio] URL testée : ${response.url}`);
+                console.error(`[Audio] Content-Type reçu : ${response.headers.get('content-type')}`);
+                console.error(`[Audio] Vérifiez que '${filename}' existe dans le dossier assets/`);
                 // Fallback son synthétique si fichier absent
                 playFallbackBeep(ctx, dest);
                 return;
             }
             
+            console.log(`[Audio] ✅ Téléchargement OK (${response.headers.get('content-type')})`);
             const arrayBuffer = await response.arrayBuffer();
+            console.log(`[Audio] 📦 Buffer size: ${arrayBuffer.byteLength} bytes`);
             
             // Décodage
-            buffer = await ctx.decodeAudioData(arrayBuffer);
-            bufferCache[filename] = buffer;
-            console.log(`[Audio] Succès ✅ : ${filename} chargé en mémoire.`);
+            try {
+                buffer = await ctx.decodeAudioData(arrayBuffer);
+                bufferCache[filename] = buffer;
+                console.log(`[Audio] ✅ Décodage réussi : ${filename} (durée: ${buffer.duration.toFixed(2)}s)`);
+            } catch (decodeError) {
+                console.error(`[Audio] ❌ Erreur de décodage audio pour ${filename}:`, decodeError);
+                playFallbackBeep(ctx, dest);
+                return;
+            }
         }
 
         const source = ctx.createBufferSource();

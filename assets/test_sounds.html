@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Sons - Poke Edu</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .sound-test {
+            background: #2a2a2a;
+            border: 2px solid #4a4a4a;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 10px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .success { background: #4CAF50; }
+        .error { background: #f44336; }
+        .info { background: #2196F3; }
+        audio {
+            width: 100%;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎵 Test des Sons - Poke Edu</h1>
+    
+    <div class="sound-test">
+        <h2>1. Test Direct (HTML5 Audio)</h2>
+        <p>Test avec les balises audio natives du navigateur</p>
+        
+        <h3>teleportation.mp3</h3>
+        <audio controls src="https://poke.sarlatc.com/assets/teleportation.mp3"></audio>
+        
+        <h3>potion.mp3</h3>
+        <audio controls src="https://poke.sarlatc.com/assets/potion.mp3"></audio>
+        
+        <h3>evolution.mp3</h3>
+        <audio controls src="https://poke.sarlatc.com/assets/evolution.mp3"></audio>
+    </div>
+
+    <div class="sound-test">
+        <h2>2. Test avec Web Audio API (comme dans le jeu)</h2>
+        <button onclick="testSound('teleportation.mp3')">Test Teleportation</button>
+        <button onclick="testSound('potion.mp3')">Test Potion</button>
+        <button onclick="testSound('evolution.mp3')">Test Evolution</button>
+        <div id="apiStatus" class="status info">Cliquez sur un bouton pour tester</div>
+    </div>
+
+    <div class="sound-test">
+        <h2>3. Test de Fetch Direct</h2>
+        <button onclick="testFetch('teleportation.mp3')">Fetch Teleportation</button>
+        <button onclick="testFetch('potion.mp3')">Fetch Potion</button>
+        <button onclick="testFetch('evolution.mp3')">Fetch Evolution</button>
+        <div id="fetchStatus" class="status info">Cliquez sur un bouton pour tester</div>
+    </div>
+
+    <script>
+        const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const baseUrl = 'https://poke.sarlatc.com/assets';
+
+        async function testSound(filename) {
+            const status = document.getElementById('apiStatus');
+            status.className = 'status info';
+            status.textContent = `🎵 Test de ${filename}...`;
+
+            try {
+                const url = `${baseUrl}/${filename}`;
+                console.log('Chargement:', url);
+                
+                const response = await fetch(url);
+                console.log('Response status:', response.status);
+                console.log('Content-Type:', response.headers.get('content-type'));
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const arrayBuffer = await response.arrayBuffer();
+                console.log('Buffer size:', arrayBuffer.byteLength);
+                
+                const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+                console.log('Décodage OK, durée:', audioBuffer.duration);
+
+                const source = audioContext.createBufferSource();
+                source.buffer = audioBuffer;
+                source.connect(audioContext.destination);
+                source.start(0);
+
+                status.className = 'status success';
+                status.textContent = `✅ ${filename} joué avec succès! (durée: ${audioBuffer.duration.toFixed(2)}s)`;
+            } catch (error) {
+                console.error('Erreur:', error);
+                status.className = 'status error';
+                status.textContent = `❌ Erreur: ${error.message}`;
+            }
+        }
+
+        async function testFetch(filename) {
+            const status = document.getElementById('fetchStatus');
+            status.className = 'status info';
+            status.textContent = `📡 Fetch de ${filename}...`;
+
+            try {
+                const url = `${baseUrl}/${filename}`;
+                const response = await fetch(url);
+                
+                const info = {
+                    status: response.status,
+                    statusText: response.statusText,
+                    contentType: response.headers.get('content-type'),
+                    contentLength: response.headers.get('content-length'),
+                    cors: response.headers.get('access-control-allow-origin')
+                };
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    info.size = blob.size;
+                    status.className = 'status success';
+                    status.textContent = `✅ Fetch OK: ${JSON.stringify(info, null, 2)}`;
+                } else {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+            } catch (error) {
+                status.className = 'status error';
+                status.textContent = `❌ Fetch échoué: ${error.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

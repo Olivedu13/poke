@@ -35,6 +35,45 @@ $sql = "UPDATE users SET " . implode(', ', $fields) . " WHERE id = ?";
 try {
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
+    
+    // Si le mode IA est activé ET qu'il y a un nouveau sujet, générer les questions
+    if ($promptActive === 1 && !empty($promptText)) {
+        // Récupérer le grade actuel de l'utilisateur
+        $userStmt = $pdo->prepare("SELECT grade_level FROM users WHERE id = ?");
+        $userStmt->execute([$userId]);
+        $userGrade = $userStmt->fetchColumn();
+        
+        // Appeler le générateur de questions
+        require_once __DIR__ . '/generate_ai_questions.php';
+        try {
+            $generatedQuestions = generateSmartQuestions($promptText, $userGrade, 15);
+            
+            if (!empty($generatedQuestions)) {
+                // Supprimer les anciennes questions IA de cet utilisateur
+                $deleteStmt = $pdo->prepare("DELETE FROM question_bank WHERE source_override = 'IA' AND grade_level = ?");
+                $deleteStmt->execute([$userGrade]);
+                
+                // Insérer les nouvelles questions
+                $insertStmt = $pdo->prepare("
+                    INSERT INTO question_bank 
+                    (question_text, options_json, correct_index, explanation, subject, difficulty, category, grade_level, source_override)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'IA')
+                ");
+                
+                foreach ($generatedQuestions as $q) {
+                    $optionsJson = json_encode($q['options'], JSON_UNESCAPED_UNICODE);
+                    $insertStmt->execute([
+                        $q['text'], $optionsJson, $q['correct'], $q['expl'],
+                        $q['subject'], $q['difficulty'], $q['category'], $userGrade
+                    ]);
+                }
+            }
+        } catch (Exception $genEx) {
+            // Si la génération échoue, on continue quand même
+            error_log("AI Generation failed: " . $genEx->getMessage());
+        }
+    }
+    
     echo json_encode(['success' => true, 'message' => 'Configuration updated']);
 } catch (PDOException $e) {
     // Auto-Repair Column
