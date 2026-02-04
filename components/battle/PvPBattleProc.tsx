@@ -94,19 +94,28 @@ export const PvPBattleProc: React.FC = () => {
         try {
             const res = await api.get(`/pvp_battle_procedural.php?action=get_state&match_id=${matchId}`);
             if (res.data.success) {
+                console.log('fetchState:', {
+                    is_my_turn: res.data.is_my_turn,
+                    current_question: res.data.current_question,
+                    current_turn: res.data.match.current_turn,
+                    my_id: res.data.my_id
+                });
+                
                 setMatchState(res.data.match);
                 setHistory(res.data.history);
                 setIsMyTurn(res.data.is_my_turn);
-                setCurrentQuestion(res.data.current_question);
+                
+                // IMPORTANT: Ne définir la question que si c'est mon tour
+                if (res.data.is_my_turn && res.data.current_question) {
+                    setCurrentQuestion(res.data.current_question);
+                    setWaitingForOpponent(false);
+                } else {
+                    setCurrentQuestion(null);
+                    setWaitingForOpponent(true);
+                }
+                
                 setLoading(false);
                 setError(null);
-                
-                // Mettre à jour l'état d'attente
-                if (!res.data.is_my_turn) {
-                    setWaitingForOpponent(true);
-                } else {
-                    setWaitingForOpponent(false);
-                }
             } else {
                 console.error('Erreur get_state:', res.data.message);
                 setError(res.data.message || 'Erreur lors de la récupération de l\'état');
