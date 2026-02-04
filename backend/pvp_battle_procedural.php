@@ -64,13 +64,44 @@ if ($action === 'init_battle') {
     // Tirage au sort (50/50)
     $first_player = (rand(0, 1) === 0) ? $match['player1_id'] : $match['player2_id'];
     
-    // Définir le joueur qui commence (éviter race condition)
+    // Choisir une question pour le premier joueur
+    $stmt = $pdo->prepare("SELECT grade_level FROM users WHERE id = ?");
+    $stmt->execute([$first_player]);
+    $userData = $stmt->fetch(PDO::FETCH_ASSOC);
+    $grade = $userData['grade_level'] ?? 'CE1';
+    
+    $stmt = $pdo->prepare("
+        SELECT id FROM question_bank 
+        WHERE grade_level = ? 
+        ORDER BY RAND() 
+        LIMIT 1
+    ");
+    $stmt->execute([$grade]);
+    $question = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$question) {
+        // Fallback : n'importe quelle question
+        $stmt = $pdo->prepare("
+            SELECT id FROM question_bank 
+            ORDER BY RAND() 
+            LIMIT 1
+        ");
+        $stmt->execute();
+        $question = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    if (!$question) {
+        echo json_encode(['success' => false, 'message' => 'Aucune question disponible']);
+        exit;
+    }
+    
+    // Définir le joueur qui commence ET la première question (éviter race condition)
     $stmt = $pdo->prepare("
         UPDATE pvp_matches 
-        SET current_turn = ?, waiting_for_answer = 1
+        SET current_turn = ?, current_question_id = ?, waiting_for_answer = 1
         WHERE id = ? AND current_turn IS NULL
     ");
-    $stmt->execute([$first_player, $match_id]);
+    $stmt->execute([$first_player, $question['id'], $match_id]);
     
     // Vérifier si c'est bien nous qui avons défini le tour
     if ($stmt->rowCount() === 0) {
@@ -442,11 +473,37 @@ if ($action === 'submit_answer') {
     // Changer de joueur
     $next_player = ($match['current_turn'] == $match['player1_id']) ? $match['player2_id'] : $match['player1_id'];
     
-    // Mettre à jour le match
+    // Générer une nouvelle question pour le joueur suivant
+    $stmt = $pdo->prepare("SELECT grade_level FROM users WHERE id = ?");
+    $stmt->execute([$next_player]);
+    $userData = $stmt->fetch(PDO::FETCH_ASSOC);
+    $grade = $userData['grade_level'] ?? 'CE1';
+    
+    $stmt = $pdo->prepare("
+        SELECT id FROM question_bank 
+        WHERE grade_level = ? 
+        ORDER BY RAND() 
+        LIMIT 1
+    ");
+    $stmt->execute([$grade]);
+    $next_question = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$next_question) {
+        // Fallback : n'importe quelle question
+        $stmt = $pdo->prepare("
+            SELECT id FROM question_bank 
+            ORDER BY RAND() 
+            LIMIT 1
+        ");
+        $stmt->execute();
+        $next_question = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    // Mettre à jour le match avec le nouveau joueur ET sa question
     $stmt = $pdo->prepare("
         UPDATE pvp_matches 
         SET current_turn = ?,
-            current_question_id = NULL,
+            current_question_id = ?,
             waiting_for_answer = 1,
             player1_team_hp = ?,
             player2_team_hp = ?
@@ -454,6 +511,7 @@ if ($action === 'submit_answer') {
     ");
     $stmt->execute([
         $next_player,
+        $next_question['id'] ?? null,
         json_encode($am_player1 ? $attacker_hp : $defender_hp),
         json_encode($am_player1 ? $defender_hp : $attacker_hp),
         $match_id

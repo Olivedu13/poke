@@ -94,11 +94,11 @@ export const PvPBattleProc: React.FC = () => {
                 setLoading(false);
                 setError(null);
                 
-                // Si c'est mon tour et qu'il n'y a pas de question, en demander une
-                if (res.data.is_my_turn && !res.data.current_question && res.data.match.status === 'IN_PROGRESS') {
-                    await fetchQuestion();
-                } else if (!res.data.is_my_turn) {
+                // Mettre à jour l'état d'attente
+                if (!res.data.is_my_turn) {
                     setWaitingForOpponent(true);
+                } else {
+                    setWaitingForOpponent(false);
                 }
             }
         } catch (e) {
