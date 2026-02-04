@@ -83,7 +83,7 @@ export const PvPLobby: React.FC = () => {
                 playSfx('victory');
                 setView('GAME');
                 setBattleMode('PVP');
-                setBattlePhase('LOADING');
+                setBattlePhase('BATTLE');
             }
         } catch (e) {
             console.error('Erreur vérification défis envoyés:', e);

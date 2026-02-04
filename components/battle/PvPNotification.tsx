@@ -27,7 +27,7 @@ export const PvPNotification: React.FC = () => {
                 // Changer la vue vers Combat puis lancer le combat
                 setView('GAME');
                 setBattleMode('PVP');
-                setBattlePhase('LOADING');
+                setBattlePhase('BATTLE');
             } else {
                 alert(res.data.message || 'Impossible d\'accepter le défi');
                 setPvpNotification(null);
