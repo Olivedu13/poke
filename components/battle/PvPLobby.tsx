@@ -94,19 +94,24 @@ export const PvPLobby: React.FC = () => {
     const handleChallenge = async (playerId: number) => {
         try {
             setSentChallenges(prev => [...prev, playerId]);
+            console.log('📤 Envoi du défi à:', playerId);
             const res = await api.post('/pvp_lobby.php', { 
                 action: 'send_challenge', 
                 challenged_id: playerId 
             });
+            console.log('📥 Réponse du serveur:', res.data);
             if (res.data.success) {
                 playSfx('buttonClick');
+                console.log('✅ Défi envoyé avec succès!');
             } else {
+                console.error('❌ Échec:', res.data.message);
                 alert(res.data.message || 'Impossible d\'envoyer le défi');
                 setSentChallenges(prev => prev.filter(id => id !== playerId));
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error('Erreur envoi défi:', e);
-            alert('Erreur lors de l\'envoi du défi');
+            console.error('Détails erreur:', e.response?.data);
+            alert('Erreur lors de l\'envoi du défi: ' + (e.response?.data?.message || e.message));
             setSentChallenges(prev => prev.filter(id => id !== playerId));
         }
     };

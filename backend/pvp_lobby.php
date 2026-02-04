@@ -300,12 +300,17 @@ if ($action === 'send_challenge') {
             'team_included' => $hasTeamColumn ? true : false
         ]);
     } catch (Exception $e) {
+        // Log détaillé de l'erreur
+        error_log("PVP send_challenge error: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine());
+        error_log("Stack trace: " . $e->getTraceAsString());
+        
         echo json_encode([
             'success' => false, 
             'message' => 'Erreur inattendue',
             'error' => $e->getMessage(),
             'file' => basename($e->getFile()),
-            'line' => $e->getLine()
+            'line' => $e->getLine(),
+            'trace' => explode("\n", $e->getTraceAsString())
         ]);
     }
     exit;
