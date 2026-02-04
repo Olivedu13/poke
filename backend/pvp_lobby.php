@@ -238,37 +238,37 @@ if ($action === 'send_challenge') {
         
         // Vérifier que le joueur cible existe et est en ligne
         $stmt = $pdo->prepare("
-        SELECT u.id, op.status 
-        FROM users u
-        LEFT JOIN online_players op ON u.id = op.user_id
-        WHERE u.id = ?
-    ");
-    $stmt->execute([$challenged_id]);
-    $target = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$target) {
-        echo json_encode(['success' => false, 'message' => 'Joueur introuvable']);
-        exit;
-    }
-    
-    if ($target['status'] !== 'available') {
-        echo json_encode(['success' => false, 'message' => 'Ce joueur n\'est pas disponible']);
-        exit;
-    }
-    
-    // Vérifier qu'il n'y a pas déjà un défi en cours
-    $stmt = $pdo->prepare("
-        SELECT id FROM pvp_challenges 
-        WHERE challenger_id = ? AND challenged_id = ? 
-        AND status = 'pending'
-        AND created_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
-    ");
-    $stmt->execute([$user_id, $challenged_id]);
-    if ($stmt->fetch()) {
-        echo json_encode(['success' => false, 'message' => 'Tu as déjà envoyé un défi à ce joueur']);
-        exit;
-    }
-    
+            SELECT u.id, op.status 
+            FROM users u
+            LEFT JOIN online_players op ON u.id = op.user_id
+            WHERE u.id = ?
+        ");
+        $stmt->execute([$challenged_id]);
+        $target = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$target) {
+            echo json_encode(['success' => false, 'message' => 'Joueur introuvable']);
+            exit;
+        }
+        
+        if ($target['status'] !== 'available') {
+            echo json_encode(['success' => false, 'message' => 'Ce joueur n\'est pas disponible']);
+            exit;
+        }
+        
+        // Vérifier qu'il n'y a pas déjà un défi en cours
+        $stmt = $pdo->prepare("
+            SELECT id FROM pvp_challenges 
+            WHERE challenger_id = ? AND challenged_id = ? 
+            AND status = 'pending'
+            AND created_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+        ");
+        $stmt->execute([$user_id, $challenged_id]);
+        if ($stmt->fetch()) {
+            echo json_encode(['success' => false, 'message' => 'Tu as déjà envoyé un défi à ce joueur']);
+            exit;
+        }
+        
         // Créer le défi avec l'équipe du challenger
         // Vérifier d'abord si la colonne challenger_team existe
         $stmt = $pdo->query("SHOW COLUMNS FROM pvp_challenges LIKE 'challenger_team'");
