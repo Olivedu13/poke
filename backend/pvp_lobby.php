@@ -211,32 +211,33 @@ if ($action === 'check_sent_challenges') {
 
 // Envoyer un défi
 if ($action === 'send_challenge') {
-    $input = json_decode(file_get_contents('php://input'), true);
-    $challenged_id = $input['challenged_id'] ?? null;
-    
-    if (!$challenged_id) {
-        echo json_encode(['success' => false, 'message' => 'ID joueur manquant']);
-        exit;
-    }
-    
-    // Récupérer l'équipe du challenger (3 Pokémon is_team=1)
-    $stmt = $pdo->prepare("
-        SELECT id, tyradex_id, level, current_hp, max_hp, name, sprite_url
-        FROM user_pokemon 
-        WHERE user_id = ? AND is_team = 1 
-        ORDER BY id ASC 
-        LIMIT 3
-    ");
-    $stmt->execute([$user_id]);
-    $myTeam = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    if (count($myTeam) < 3) {
-        echo json_encode(['success' => false, 'message' => 'Tu dois avoir 3 Pokémon dans ton équipe pour défier un adversaire']);
-        exit;
-    }
-    
-    // Vérifier que le joueur cible existe et est en ligne
-    $stmt = $pdo->prepare("
+    try {
+        $input = json_decode(file_get_contents('php://input'), true);
+        $challenged_id = $input['challenged_id'] ?? null;
+        
+        if (!$challenged_id) {
+            echo json_encode(['success' => false, 'message' => 'ID joueur manquant']);
+            exit;
+        }
+        
+        // Récupérer l'équipe du challenger (3 Pokémon is_team=1)
+        $stmt = $pdo->prepare("
+            SELECT id, tyradex_id, level, current_hp, max_hp, name, sprite_url
+            FROM user_pokemon 
+            WHERE user_id = ? AND is_team = 1 
+            ORDER BY id ASC 
+            LIMIT 3
+        ");
+        $stmt->execute([$user_id]);
+        $myTeam = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        if (count($myTeam) < 3) {
+            echo json_encode(['success' => false, 'message' => 'Tu dois avoir 3 Pokémon dans ton équipe pour défier un adversaire']);
+            exit;
+        }
+        
+        // Vérifier que le joueur cible existe et est en ligne
+        $stmt = $pdo->prepare("
         SELECT u.id, op.status 
         FROM users u
         LEFT JOIN online_players op ON u.id = op.user_id
@@ -268,8 +269,7 @@ if ($action === 'send_challenge') {
         exit;
     }
     
-    // Créer le défi avec l'équipe du challenger
-    try {
+        // Créer le défi avec l'équipe du challenger
         // Vérifier d'abord si la colonne challenger_team existe
         $stmt = $pdo->query("SHOW COLUMNS FROM pvp_challenges LIKE 'challenger_team'");
         $hasTeamColumn = $stmt->fetch();
@@ -299,11 +299,13 @@ if ($action === 'send_challenge') {
             'challenge_id' => $pdo->lastInsertId(),
             'team_included' => $hasTeamColumn ? true : false
         ]);
-    } catch (PDOException $e) {
+    } catch (Exception $e) {
         echo json_encode([
             'success' => false, 
-            'message' => 'Erreur lors de l\'envoi du défi',
-            'error' => $e->getMessage()
+            'message' => 'Erreur inattendue',
+            'error' => $e->getMessage(),
+            'file' => basename($e->getFile()),
+            'line' => $e->getLine()
         ]);
     }
     exit;
