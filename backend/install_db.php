@@ -1,4 +1,3 @@
-
 <?php
 // backend/install_db.php
 require_once 'db_connect.php';

@@ -1,4 +1,3 @@
-
 <?php
 // backend/get_question.php
 require_once 'protected_setup.php'; // Injecte $userId après vérif Token

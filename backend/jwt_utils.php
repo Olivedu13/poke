@@ -1,4 +1,3 @@
-
 <?php
 // backend/jwt_utils.php
 
