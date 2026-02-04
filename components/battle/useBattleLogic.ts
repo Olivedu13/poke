@@ -13,18 +13,20 @@ export const useBattleLogic = () => {
         user, initBattle, playerPokemon, enemyPokemon, battleLogs, 
         addLog, isPlayerTurn, damageEntity, healEntity, endTurn, battleOver,
         collection, fetchCollection, inventory, fetchInventory, claimBattleRewards,
-        gradeGauge, updateGradeProgress, combo, specialGauge, consumeSpecial 
+        gradeGauge, updateGradeProgress, combo, specialGauge, consumeSpecial,
+        battlePhase, setBattlePhase, previewEnemy, selectedPlayer,
+        setPreviewEnemy, setSelectedPlayer, battleMode, trainerOpponent,
+        setTrainerOpponent
     } = useGameStore();
 
     // --- LOCAL STATE ---
-    const [phase, setPhase] = useState<'LOADING' | 'PREVIEW' | 'FIGHTING' | 'FINISHED'>('LOADING');
-    const [previewEnemy, setPreviewEnemy] = useState<Pokemon|null>(null);
-    const [selectedPlayer, setSelectedPlayer] = useState<Pokemon|null>(null);
     const [showQuiz, setShowQuiz] = useState(false);
     const [showInventory, setShowInventory] = useState(false);
     const [showTeam, setShowTeam] = useState(false);
     const [lootRevealed, setLootRevealed] = useState(false);
     const [rewards, setRewards] = useState<{xp: number, gold: number, loot?: string} | null>(null);
+    const [captureAttempted, setCaptureAttempted] = useState(false);
+    const [captureSuccess, setCaptureSuccess] = useState(false);
 
     // --- ANIMATION STATE ---
     const controlsPlayer = useAnimation();
@@ -60,7 +62,7 @@ export const useBattleLogic = () => {
             const response = await axios.get(`https://tyradex.vercel.app/api/v1/pokemon/${id}`, { timeout: 3000 });
             const data = response.data;
             const scale = (base: number) => Math.floor(base * (1 + level / 50));
-            const hpMult = isBoss ? 10.0 : 4.0;
+            const hpMult = isBoss ? 2.0 : 0.7;
             const hp = Math.floor(scale(data.stats.hp) * hpMult);
             
             return {
@@ -74,7 +76,7 @@ export const useBattleLogic = () => {
                 current_xp: 0, tyradex_id: data.pokedexId, next_level_xp: 100, isBoss: isBoss
             };
         } catch (e) {
-             const hpMult = isBoss ? 10.0 : 4.0;
+             const hpMult = isBoss ? 2.0 : 0.7;
              return { 
                 id: `wild-fb-${id}`, name: `Pokemon #${id}`, sprite_url: spriteUrl, level: level, max_hp: 70 * hpMult, current_hp: 70 * hpMult, type: 'Normal',
                 stats: { atk: 50, def: 50, spe: 50 }, current_xp: 0, tyradex_id: id, next_level_xp: 100, isBoss: isBoss
@@ -82,10 +84,51 @@ export const useBattleLogic = () => {
         }
     };
 
+    // --- GENERATE TRAINER OPPONENT ---
+    const generateTrainerOpponent = async (playerLevel: number): Promise<any> => {
+        const trainerNames = ['Sacha', 'Pierre', 'Ondine', 'Flora', 'Max', 'Aurore', 'Iris', 'Lem', 'Serena', 'Tili'];
+        const name = trainerNames[Math.floor(Math.random() * trainerNames.length)];
+        
+        const team = [];
+        for (let i = 0; i < 3; i++) {
+            const level = Math.max(1, playerLevel + Math.floor(Math.random() * 3) - 1);
+            const pokemonId = Math.floor(Math.random() * 150) + 1;
+            const pokemon = await fetchTyradexData(pokemonId, level);
+            team.push(pokemon);
+        }
+
+        return {
+            name,
+            avatar: '👤',
+            team,
+            currentPokemonIndex: 0
+        };
+    };
+
     // --- SETUP INITIAL ---
     useEffect(() => {
-        if (phase === 'LOADING') {
+        // Ne pas réinitialiser si un combat est déjà en cours
+        if (battlePhase !== 'NONE' && battlePhase !== 'LOADING' && playerPokemon && enemyPokemon) {
+            return;
+        }
+        
+        if (battlePhase === 'NONE' || battlePhase === 'LOADING') {
+            setBattlePhase('LOADING');
             const setup = async () => {
+                // Vérifier si on peut lancer un PvP (limite de 6 simultanés)
+                if (battleMode === 'PVP') {
+                    try {
+                        const checkRes = await api.get('/battle_session.php?action=can_start');
+                        if (!checkRes.data.can_start) {
+                            addLog({ message: `Serveur PvP plein (${checkRes.data.active_pvp}/6). Réessayez.`, type: 'INFO' });
+                            setBattlePhase('NONE');
+                            return;
+                        }
+                    } catch (e) {
+                        console.warn('Vérification PvP impossible:', e);
+                    }
+                }
+                
                 await fetchCollection();
                 await fetchInventory();
                 const myTeam = useGameStore.getState().collection;
@@ -93,46 +136,116 @@ export const useBattleLogic = () => {
                 const starter = activeTeam[0] || myTeam[0]; 
                 if (starter) setSelectedPlayer(starter);
                 
+                // Génération des questions IA si activé
+                if (user?.custom_prompt_active && user.custom_prompt_text) {
+                    try {
+                        addLog({ message: 'Génération des questions...', type: 'INFO' });
+                        await api.post(`/generate_ai_questions.php`, {
+                            topic: user.custom_prompt_text,
+                            count: 10
+                        });
+                    } catch (e) {
+                        console.warn('Erreur génération questions IA:', e);
+                    }
+                }
+                
                 const baseLevel = (starter?.level || 1);
-                const enemyLevel = Math.max(1, baseLevel + Math.floor(Math.random() * 3) - 1);
-                const enemyId = Math.floor(Math.random() * 150) + 1;
-                const enemy = await fetchTyradexData(enemyId, enemyLevel);
-                setPreviewEnemy(enemy);
-                setPhase('PREVIEW');
+                
+                // Mode WILD ou TRAINER
+                if (battleMode === 'TRAINER') {
+                    const trainer = await generateTrainerOpponent(baseLevel);
+                    setTrainerOpponent(trainer);
+                    setPreviewEnemy(trainer.team[0]);
+                } else {
+                    // Mode WILD classique
+                    const enemyLevel = Math.max(1, baseLevel + Math.floor(Math.random() * 3) - 1);
+                    const enemyId = Math.floor(Math.random() * 150) + 1;
+                    const enemy = await fetchTyradexData(enemyId, enemyLevel);
+                    setPreviewEnemy(enemy);
+                }
+                
+                setBattlePhase('PREVIEW');
             };
             setup();
         }
-    }, [phase]);
+    }, [battlePhase]);
 
     // --- GAME LOOP & IA ---
     useEffect(() => {
-        if (battleOver && enemyPokemon?.current_hp === 0 && phase === 'FIGHTING') {
-            setPhase('FINISHED');
+        if (battleOver && enemyPokemon?.current_hp === 0 && battlePhase === 'FIGHTING') {
+            // Mode TRAINER : vérifier s'il reste des Pokemon
+            if (battleMode === 'TRAINER' && trainerOpponent) {
+                const nextIndex = trainerOpponent.currentPokemonIndex + 1;
+                if (nextIndex < trainerOpponent.team.length) {
+                    // Passer au prochain Pokemon du dresseur
+                    addLog({ message: `${trainerOpponent.name} envoie ${trainerOpponent.team[nextIndex].name} !`, type: 'INFO' });
+                    setTrainerOpponent({
+                        ...trainerOpponent,
+                        currentPokemonIndex: nextIndex
+                    });
+                    initBattle(playerPokemon!, trainerOpponent.team[nextIndex]);
+                    return;
+                }
+            }
+            
+            // Vérifier si on a une pokeball pour proposer la capture (uniquement en mode WILD)
+            if (battleMode === 'WILD') {
+                const hasPokeball = inventory.some(i => i.effect_type === 'CAPTURE' && i.quantity > 0);
+                
+                if (hasPokeball) {
+                    setBattlePhase('CAPTURE');
+                } else {
+                    setCaptureAttempted(true);
+                    setCaptureSuccess(false);
+                    setBattlePhase('CAPTURE');
+                }
+            } else {
+                // Mode TRAINER : pas de capture, victoire directe
+                setCaptureAttempted(true);
+                setCaptureSuccess(false);
+                setBattlePhase('CAPTURE');
+            }
+        } else if (battlePhase === 'CAPTURE' && captureAttempted) {
+            // Après tentative de capture, passer à la victoire
+            setBattlePhase('FINISHED');
             confetti({ particleCount: 200, spread: 150, origin: { y: 0.6 } });
             
-            const isBoss = enemyPokemon.isBoss || false;
-            let xpGain = (enemyPokemon.level * 20) + 10;
-            let goldGain = (enemyPokemon.level * 10) + 5;
-            if (isBoss) { xpGain *= 3; goldGain *= 3; }
-            
-            let loot: string | undefined = undefined;
-            if (Math.random() < 0.30 || isBoss) { 
-                const items = ['heal_r1', 'pokeball'];
-                loot = items[Math.floor(Math.random() * items.length)];
-                if (isBoss) loot = 'heal_r2'; 
+            if (enemyPokemon) {
+                const isBoss = enemyPokemon.isBoss || false;
+                const isTrainerMode = battleMode === 'TRAINER';
+                
+                let xpGain = (enemyPokemon.level * 20) + 10;
+                let goldGain = (enemyPokemon.level * 10) + 5;
+                
+                // Multiplicateur pour boss et dresseur
+                if (isBoss) { xpGain *= 3; goldGain *= 3; }
+                if (isTrainerMode) { xpGain *= 2; goldGain *= 2; }
+                
+                let loot: string | undefined = undefined;
+                if (Math.random() < 0.30 || isBoss || isTrainerMode) { 
+                    const items = isTrainerMode 
+                        ? ['heal_r2', 'traitor_r1', 'atk_r1', 'def_r1'] 
+                        : ['heal_r1', 'pokeball'];
+                    loot = items[Math.floor(Math.random() * items.length)];
+                    if (isBoss) loot = 'heal_r2'; 
+                }
+                setRewards({ xp: xpGain, gold: goldGain, loot });
+                claimBattleRewards(xpGain, goldGain, loot);
+                
+                const victoryMsg = isTrainerMode && trainerOpponent 
+                    ? `Tu as battu le dresseur ${trainerOpponent.name} !` 
+                    : 'VICTOIRE !';
+                addLog({ message: victoryMsg, type: 'INFO' });
             }
-            setRewards({ xp: xpGain, gold: goldGain, loot });
-            claimBattleRewards(xpGain, goldGain, loot);
-            addLog({ message: 'VICTOIRE !', type: 'INFO' });
 
-        } else if (battleOver && playerPokemon?.current_hp === 0 && phase === 'FIGHTING') {
-             setPhase('FINISHED');
+        } else if (battleOver && playerPokemon?.current_hp === 0 && battlePhase === 'FIGHTING') {
+             setBattlePhase('FINISHED');
              setRewards(null);
         }
-    }, [battleOver, phase]);
+    }, [battleOver, battlePhase, captureAttempted]);
 
     useEffect(() => {
-        if (phase === 'FIGHTING' && !isPlayerTurn && !battleOver && enemyPokemon && playerPokemon) {
+        if (battlePhase === 'FIGHTING' && !isPlayerTurn && !battleOver && enemyPokemon && playerPokemon) {
             const aiTurn = async () => {
                 await new Promise(r => setTimeout(r, 1000));
                 await controlsEnemy.start({ x: -100, y: 100, scale: 1.2, transition: { duration: 0.2 } });
@@ -146,13 +259,23 @@ export const useBattleLogic = () => {
             };
             aiTurn();
         }
-    }, [isPlayerTurn, battleOver, phase]);
+    }, [isPlayerTurn, battleOver, battlePhase]);
 
     // --- ACTIONS JOUEUR ---
-    const startBattle = () => {
+    const startBattle = async () => {
+        // Enregistrer la session de combat
+        try {
+            await api.post('/battle_session.php', { 
+                action: 'start',
+                battle_type: battleMode
+            });
+        } catch (e) {
+            console.warn('Impossible d\'enregistrer la session:', e);
+        }
+        
         if(selectedPlayer && previewEnemy) {
             initBattle(selectedPlayer, previewEnemy);
-            setPhase('FIGHTING');
+            setBattlePhase('FIGHTING');
         }
     };
 
@@ -206,11 +329,19 @@ export const useBattleLogic = () => {
     };
 
     const handleUseItem = async (item: Item) => {
-        if (['HEAL', 'BUFF_ATK', 'BUFF_DEF'].includes(item.effect_type)) {
-            playSfx('POTION'); 
-            if (item.effect_type === 'HEAL') {
-                 healEntity('PLAYER', item.value);
-                 spawnFloatingText(`+${item.value}`, 'text-green-400', true);
+        if (['HEAL', 'BUFF_ATK', 'BUFF_DEF', 'TRAITOR'].includes(item.effect_type)) {
+            if (item.effect_type === 'TRAITOR') {
+                // Potion traître : inflige des dégâts à l'ennemi
+                playSfx('ATTACK');
+                damageEntity('ENEMY', item.value);
+                spawnFloatingText(`-${item.value} POISON!`, 'text-purple-400', false);
+                addLog({ message: `Potion traître ! ${item.value} dégâts infligés !`, type: 'PLAYER' });
+            } else if (item.effect_type === 'HEAL') {
+                playSfx('POTION'); 
+                healEntity('PLAYER', item.value);
+                spawnFloatingText(`+${item.value}`, 'text-green-400', true);
+            } else {
+                playSfx('POTION');
             }
             try {
                  await api.post(`/collection.php`, { action: 'use_item', item_id: item.id, pokemon_id: playerPokemon?.id });
@@ -229,11 +360,35 @@ export const useBattleLogic = () => {
         }
     };
 
-    const handleExitBattle = () => {
+    const handleExitBattle = async () => {
+        // Libérer le slot de combat sur le serveur
+        try {
+            await api.post('/battle_rewards.php', { 
+                action: 'end_session'
+            });
+        } catch (e) {
+            console.warn('Impossible de libérer le slot de combat:', e);
+        }
+        
         setRewards(null);
         setLootRevealed(false);
-        useGameStore.setState({ playerPokemon: null, enemyPokemon: null, battleOver: false, battleLogs: [], isPlayerTurn: true, gradeGauge: 0, combo: 0, specialGauge: 0 });
-        setPhase('LOADING');
+        setCaptureAttempted(false);
+        setCaptureSuccess(false);
+        useGameStore.setState({ 
+            playerPokemon: null, 
+            enemyPokemon: null, 
+            battleOver: false, 
+            battleLogs: [], 
+            isPlayerTurn: true, 
+            gradeGauge: 0, 
+            combo: 0, 
+            specialGauge: 0, 
+            battlePhase: 'NONE',
+            battleMode: 'WILD',
+            trainerOpponent: null,
+            previewEnemy: null,
+            selectedPlayer: null
+        });
     };
 
     const revealLoot = () => {
@@ -241,14 +396,67 @@ export const useBattleLogic = () => {
         confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } });
     };
 
+    const handleCapture = async (attempt: boolean) => {
+        if (!attempt) {
+            setCaptureAttempted(true);
+            setCaptureSuccess(false);
+            return;
+        }
+        
+        // Vérifier qu'on a une pokeball
+        const pokeball = inventory.find(i => i.effect_type === 'CAPTURE' && i.quantity > 0);
+        if (!pokeball || !enemyPokemon) {
+            setCaptureAttempted(true);
+            setCaptureSuccess(false);
+            addLog({ message: 'Pas de Pokéball !', type: 'INFO' });
+            return;
+        }
+        
+        // Calcul de la probabilité de capture (plus HP bas = plus facile)
+        const hpPercent = (enemyPokemon?.current_hp || 0) / (enemyPokemon?.max_hp || 1);
+        const captureChance = 0.6 + (1 - hpPercent) * 0.4; // 60% min, jusqu'à 100%
+        const success = Math.random() < captureChance;
+        
+        // Consommer la pokeball
+        try {
+            await api.post(`/collection.php`, {
+                action: 'use_item',
+                item_id: pokeball.id,
+                pokemon_id: playerPokemon?.id
+            });
+            await fetchInventory();
+        } catch (e) {
+            console.error('Erreur consommation pokeball:', e);
+        }
+        
+        if (success && enemyPokemon) {
+            try {
+                await api.post(`/collection.php`, {
+                    action: 'capture_wild',
+                    tyradex_id: enemyPokemon.tyradex_id,
+                    level: enemyPokemon.level,
+                    name: enemyPokemon.name
+                });
+                setCaptureSuccess(true);
+                confetti({ particleCount: 300, spread: 180, origin: { y: 0.6 } });
+            } catch (e) {
+                console.error('Erreur capture:', e);
+            }
+        }
+        
+        setCaptureAttempted(true);
+        setCaptureSuccess(success);
+    };
+
     return {
         // State
-        phase, previewEnemy, selectedPlayer, rewards, lootRevealed,
+        phase: battlePhase, previewEnemy, selectedPlayer, rewards, lootRevealed,
         showQuiz, setShowQuiz,
         showInventory, setShowInventory,
         showTeam, setShowTeam,
         shake, flash, floatingTexts,
         controlsPlayer, controlsEnemy,
+        captureSuccess,
         
         // Actions
         startBattle,
@@ -257,6 +465,7 @@ export const useBattleLogic = () => {
         handleUseItem,
         handleSwitchPokemon,
         handleExitBattle,
-        revealLoot
+        revealLoot,
+        handleCapture
     };
 };

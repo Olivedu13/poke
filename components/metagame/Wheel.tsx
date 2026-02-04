@@ -49,7 +49,7 @@ const generatePreviewSegments = (bet: number): WheelSegment[] => {
 };
 
 export const Wheel: React.FC = () => {
-  const { user, spendCurrency } = useGameStore();
+  const { user, spendCurrency, fetchCollection, fetchInventory, fetchUser } = useGameStore();
   const controls = useAnimation();
   const rotationRef = useRef(0); 
   const [spinning, setSpinning] = useState(false);
@@ -117,6 +117,26 @@ export const Wheel: React.FC = () => {
       const winner = newSegments[targetIndex];
       setWonSegment(winner);
       playSfx('REWARD'); 
+      
+      // Mettre à jour immédiatement avec les valeurs retournées par l'API
+      if (res.data.new_gold !== undefined || res.data.new_xp !== undefined) {
+          useGameStore.setState((state) => ({
+              user: state.user ? {
+                  ...state.user,
+                  gold: res.data.new_gold ?? state.user.gold,
+                  global_xp: res.data.new_xp ?? state.user.global_xp,
+                  tokens: res.data.new_tokens ?? state.user.tokens
+              } : null
+          }));
+      }
+      
+      // Rafraîchir collection/inventory si nécessaire
+      if (winner.type === 'POKEMON') {
+          await fetchCollection();
+      } else if (winner.type === 'ITEM') {
+          await fetchInventory();
+      }
+      
       if (winner.type === 'POKEMON' || winner.type === 'ITEM' || (winner.value && winner.value > 100)) {
             confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 }, zIndex: 100 });
       }

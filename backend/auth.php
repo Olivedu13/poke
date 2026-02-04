@@ -108,6 +108,51 @@ if ($action === 'register') {
     } catch (Exception $e) {
         send_auth_json(['success' => false, 'message' => 'Erreur de connexion']);
     }
+
+} elseif ($action === 'verify') {
+    // Vérifier le token et retourner les données utilisateur à jour
+    require_once 'jwt_utils.php';
+    
+    $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
+    if (empty($authHeader) || !preg_match('/Bearer\s+(.*)$/i', $authHeader, $matches)) {
+        send_auth_json(['success' => false, 'message' => 'Token manquant']);
+    }
+    
+    $token = $matches[1];
+    $decoded = verify_jwt($token);
+    
+    if (!$decoded) {
+        send_auth_json(['success' => false, 'message' => 'Token invalide']);
+    }
+    
+    $userId = $decoded['user_id'];
+    
+    try {
+        $stmt = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $user = $stmt->fetch();
+        
+        if ($user) {
+            unset($user['password_hash']);
+            
+            // Reformatage des champs JSON
+            if (is_string($user['active_subjects'])) {
+                $decoded = json_decode($user['active_subjects'], true);
+                $user['active_subjects'] = is_array($decoded) ? $decoded : ['MATHS'];
+            }
+            if (is_string($user['focus_categories'])) {
+                $decoded = json_decode($user['focus_categories'], true);
+                $user['focus_categories'] = is_array($decoded) ? $decoded : null;
+            }
+            
+            send_auth_json(['success' => true, 'user' => $user]);
+        } else {
+            send_auth_json(['success' => false, 'message' => 'Utilisateur introuvable']);
+        }
+    } catch (Exception $e) {
+        send_auth_json(['success' => false, 'message' => 'Erreur serveur']);
+    }
+
 } else {
     send_auth_json(['success' => false, 'message' => 'Action inconnue']);
 }

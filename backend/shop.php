@@ -186,6 +186,11 @@ try {
         $pokeTyraId = $input['pokemon_id'];
         $sellPrice = 500; 
         
+        // Protection des starters
+        if (in_array($pokeTyraId, [1, 4, 7])) {
+            throw new Exception("Les Pokémon de départ ne peuvent pas être vendus !");
+        }
+        
         $stmt = $pdo->prepare("SELECT id FROM user_pokemon WHERE user_id = ? AND tyradex_id = ? LIMIT 1");
         $stmt->execute([$userId, $pokeTyraId]);
         $instanceId = $stmt->fetchColumn();

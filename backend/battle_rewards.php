@@ -1,8 +1,16 @@
 <?php
 require_once 'protected_setup.php'; // Auth V3 (Définit $userId et $input)
+require_once 'battle_session.php';
 
-$xp = isset($input['xp']) ? (int)$input['xp'] : 0;
-$gold = isset($input['gold'] ?? 0) ? (int)$input['gold'] : 0;
+// Si c'est une demande de fin de session
+if (isset($input['action']) && $input['action'] === 'end_session') {
+    endBattleSession($userId, $pdo);
+    echo json_encode(['success' => true, 'message' => 'Session terminée']);
+    exit;
+}
+
+$xp = isset($input['xp']) ? max(0, (int)$input['xp']) : 0;
+$gold = isset($input['gold']) ? (int)$input['gold'] : 0;
 $itemId = $input['item_drop'] ?? null;
 
 try {
@@ -20,6 +28,9 @@ try {
     }
 
     $pdo->commit();
+
+    // Libérer le slot de combat
+    endBattleSession($userId, $pdo);
 
     echo json_encode(['success' => true, 'message' => 'Rewards claimed']);
 } catch (Exception $e) {

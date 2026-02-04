@@ -1,6 +1,6 @@
 
 import { create } from 'zustand';
-import { User, Pokemon, Item, CombatLog, ViewState, GradeLevel } from '../types';
+import { User, Pokemon, Item, CombatLog, ViewState, GradeLevel, BattleMode, TrainerOpponent } from '../types';
 import { api } from '../services/api'; // V3 API
 import { playSfx } from '../utils/soundEngine';
 
@@ -17,9 +17,14 @@ interface GameState {
   
   playerPokemon: Pokemon | null;
   enemyPokemon: Pokemon | null;
+  previewEnemy: Pokemon | null;
+  selectedPlayer: Pokemon | null;
+  battleMode: BattleMode;
+  trainerOpponent: TrainerOpponent | null;
   battleLogs: CombatLog[];
   isPlayerTurn: boolean;
   battleOver: boolean;
+  battlePhase: 'NONE' | 'LOADING' | 'PREVIEW' | 'FIGHTING' | 'CAPTURE' | 'FINISHED';
   combo: number;         
   specialGauge: number;  
   seenQuestionIds: (string | number)[]; 
@@ -34,6 +39,11 @@ interface GameState {
   updateUserConfig: (config: Partial<User>) => void;
   
   initBattle: (player: Pokemon, enemy: Pokemon) => void;
+  setBattlePhase: (phase: 'NONE' | 'LOADING' | 'PREVIEW' | 'FIGHTING' | 'CAPTURE' | 'FINISHED') => void;
+  setBattleMode: (mode: BattleMode) => void;
+  setTrainerOpponent: (trainer: TrainerOpponent | null) => void;
+  setPreviewEnemy: (enemy: Pokemon | null) => void;
+  setSelectedPlayer: (player: Pokemon | null) => void;
   addLog: (log: CombatLog) => void;
   damageEntity: (target: 'PLAYER' | 'ENEMY', amount: number) => void;
   healEntity: (target: 'PLAYER' | 'ENEMY', amount: number) => void;
@@ -46,6 +56,7 @@ interface GameState {
   updateGradeProgress: (correct: boolean, difficulty?: string) => Promise<boolean>;
   fetchCollection: () => Promise<void>;
   fetchInventory: () => Promise<void>;
+  fetchUser: () => Promise<void>;
   spendCurrency: (type: 'GOLD' | 'TOKEN', amount: number) => void;
   swapTeamMember: (outId: string, inId: string) => Promise<boolean>;
 }
@@ -57,9 +68,14 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   playerPokemon: null,
   enemyPokemon: null,
+  previewEnemy: null,
+  selectedPlayer: null,
+  battleMode: 'WILD',
+  trainerOpponent: null,
   battleLogs: [],
   isPlayerTurn: true,
   battleOver: false,
+  battlePhase: 'NONE',
   combo: 0,
   specialGauge: 0,
   seenQuestionIds: [],
@@ -93,9 +109,20 @@ export const useGameStore = create<GameState>((set, get) => ({
     battleLogs: [{ message: `Un ${enemy.name} sauvage !`, type: 'INFO' }],
     isPlayerTurn: true,
     battleOver: false,
+    battlePhase: 'PREVIEW',
     combo: 0,
     specialGauge: 0
   }),
+
+  setBattlePhase: (phase: 'NONE' | 'LOADING' | 'PREVIEW' | 'FIGHTING' | 'CAPTURE' | 'FINISHED') => set({ battlePhase: phase }),
+
+  setBattleMode: (mode) => set({ battleMode: mode }),
+
+  setTrainerOpponent: (trainer) => set({ trainerOpponent: trainer }),
+
+  setPreviewEnemy: (enemy) => set({ previewEnemy: enemy }),
+
+  setSelectedPlayer: (player) => set({ selectedPlayer: player }),
 
   addLog: (log) => set((state) => ({
     battleLogs: [...state.battleLogs, log].slice(-5)
@@ -150,19 +177,19 @@ export const useGameStore = create<GameState>((set, get) => ({
       let currentGauge = state.gradeGauge;
       let newGrade = state.user.grade_level;
       let gradeChanged = false;
-      let points = correct ? (difficulty === 'HARD' ? 3 : 2) : -2;
+      let points = correct ? (difficulty === 'HARD' ? 1 : 1) : 0;
       
       if(correct) state.incrementCombo(); 
       else { state.resetCombo(); set({ specialGauge: 0 }); }
 
       let newGauge = currentGauge + points;
-      if (newGauge >= 20) {
+      if (newGauge >= 5) {
           const idx = GRADES_ORDER.indexOf(newGrade);
           if (idx < GRADES_ORDER.length - 1) {
               newGrade = GRADES_ORDER[idx + 1];
               newGauge = 0; gradeChanged = true;
               playSfx('LEVEL_UP');
-          } else newGauge = 20;
+          } else newGauge = 5;
       } else if (newGauge < 0) {
           newGauge = 0;
       }
@@ -177,9 +204,11 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   claimBattleRewards: async (xp, gold, itemDrop) => {
       try {
-          await api.post(`/battle_rewards.php`, { xp, gold, item_drop: itemDrop });
+          const safeXp = Math.max(0, xp);
+          const safeGold = gold;
+          await api.post(`/battle_rewards.php`, { xp: safeXp, gold: safeGold, item_drop: itemDrop });
           set((s) => ({
-              user: s.user ? { ...s.user, global_xp: s.user.global_xp + xp, gold: s.user.gold + gold, streak: s.user.streak + 1 } : null
+              user: s.user ? { ...s.user, global_xp: s.user.global_xp + safeXp, gold: s.user.gold + safeGold, streak: s.user.streak + 1 } : null
           }));
           if(itemDrop) await get().fetchInventory(); 
       } catch (e) {}
@@ -197,6 +226,17 @@ export const useGameStore = create<GameState>((set, get) => ({
       const res = await api.get(`/shop.php?action=list_items`);
       if (res.data.success) set({ inventory: Array.isArray(res.data.data) ? res.data.data : MOCK_INV });
     } catch (e) { set({ inventory: MOCK_INV }); }
+  },
+  
+  fetchUser: async () => {
+    try {
+      const res = await api.get(`/auth.php?action=verify`);
+      if (res.data.success && res.data.user) {
+        set({ user: res.data.user });
+      }
+    } catch (e) {
+      console.error('Erreur refresh user:', e);
+    }
   },
 
   spendCurrency: (type, amount) => set((state) => {

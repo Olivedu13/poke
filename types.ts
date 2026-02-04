@@ -34,6 +34,15 @@ export interface PokemonStats {
   spe: number;
 }
 
+export type BattleMode = 'WILD' | 'TRAINER' | 'PVP';
+
+export interface TrainerOpponent {
+  name: string;
+  avatar: string;
+  team: Pokemon[];
+  currentPokemonIndex: number;
+}
+
 export interface Pokemon {
   id: string; // UUID or ID
   name: string;
@@ -66,7 +75,7 @@ export interface Item {
   id: string;
   name: string;
   description: string;
-  effect_type: 'HEAL' | 'HEAL_TEAM' | 'BUFF_ATK' | 'BUFF_DEF' | 'DMG_FLAT' | 'EVOLUTION' | 'EVOLUTION_MAX' | 'STATUS_SLEEP' | 'STATUS_POISON' | 'SPECIAL_MIRROR' | 'XP_BOOST' | 'TOKEN_PACK' | 'CAPTURE' | 'JOKER';
+  effect_type: 'HEAL' | 'HEAL_TEAM' | 'BUFF_ATK' | 'BUFF_DEF' | 'DMG_FLAT' | 'EVOLUTION' | 'EVOLUTION_MAX' | 'STATUS_SLEEP' | 'STATUS_POISON' | 'SPECIAL_MIRROR' | 'XP_BOOST' | 'TOKEN_PACK' | 'CAPTURE' | 'JOKER' | 'TRAITOR';
   value: number; // e.g., 20 for 20% heal
   quantity: number;
   price?: number;
