@@ -3,6 +3,7 @@ import { useGameStore } from '../../store/gameStore';
 import { api } from '../../services/api';
 import { ASSETS_BASE_URL } from '../../config';
 import { motion, AnimatePresence } from 'framer-motion';
+import { playSfx } from '../../utils/soundEngine';
 
 interface OnlinePlayer {
     id: number;
@@ -23,7 +24,7 @@ interface Challenge {
 }
 
 export const PvPLobby: React.FC = () => {
-    const { user, setBattlePhase, setBattleMode } = useGameStore();
+    const { user, setBattlePhase, setBattleMode, setView } = useGameStore();
     const [onlinePlayers, setOnlinePlayers] = useState<OnlinePlayer[]>([]);
     const [incomingChallenges, setIncomingChallenges] = useState<Challenge[]>([]);
     const [sentChallenges, setSentChallenges] = useState<number[]>([]);
@@ -55,6 +56,28 @@ export const PvPLobby: React.FC = () => {
             }
         } catch (e) {
             console.error('Erreur récupération défis:', e);
+        }
+    };
+
+    // Vérifier si mes défis envoyés ont été acceptés
+    const checkSentChallenges = async () => {
+        try {
+            const res = await api.get('/pvp_lobby.php?action=check_sent_challenges');
+            if (res.data.success && res.data.accepted_match) {
+                // Un défi a été accepté ! Lancer le combat
+                const match = res.data.accepted_match;
+                localStorage.setItem('pvp_match', JSON.stringify({
+                    match_id: match.match_id,
+                    player1_id: match.player1_id,
+                    player2_id: match.player2_id
+                }));
+                playSfx('victory');
+                setView('GAME');
+                setBattleMode('PVP');
+                setBattlePhase('LOADING');
+            }
+        } catch (e) {
+            console.error('Erreur vérification défis envoyés:', e);
         }
     };
 
@@ -92,10 +115,10 @@ export const PvPLobby: React.FC = () => {
                 localStorage.setItem('pvp_match', JSON.stringify({
                     match_id: res.data.match_id,
                     player1_id: res.data.player1_id,
-                    player2_id: res.data.player2_id,
-                    current_turn: res.data.current_turn
+                    player2_id: res.data.player2_id
                 }));
-                // Lancer le combat PvP
+                // Changer vers la vue Combat puis lancer
+                setView('GAME');
                 setBattleMode('PVP');
                 setBattlePhase('LOADING');
             } else {
@@ -126,10 +149,12 @@ export const PvPLobby: React.FC = () => {
     useEffect(() => {
         fetchOnlinePlayers();
         fetchIncomingChallenges();
+        checkSentChallenges();
         
         const interval = setInterval(() => {
             fetchOnlinePlayers();
             fetchIncomingChallenges();
+            checkSentChallenges(); // Vérifier aussi les défis envoyés
         }, 3000);
         
         return () => clearInterval(interval);

@@ -89,6 +89,52 @@ if ($action === 'get_challenges') {
     exit;
 }
 
+// Vérifier si mes défis envoyés ont été acceptés
+if ($action === 'check_sent_challenges') {
+    // Chercher si j'ai un défi accepté et un match créé
+    $stmt = $pdo->prepare("
+        SELECT 
+            c.id as challenge_id,
+            m.id as match_id,
+            m.player1_id,
+            m.player2_id,
+            m.status
+        FROM pvp_challenges c
+        JOIN pvp_matches m ON (
+            (c.challenger_id = m.player1_id AND c.challenged_id = m.player2_id)
+            OR (c.challenger_id = m.player2_id AND c.challenged_id = m.player1_id)
+        )
+        WHERE c.challenger_id = ? 
+        AND c.status = 'accepted'
+        AND m.status = 'IN_PROGRESS'
+        AND c.created_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+        LIMIT 1
+    ");
+    $stmt->execute([$user_id]);
+    $match = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($match) {
+        // Marquer le défi comme vu
+        $stmt = $pdo->prepare("UPDATE pvp_challenges SET status = 'seen' WHERE id = ?");
+        $stmt->execute([$match['challenge_id']]);
+        
+        echo json_encode([
+            'success' => true,
+            'accepted_match' => [
+                'match_id' => $match['match_id'],
+                'player1_id' => $match['player1_id'],
+                'player2_id' => $match['player2_id']
+            ]
+        ]);
+    } else {
+        echo json_encode([
+            'success' => true,
+            'accepted_match' => null
+        ]);
+    }
+    exit;
+}
+
 // Envoyer un défi
 if ($action === 'send_challenge') {
     $input = json_decode(file_get_contents('php://input'), true);
@@ -194,12 +240,12 @@ if ($action === 'accept_challenge') {
         $user_id, $challenge['challenger_id']
     ]);
     
-    // Créer le match PvP
+    // Créer le match PvP (sans current_turn pour l'instant)
     $stmt = $pdo->prepare("
-        INSERT INTO pvp_matches (player1_id, player2_id, status, current_turn, created_at)
-        VALUES (?, ?, 'IN_PROGRESS', ?, NOW())
+        INSERT INTO pvp_matches (player1_id, player2_id, status, created_at)
+        VALUES (?, ?, 'IN_PROGRESS', NOW())
     ");
-    $stmt->execute([$challenge['challenger_id'], $user_id, $challenge['challenger_id']]);
+    $stmt->execute([$challenge['challenger_id'], $user_id]);
     $match_id = $pdo->lastInsertId();
     
     // Marquer les deux joueurs comme en combat
@@ -211,8 +257,7 @@ if ($action === 'accept_challenge') {
         'message' => 'Défi accepté ! Le combat commence.',
         'match_id' => $match_id,
         'player1_id' => $challenge['challenger_id'],
-        'player2_id' => $user_id,
-        'current_turn' => $challenge['challenger_id']
+        'player2_id' => $user_id
     ]);
     exit;
 }
@@ -236,6 +281,33 @@ if ($action === 'decline_challenge') {
     $stmt->execute([$challenge_id, $user_id]);
     
     echo json_encode(['success' => true, 'message' => 'Défi refusé']);
+    exit;
+}
+
+// Récupérer l'équipe d'un adversaire PVP
+if ($action === 'get_opponent_team') {
+    $opponent_id = $_GET['opponent_id'] ?? null;
+    
+    if (!$opponent_id) {
+        echo json_encode(['success' => false, 'message' => 'ID adversaire manquant']);
+        exit;
+    }
+    
+    // Récupérer l'équipe de l'adversaire
+    $stmt = $pdo->prepare("SELECT * FROM user_pokemon WHERE user_id = ? ORDER BY is_team DESC, level DESC");
+    $stmt->execute([$opponent_id]);
+    $collection = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Récupérer le nom de l'adversaire
+    $stmt = $pdo->prepare("SELECT username FROM users WHERE id = ?");
+    $stmt->execute([$opponent_id]);
+    $opponent = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    echo json_encode([
+        'success' => true,
+        'collection' => $collection,
+        'opponent_name' => $opponent['username'] ?? 'Adversaire'
+    ]);
     exit;
 }
 
