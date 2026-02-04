@@ -9,23 +9,45 @@ const MAX_CONCURRENT_PVP = 6; // Limite uniquement pour le PvP
  * Limite à 6 combats PvP simultanés maximum
  */
 function canStartPvPBattle($pdo) {
-    // Nettoyer les vieilles sessions (> 30 minutes)
-    $pdo->exec("DELETE FROM active_battles WHERE started_at < NOW() - INTERVAL 30 MINUTE");
-    
-    // Compter uniquement les combats PvP actifs
-    $stmt = $pdo->query("SELECT COUNT(*) FROM active_battles WHERE battle_type = 'PVP'");
-    $count = (int)$stmt->fetchColumn();
-    
-    return $count < MAX_CONCURRENT_PVP;
+    try {
+        // Vérifier si la table existe
+        $stmt = $pdo->query("SHOW TABLES LIKE 'active_battles'");
+        if (!$stmt->fetch()) {
+            // Table n'existe pas, autoriser par défaut
+            return true;
+        }
+        
+        // Nettoyer les vieilles sessions (> 30 minutes)
+        $pdo->exec("DELETE FROM active_battles WHERE started_at < NOW() - INTERVAL 30 MINUTE");
+        
+        // Compter uniquement les combats PvP actifs
+        $stmt = $pdo->query("SELECT COUNT(*) FROM active_battles WHERE battle_type = 'PVP'");
+        $count = (int)$stmt->fetchColumn();
+        
+        return $count < MAX_CONCURRENT_PVP;
+    } catch (Exception $e) {
+        // En cas d'erreur, autoriser par défaut
+        return true;
+    }
 }
 
 /**
  * Obtenir le nombre de combats PvP actifs
  */
 function getActivePvPCount($pdo) {
-    $pdo->exec("DELETE FROM active_battles WHERE started_at < NOW() - INTERVAL 30 MINUTE");
-    $stmt = $pdo->query("SELECT COUNT(*) FROM active_battles WHERE battle_type = 'PVP'");
-    return (int)$stmt->fetchColumn();
+    try {
+        // Vérifier si la table existe
+        $stmt = $pdo->query("SHOW TABLES LIKE 'active_battles'");
+        if (!$stmt->fetch()) {
+            return 0;
+        }
+        
+        $pdo->exec("DELETE FROM active_battles WHERE started_at < NOW() - INTERVAL 30 MINUTE");
+        $stmt = $pdo->query("SELECT COUNT(*) FROM active_battles WHERE battle_type = 'PVP'");
+        return (int)$stmt->fetchColumn();
+    } catch (Exception $e) {
+        return 0;
+    }
 }
 
 /**
