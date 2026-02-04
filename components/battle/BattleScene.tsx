@@ -29,15 +29,15 @@ const BattleHud = ({ pokemon, isEnemy }: { pokemon: Pokemon, isEnemy?: boolean }
     const isLow = hpPercent < 25;
     
     return (
-        <div className={`absolute z-30 w-[100px] sm:w-[140px] md:w-[180px] lg:w-[240px] flex flex-col gap-0.5 ${isEnemy ? 'top-1 right-1 sm:top-2 sm:right-2 items-end' : 'bottom-16 sm:bottom-20 left-1 sm:left-2 items-start'}`}>
-            <div className="flex items-baseline gap-0.5 sm:gap-1 px-0.5 sm:px-1 py-0.5 rounded-full backdrop-blur-[0px]">
-                <span className="font-display font-bold text-white text-[8px] sm:text-[10px] md:text-xs lg:text-sm uppercase tracking-wide sm:tracking-wider drop-shadow-[0_2px_2px_rgba(0,0,0,1)] shadow-black flex items-center gap-0.5 sm:gap-1 truncate max-w-[60px] sm:max-w-none">
+        <div className={`absolute z-30 w-[120px] sm:w-[140px] md:w-[180px] lg:w-[240px] flex flex-col gap-0.5 ${isEnemy ? 'top-1 right-1 sm:top-2 sm:right-2 items-end' : 'bottom-16 sm:bottom-20 left-1 sm:left-2 items-start'}`}>
+            <div className="flex items-baseline gap-1 sm:gap-1 px-1 sm:px-1 py-0.5 rounded-full backdrop-blur-[0px]">
+                <span className="font-display font-bold text-white text-[10px] sm:text-xs md:text-sm lg:text-base uppercase tracking-wide sm:tracking-wider drop-shadow-[0_2px_2px_rgba(0,0,0,1)] shadow-black flex items-center gap-1 sm:gap-1 truncate max-w-[70px] sm:max-w-none">
                     {pokemon.name}
-                    {pokemon.isBoss && <span className="bg-red-600 text-white px-0.5 sm:px-1 rounded text-[6px] sm:text-[8px] animate-pulse">BOSS</span>}
+                    {pokemon.isBoss && <span className="bg-red-600 text-white px-1 sm:px-1 rounded text-[7px] sm:text-[8px] animate-pulse">BOSS</span>}
                 </span>
-                <span className={`font-mono text-[7px] sm:text-[8px] font-bold drop-shadow-[0_2px_2px_rgba(0,0,0,1)] shadow-black ${isEnemy ? 'text-red-400' : 'text-cyan-400'}`}>Lv.{pokemon.level}</span>
+                <span className={`font-mono text-[8px] sm:text-[9px] md:text-xs font-bold drop-shadow-[0_2px_2px_rgba(0,0,0,1)] shadow-black ${isEnemy ? 'text-red-400' : 'text-cyan-400'}`}>Lv.{pokemon.level}</span>
             </div>
-            <div className="w-full h-1.5 sm:h-2 md:h-3 lg:h-4 bg-black/20 rounded-full border border-white/10 p-0.5 relative overflow-hidden backdrop-blur-[1px]">
+            <div className="w-full h-2 sm:h-2 md:h-3 lg:h-4 bg-black/20 rounded-full border border-white/10 p-0.5 relative overflow-hidden backdrop-blur-[1px]">
                  <motion.div 
                     className={`h-full rounded-full opacity-90 shadow-[0_0_10px_rgba(0,0,0,0.5)] ${isLow ? 'bg-red-500 animate-pulse' : isEnemy ? 'bg-red-500' : 'bg-gradient-to-r from-cyan-400 to-blue-500'}`}
                     initial={{ width: '100%' }}
@@ -45,7 +45,7 @@ const BattleHud = ({ pokemon, isEnemy }: { pokemon: Pokemon, isEnemy?: boolean }
                     transition={{ type: "spring", bounce: 0, duration: 0.5 }}
                  />
             </div>
-            <div className="px-0.5 text-[7px] sm:text-[8px] md:text-[10px] lg:text-xs font-mono font-bold text-white drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,1)] opacity-100 tracking-wide">
+            <div className="px-0.5 text-[8px] sm:text-[9px] md:text-xs lg:text-sm font-mono font-bold text-white drop-shadow-[0_1.2px_1.2px_rgba(0,0,0,1)] opacity-100 tracking-wide">
                 {pokemon.current_hp} / {pokemon.max_hp} PV
             </div>
         </div>
@@ -147,15 +147,15 @@ const ActionButton = ({ onClick, disabled, label, color, isUltimate }: any) => {
 
     if (isUltimate) {
         return (
-            <button onClick={onClick} disabled={disabled} className="relative w-full h-10 sm:h-12 md:h-14 lg:h-16 rounded-md sm:rounded-lg md:rounded-xl lg:rounded-2xl border-2 border-white bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 shadow-[0_0_30px_rgba(79,70,229,0.8)] flex flex-col items-center justify-center overflow-hidden animate-pulse group active:scale-95 transition-transform">
-                <span className="relative z-10 font-display font-black text-white text-[9px] sm:text-[10px] md:text-sm lg:text-lg tracking-widest italic drop-shadow-lg">ULTIME</span>
+            <button onClick={onClick} disabled={disabled} className="relative w-full h-12 sm:h-12 md:h-14 lg:h-16 rounded-lg sm:rounded-lg md:rounded-xl lg:rounded-2xl border-2 border-white bg-gradient-to-r from-blue-500 via-indigo-600 to-purple-600 shadow-[0_0_30px_rgba(79,70,229,0.8)] flex flex-col items-center justify-center overflow-hidden animate-pulse group active:scale-95 transition-transform">
+                <span className="relative z-10 font-display font-black text-white text-xs sm:text-sm md:text-base lg:text-lg tracking-widest italic drop-shadow-lg">ULTIME</span>
             </button>
         )
     }
     
     return (
-        <button onClick={onClick} disabled={disabled} className={`relative w-full h-10 sm:h-12 md:h-14 lg:h-16 rounded-md sm:rounded-lg md:rounded-xl lg:rounded-2xl border-t-2 border-b-4 bg-gradient-to-b ${colors[color as keyof typeof colors]} shadow-lg active:border-b-0 active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1 group overflow-hidden disabled:opacity-50 disabled:grayscale`}>
-            <span className="font-display font-black text-white text-[8px] sm:text-[9px] md:text-sm lg:text-base tracking-widest uppercase drop-shadow-sm">{label}</span>
+        <button onClick={onClick} disabled={disabled} className={`relative w-full h-12 sm:h-12 md:h-14 lg:h-16 rounded-lg sm:rounded-lg md:rounded-xl lg:rounded-2xl border-t-2 border-b-4 bg-gradient-to-b ${colors[color as keyof typeof colors]} shadow-lg active:border-b-0 active:translate-y-1 transition-all flex flex-col items-center justify-center gap-1 group overflow-hidden disabled:opacity-50 disabled:grayscale`}>
+            <span className="font-display font-black text-white text-[10px] sm:text-xs md:text-sm lg:text-base tracking-wide uppercase drop-shadow-sm">{label}</span>
         </button>
     );
 };
@@ -299,10 +299,10 @@ export const BattleScene: React.FC = () => {
                 </AnimatePresence>
                 <div className="absolute top-[5%] sm:top-[8%] right-[5%] sm:right-[8%] w-[40%] sm:w-[35%] h-[20%] sm:h-[25%] flex flex-col items-center justify-center z-10">
                     <BattleHud pokemon={activeEnemy} isEnemy />
-                    <motion.img src={activeEnemy.sprite_url} animate={controlsEnemy} initial={{ y: 0 }} className={`object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)] z-20 ${activeEnemy.isBoss ? 'w-24 h-24 sm:w-32 sm:h-32 md:w-48 md:h-48 lg:w-64 lg:h-64 drop-shadow-[0_0_30px_rgba(255,0,0,0.6)]' : 'w-20 h-20 sm:w-28 sm:h-28 md:w-40 md:h-40 lg:w-56 lg:h-56'}`} style={{ filter: activeEnemy.isBoss ? 'drop-shadow(0px 0px 10px rgba(255,0,0,0.8))' : 'drop-shadow(0px 0px 10px rgba(255,0,0,0.2))' }} />
+                    <motion.img src={activeEnemy.sprite_url} animate={controlsEnemy} initial={{ y: 0 }} className={`object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)] z-20 ${activeEnemy.isBoss ? 'w-28 h-28 sm:w-32 sm:h-32 md:w-48 md:h-48 lg:w-64 lg:h-64 drop-shadow-[0_0_30px_rgba(255,0,0,0.6)]' : 'w-24 h-24 sm:w-28 sm:h-28 md:w-40 md:h-40 lg:w-56 lg:h-56'}`} style={{ filter: activeEnemy.isBoss ? 'drop-shadow(0px 0px 10px rgba(255,0,0,0.8))' : 'drop-shadow(0px 0px 10px rgba(255,0,0,0.2))' }} />
                 </div>
                 <div className="absolute bottom-[2%] sm:bottom-[3%] left-[5%] sm:left-[8%] w-[45%] sm:w-[40%] h-[30%] sm:h-[35%] flex flex-col items-center justify-center z-20">
-                    <motion.img src={activePla.sprite_url} animate={controlsPlayer} className="w-20 h-20 sm:w-28 sm:h-28 md:w-40 md:h-40 lg:w-56 lg:h-56 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)] z-20" style={{ filter: 'drop-shadow(0px 0px 15px rgba(6,182,212,0.3))' }} />
+                    <motion.img src={activePla.sprite_url} animate={controlsPlayer} className="w-24 h-24 sm:w-28 sm:h-28 md:w-40 md:h-40 lg:w-56 lg:h-56 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)] z-20" style={{ filter: 'drop-shadow(0px 0px 15px rgba(6,182,212,0.3))' }} />
                     <BattleHud pokemon={activePla} />
                 </div>
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
@@ -311,17 +311,17 @@ export const BattleScene: React.FC = () => {
                     </AnimatePresence>
                 </div>
             </div>
-            <div className="relative z-30 bg-slate-900 border-t border-cyan-900/50 p-1 sm:p-1.5 md:p-2 lg:p-3 pb-safe shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
+            <div className="relative z-30 bg-slate-900 border-t border-cyan-900/50 p-2 sm:p-2 md:p-3 lg:p-4 pb-safe shrink-0 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
                 <div className="absolute -top-1 sm:-top-1.5 md:-top-2 lg:-top-3 left-0 right-0 h-1 sm:h-1.5 md:h-2 lg:h-3 bg-slate-950 flex justify-center overflow-hidden">
                     <motion.div className="h-full bg-gradient-to-r from-blue-600 via-purple-500 to-blue-600 bg-[length:200%_100%] animate-[shimmer_2s_linear_infinite]" initial={{ width: 0 }} animate={{ width: `${specialGauge}%` }} />
                 </div>
-                <div className="flex justify-between items-center mb-1 sm:mb-1.5 px-0.5">
-                    <div className="text-[7px] sm:text-[8px] md:text-[10px] lg:text-xs text-slate-400 font-mono truncate max-w-[80px] sm:max-w-none">VS <span className="text-white font-bold">{enemyPokemon.name}</span></div>
-                    <div className="h-4 sm:h-4 md:h-5 lg:h-6 px-1 sm:px-1.5 md:px-2 lg:px-3 bg-slate-800 rounded flex items-center text-[7px] sm:text-[8px] md:text-[10px] lg:text-xs font-mono text-cyan-200 border border-slate-700 truncate max-w-[100px] sm:max-w-[130px] md:max-w-[180px] lg:max-w-[200px]">
+                <div className="flex justify-between items-center mb-2 sm:mb-2 px-0.5">
+                    <div className="text-[9px] sm:text-xs md:text-sm lg:text-base text-slate-400 font-mono truncate max-w-[100px] sm:max-w-none">VS <span className="text-white font-bold">{enemyPokemon.name}</span></div>
+                    <div className="h-5 sm:h-5 md:h-6 lg:h-7 px-2 sm:px-2 md:px-3 lg:px-4 bg-slate-800 rounded flex items-center text-[9px] sm:text-xs md:text-sm lg:text-base font-mono text-cyan-200 border border-slate-700 truncate max-w-[120px] sm:max-w-[160px] md:max-w-[200px] lg:max-w-[240px]">
                         {battleLogs.length > 0 ? `› ${battleLogs[battleLogs.length-1].message}` : "› Prêt"}
                     </div>
                 </div>
-                <div className="grid grid-cols-3 gap-1 sm:gap-1.5 md:gap-2">
+                <div className="grid grid-cols-3 gap-2 sm:gap-2 md:gap-3">
                     {specialGauge >= 100 ? (
                         <ActionButton label="FRAPPE ULTIME" isUltimate onClick={handleUltimate} disabled={!isPlayerTurn || battleOver} />
                     ) : (

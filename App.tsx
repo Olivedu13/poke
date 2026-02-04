@@ -9,13 +9,46 @@ import { Collection } from './components/metagame/Collection';
 import { Shop } from './components/metagame/Shop';
 import { SettingsPanel } from './components/dashboard/SettingsPanel';
 import { PinCodeModal } from './components/dashboard/PinCodeModal';
+import { PvPNotification } from './components/battle/PvPNotification';
 import { ASSETS_BASE_URL } from './config';
 import { playSfx } from './utils/soundEngine';
+import { api } from './services/api';
 
 const App: React.FC = () => {
-  const { currentView, user, logout, setView } = useGameStore();
+  const { currentView, user, logout, setView, setPvpNotification, pvpNotification } = useGameStore();
   const [showSettings, setShowSettings] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
+
+  // Polling global pour les invitations PVP
+  useEffect(() => {
+    if (!user) return;
+
+    const checkPvPInvitations = async () => {
+      try {
+        const res = await api.get('/pvp_lobby.php?action=get_challenges');
+        if (res.data.success && res.data.challenges?.length > 0) {
+          // S'il y a des invitations et qu'on n'affiche pas déjà une notification
+          if (!pvpNotification) {
+            const challenge = res.data.challenges[0];
+            setPvpNotification({
+              challengeId: challenge.id,
+              challengerName: challenge.challenger_name
+            });
+            playSfx('victory'); // Son de notification
+          }
+        }
+      } catch (e) {
+        console.error('Erreur vérification invitations PVP:', e);
+      }
+    };
+
+    // Vérifier immédiatement
+    checkPvPInvitations();
+
+    // Puis toutes les 5 secondes
+    const interval = setInterval(checkPvPInvitations, 5000);
+    return () => clearInterval(interval);
+  }, [user, pvpNotification, setPvpNotification]);
 
   // "Réveil" du moteur audio au premier clic utilisateur
   useEffect(() => {
@@ -156,6 +189,9 @@ const App: React.FC = () => {
           </div>
         )}
       </main>
+
+      {/* Notification PVP globale */}
+      {user && <PvPNotification />}
       
       {/* Footer System Status */}
       <footer className="relative z-10 border-t border-slate-900 bg-slate-950 py-2">

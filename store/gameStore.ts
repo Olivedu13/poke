@@ -32,6 +32,7 @@ interface GameState {
   gradeGauge: number; 
   collection: Pokemon[];
   inventory: Item[];
+  pvpNotification: { challengeId: number, challengerName: string } | null;
   
   // Actions
   login: (user: User, token: string) => void;
@@ -61,6 +62,7 @@ interface GameState {
   fetchUser: () => Promise<void>;
   spendCurrency: (type: 'GOLD' | 'TOKEN', amount: number) => void;
   swapTeamMember: (outId: string, inId: string) => Promise<boolean>;
+  setPvpNotification: (notif: { challengeId: number, challengerName: string } | null) => void;
 }
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -85,6 +87,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   gradeGauge: 0,
   collection: [],
   inventory: [],
+  pvpNotification: null,
 
   login: (user, token) => {
       playSfx('CLICK');
@@ -96,6 +99,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       localStorage.removeItem('poke_edu_token');
       set({ user: null, token: null, currentView: 'AUTH' });
   },
+  
+  setPvpNotification: (notif) => set({ pvpNotification: notif }),
   
   setView: (view) => {
       playSfx('CLICK');

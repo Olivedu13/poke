@@ -120,19 +120,7 @@ export const useBattleLogic = () => {
         
         if (battlePhase === 'LOADING') {
             const setup = async () => {
-                // Vérifier si on peut lancer un PvP (limite de 6 simultanés)
-                if (battleMode === 'PVP') {
-                    try {
-                        const checkRes = await api.get('/battle_session.php?action=can_start');
-                        if (!checkRes.data.can_start) {
-                            addLog({ message: `Serveur PvP plein (${checkRes.data.active_pvp}/6). Réessayez.`, type: 'INFO' });
-                            setBattlePhase('NONE');
-                            return;
-                        }
-                    } catch (e) {
-                        console.warn('Vérification PvP impossible:', e);
-                    }
-                }
+                // Note: Pour le mode PVP, pas besoin de vérifier can_start car le match est déjà validé
                 
                 await fetchCollection();
                 await fetchInventory();
@@ -156,8 +144,72 @@ export const useBattleLogic = () => {
                 
                 const baseLevel = (starter?.level || 1);
                 
-                // Mode WILD ou TRAINER
-                if (battleMode === 'TRAINER') {
+                // Mode PVP
+                if (battleMode === 'PVP') {
+                    console.log('🎮 [PVP] Initialisation du combat PVP...');
+                    try {
+                        // Récupérer les infos du match
+                        const pvpMatchStr = localStorage.getItem('pvp_match');
+                        console.log('🎮 [PVP] pvp_match depuis localStorage:', pvpMatchStr);
+                        
+                        if (!pvpMatchStr) {
+                            console.error('🎮 [PVP] ERREUR: Match PVP non trouvé dans localStorage');
+                            addLog({ message: 'Erreur: Match PVP non trouvé', type: 'INFO' });
+                            setBattlePhase('NONE');
+                            return;
+                        }
+                        const pvpMatch = JSON.parse(pvpMatchStr);
+                        console.log('🎮 [PVP] Match parsé:', pvpMatch);
+                        
+                        // Déterminer l'ID de l'adversaire
+                        const opponentId = pvpMatch.player1_id === user?.id ? pvpMatch.player2_id : pvpMatch.player1_id;
+                        console.log('🎮 [PVP] User ID:', user?.id, 'Opponent ID:', opponentId);
+                        
+                        // Récupérer l'équipe de l'adversaire via le nouvel endpoint
+                        console.log('🎮 [PVP] Récupération de l\'équipe adverse...');
+                        const opponentRes = await api.get(`/pvp_lobby.php?action=get_opponent_team&opponent_id=${opponentId}`);
+                        console.log('🎮 [PVP] Réponse API équipe adverse:', opponentRes.data);
+                        
+                        if (!opponentRes.data.success) {
+                            console.error('🎮 [PVP] ERREUR: Équipe adversaire introuvable');
+                            addLog({ message: 'Erreur: Équipe adversaire introuvable', type: 'INFO' });
+                            setBattlePhase('NONE');
+                            return;
+                        }
+                        
+                        const opponentTeam = opponentRes.data.collection.filter((p: any) => p.is_team && p.current_hp > 0);
+                        console.log('🎮 [PVP] Équipe adverse filtrée:', opponentTeam.length, 'Pokémon');
+                        
+                        if (opponentTeam.length === 0) {
+                            console.error('🎮 [PVP] ERREUR: L\'adversaire n\'a pas de Pokémon disponible');
+                            addLog({ message: 'L\'adversaire n\'a pas de Pokémon disponible', type: 'INFO' });
+                            setBattlePhase('NONE');
+                            return;
+                        }
+                        
+                        const opponentName = opponentRes.data.opponent_name || 'Adversaire';
+                        console.log('🎮 [PVP] Nom de l\'adversaire:', opponentName);
+                        
+                        const pvpOpponent = {
+                            name: opponentName,
+                            avatar: '🎮',
+                            team: opponentTeam,
+                            currentPokemonIndex: 0
+                        };
+                        
+                        setTrainerOpponent(pvpOpponent);
+                        setPreviewEnemy(opponentTeam[0]);
+                        setPreviewEnemyTeam(opponentTeam);
+                        
+                        console.log('🎮 [PVP] Combat PVP initialisé avec succès !');
+                        addLog({ message: `Combat PVP contre ${opponentName} !`, type: 'INFO' });
+                    } catch (e) {
+                        console.error('🎮 [PVP] EXCEPTION lors de l\'initialisation:', e);
+                        addLog({ message: 'Erreur lors du chargement du combat PVP', type: 'INFO' });
+                        setBattlePhase('NONE');
+                        return;
+                    }
+                } else if (battleMode === 'TRAINER') {
                     const trainer = await generateTrainerOpponent(baseLevel);
                     setTrainerOpponent(trainer);
                     setPreviewEnemy(trainer.team[0]);
@@ -180,11 +232,11 @@ export const useBattleLogic = () => {
     // --- GAME LOOP & IA ---
     useEffect(() => {
         if (battleOver && enemyPokemon?.current_hp === 0 && battlePhase === 'FIGHTING') {
-            // Mode TRAINER : vérifier s'il reste des Pokemon
-            if (battleMode === 'TRAINER' && trainerOpponent) {
+            // Mode TRAINER ou PVP : vérifier s'il reste des Pokemon
+            if ((battleMode === 'TRAINER' || battleMode === 'PVP') && trainerOpponent) {
                 const nextIndex = trainerOpponent.currentPokemonIndex + 1;
                 if (nextIndex < trainerOpponent.team.length) {
-                    // Passer au prochain Pokemon du dresseur
+                    // Passer au prochain Pokemon du dresseur/adversaire
                     addLog({ message: `${trainerOpponent.name} envoie ${trainerOpponent.team[nextIndex].name} !`, type: 'INFO' });
                     setTrainerOpponent({
                         ...trainerOpponent,
@@ -207,7 +259,7 @@ export const useBattleLogic = () => {
                     setBattlePhase('CAPTURE');
                 }
             } else {
-                // Mode TRAINER : pas de capture, victoire directe
+                // Mode TRAINER ou PVP : pas de capture, victoire directe
                 setCaptureAttempted(true);
                 setCaptureSuccess(false);
                 setBattlePhase('CAPTURE');
@@ -220,13 +272,15 @@ export const useBattleLogic = () => {
             if (enemyPokemon) {
                 const isBoss = enemyPokemon.isBoss || false;
                 const isTrainerMode = battleMode === 'TRAINER';
+                const isPvPMode = battleMode === 'PVP';
                 
                 let xpGain = (enemyPokemon.level * 20) + 10;
                 let goldGain = (enemyPokemon.level * 10) + 5;
                 
-                // Multiplicateur pour boss et dresseur
+                // Multiplicateur pour boss, dresseur et PVP
                 if (isBoss) { xpGain *= 3; goldGain *= 3; }
                 if (isTrainerMode) { xpGain *= 2; goldGain *= 2; }
+                if (isPvPMode) { xpGain *= 3; goldGain *= 3; } // Bonus PVP
                 
                 let loot: string | undefined = undefined;
                 if (Math.random() < 0.30 || isBoss || isTrainerMode) { 
