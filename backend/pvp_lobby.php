@@ -222,7 +222,8 @@ if ($action === 'send_challenge') {
         
         // Récupérer l'équipe du challenger (3 Pokémon is_team=1)
         $stmt = $pdo->prepare("
-            SELECT id, tyradex_id, level, current_hp, max_hp, name, sprite_url
+            SELECT id, tyradex_id, level, current_hp, name, sprite_url,
+                   (20 + (level * 5) + (tyradex_id % 10)) as max_hp
             FROM user_pokemon 
             WHERE user_id = ? AND is_team = 1 
             ORDER BY id ASC 
@@ -328,7 +329,8 @@ if ($action === 'accept_challenge') {
     
     // Récupérer mon équipe (joueur qui accepte)
     $stmt = $pdo->prepare("
-        SELECT id, tyradex_id, level, current_hp, max_hp, name, sprite_url
+        SELECT id, tyradex_id, level, current_hp, name, sprite_url,
+               (20 + (level * 5) + (tyradex_id % 10)) as max_hp
         FROM user_pokemon 
         WHERE user_id = ? AND is_team = 1 
         ORDER BY id ASC 
