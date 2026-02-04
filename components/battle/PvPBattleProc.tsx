@@ -76,9 +76,16 @@ export const PvPBattleProc: React.FC = () => {
             if (res.data.success) {
                 playSfx(res.data.is_my_turn ? 'victory' : 'buttonClick');
                 await fetchState();
+            } else {
+                console.error('Erreur init combat:', res.data.message);
+                setError(res.data.message || 'Erreur lors de l\'initialisation du combat');
+                setLoading(false);
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error('Erreur init combat:', e);
+            const errorMsg = e.response?.data?.message || e.message || 'Erreur lors de l\'initialisation du combat';
+            setError(errorMsg);
+            setLoading(false);
         }
     };
 
@@ -100,10 +107,15 @@ export const PvPBattleProc: React.FC = () => {
                 } else {
                     setWaitingForOpponent(false);
                 }
+            } else {
+                console.error('Erreur get_state:', res.data.message);
+                setError(res.data.message || 'Erreur lors de la récupération de l\'état');
+                setLoading(false);
             }
-        } catch (e) {
+        } catch (e: any) {
             console.error('Erreur récupération état:', e);
-            setError('Erreur lors de la récupération de l\'état du combat');
+            const errorMsg = e.response?.data?.message || e.message || 'Erreur lors de la récupération de l\'état du combat';
+            setError(errorMsg);
             setLoading(false);
         }
     };

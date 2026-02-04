@@ -37,87 +37,94 @@ if ($action === 'init_battle') {
         exit;
     }
     
-    // Récupérer le match
-    $stmt = $pdo->prepare("
-        SELECT * FROM pvp_matches 
-        WHERE id = ? AND (player1_id = ? OR player2_id = ?)
-    ");
-    $stmt->execute([$match_id, $user_id, $user_id]);
-    $match = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$match) {
-        echo json_encode(['success' => false, 'message' => 'Match introuvable']);
-        exit;
-    }
-    
-    // Si le tour est déjà défini, retourner l'état actuel
-    if ($match['current_turn']) {
-        echo json_encode([
-            'success' => true,
-            'already_initialized' => true,
-            'first_player' => $match['current_turn'],
-            'is_my_turn' => ($match['current_turn'] == $user_id)
-        ]);
-        exit;
-    }
-    
-    // Tirage au sort (50/50)
-    $first_player = (rand(0, 1) === 0) ? $match['player1_id'] : $match['player2_id'];
-    
-    // Choisir une question pour le premier joueur
-    $stmt = $pdo->prepare("SELECT grade_level FROM users WHERE id = ?");
-    $stmt->execute([$first_player]);
-    $userData = $stmt->fetch(PDO::FETCH_ASSOC);
-    $grade = $userData['grade_level'] ?? 'CE1';
-    
-    $stmt = $pdo->prepare("
-        SELECT id FROM question_bank 
-        WHERE grade_level = ? 
-        ORDER BY RAND() 
-        LIMIT 1
-    ");
-    $stmt->execute([$grade]);
-    $question = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$question) {
-        // Fallback : n'importe quelle question
+    try {
+        // Récupérer le match
+        $stmt = $pdo->prepare("
+            SELECT * FROM pvp_matches 
+            WHERE id = ? AND (player1_id = ? OR player2_id = ?)
+        ");
+        $stmt->execute([$match_id, $user_id, $user_id]);
+        $match = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$match) {
+            echo json_encode(['success' => false, 'message' => 'Match introuvable']);
+            exit;
+        }
+        
+        // Si le tour est déjà défini, retourner l'état actuel
+        if ($match['current_turn']) {
+            echo json_encode([
+                'success' => true,
+                'already_initialized' => true,
+                'first_player' => $match['current_turn'],
+                'is_my_turn' => ($match['current_turn'] == $user_id)
+            ]);
+            exit;
+        }
+        
+        // Tirage au sort (50/50)
+        $first_player = (rand(0, 1) === 0) ? $match['player1_id'] : $match['player2_id'];
+        
+        // Choisir une question pour le premier joueur
+        $stmt = $pdo->prepare("SELECT grade_level FROM users WHERE id = ?");
+        $stmt->execute([$first_player]);
+        $userData = $stmt->fetch(PDO::FETCH_ASSOC);
+        $grade = $userData['grade_level'] ?? 'CE1';
+        
         $stmt = $pdo->prepare("
             SELECT id FROM question_bank 
+            WHERE grade_level = ? 
             ORDER BY RAND() 
             LIMIT 1
         ");
-        $stmt->execute();
+        $stmt->execute([$grade]);
         $question = $stmt->fetch(PDO::FETCH_ASSOC);
-    }
-    
-    if (!$question) {
-        echo json_encode(['success' => false, 'message' => 'Aucune question disponible']);
+        
+        if (!$question) {
+            // Fallback : n'importe quelle question
+            $stmt = $pdo->prepare("
+                SELECT id FROM question_bank 
+                ORDER BY RAND() 
+                LIMIT 1
+            ");
+            $stmt->execute();
+            $question = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
+        
+        if (!$question) {
+            error_log("init_battle: Aucune question dans question_bank pour match_id=$match_id");
+            echo json_encode(['success' => false, 'message' => 'Aucune question disponible dans la base']);
+            exit;
+        }
+        
+        // Définir le joueur qui commence ET la première question (éviter race condition)
+        $stmt = $pdo->prepare("
+            UPDATE pvp_matches 
+            SET current_turn = ?, current_question_id = ?, waiting_for_answer = 1
+            WHERE id = ? AND current_turn IS NULL
+        ");
+        $stmt->execute([$first_player, $question['id'], $match_id]);
+        
+        // Vérifier si c'est bien nous qui avons défini le tour
+        if ($stmt->rowCount() === 0) {
+            // L'adversaire l'a déjà fait, récupérer le tour actuel
+            $stmt = $pdo->prepare("SELECT current_turn FROM pvp_matches WHERE id = ?");
+            $stmt->execute([$match_id]);
+            $first_player = $stmt->fetchColumn();
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'first_player' => $first_player,
+            'is_my_turn' => ($first_player == $user_id),
+            'message' => $first_player == $user_id ? 'C\'est ton tour !' : 'L\'adversaire commence !'
+        ]);
+        exit;
+    } catch (Exception $e) {
+        error_log("Erreur init_battle match_id=$match_id: " . $e->getMessage() . "\n" . $e->getTraceAsString());
+        echo json_encode(['success' => false, 'message' => 'Erreur serveur lors de l\'initialisation: ' . $e->getMessage()]);
         exit;
     }
-    
-    // Définir le joueur qui commence ET la première question (éviter race condition)
-    $stmt = $pdo->prepare("
-        UPDATE pvp_matches 
-        SET current_turn = ?, current_question_id = ?, waiting_for_answer = 1
-        WHERE id = ? AND current_turn IS NULL
-    ");
-    $stmt->execute([$first_player, $question['id'], $match_id]);
-    
-    // Vérifier si c'est bien nous qui avons défini le tour
-    if ($stmt->rowCount() === 0) {
-        // L'adversaire l'a déjà fait, récupérer le tour actuel
-        $stmt = $pdo->prepare("SELECT current_turn FROM pvp_matches WHERE id = ?");
-        $stmt->execute([$match_id]);
-        $first_player = $stmt->fetchColumn();
-    }
-    
-    echo json_encode([
-        'success' => true,
-        'first_player' => $first_player,
-        'is_my_turn' => ($first_player == $user_id),
-        'message' => $first_player == $user_id ? 'C\'est ton tour !' : 'L\'adversaire commence !'
-    ]);
-    exit;
 }
 
 /**
@@ -131,36 +138,42 @@ if ($action === 'get_state') {
         exit;
     }
     
-    // Récupérer le match avec les noms des joueurs
-    $stmt = $pdo->prepare("
-        SELECT 
-            m.*,
-            u1.username as player1_name,
-            u2.username as player2_name,
-            q.id as question_id,
-            q.question_text,
-            q.options_json,
-            q.difficulty,
-            q.correct_index
-        FROM pvp_matches m
-        JOIN users u1 ON m.player1_id = u1.id
-        JOIN users u2 ON m.player2_id = u2.id
-        LEFT JOIN question_bank q ON m.current_question_id = q.id
-        WHERE m.id = ? AND (m.player1_id = ? OR m.player2_id = ?)
-    ");
-    $stmt->execute([$match_id, $user_id, $user_id]);
-    $match = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    if (!$match) {
-        echo json_encode(['success' => false, 'message' => 'Match introuvable']);
+    try {
+        // Récupérer le match avec les noms des joueurs
+        $stmt = $pdo->prepare("
+            SELECT 
+                m.*,
+                u1.username as player1_name,
+                u2.username as player2_name,
+                q.id as question_id,
+                q.question_text,
+                q.options_json,
+                q.difficulty,
+                q.correct_index
+            FROM pvp_matches m
+            JOIN users u1 ON m.player1_id = u1.id
+            JOIN users u2 ON m.player2_id = u2.id
+            LEFT JOIN question_bank q ON m.current_question_id = q.id
+            WHERE m.id = ? AND (m.player1_id = ? OR m.player2_id = ?)
+        ");
+        $stmt->execute([$match_id, $user_id, $user_id]);
+        $match = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if (!$match) {
+            echo json_encode(['success' => false, 'message' => 'Match introuvable']);
+            exit;
+        }
+        
+        // Décoder les JSON avec gestion d'erreur
+        $match['player1_team'] = json_decode($match['player1_team'], true) ?: [];
+        $match['player2_team'] = json_decode($match['player2_team'], true) ?: [];
+        $match['player1_team_hp'] = json_decode($match['player1_team_hp'], true) ?: [];
+        $match['player2_team_hp'] = json_decode($match['player2_team_hp'], true) ?: [];
+    } catch (Exception $e) {
+        error_log("Erreur get_state: " . $e->getMessage());
+        echo json_encode(['success' => false, 'message' => 'Erreur serveur: ' . $e->getMessage()]);
         exit;
     }
-    
-    // Décoder les JSON
-    $match['player1_team'] = json_decode($match['player1_team'], true);
-    $match['player2_team'] = json_decode($match['player2_team'], true);
-    $match['player1_team_hp'] = json_decode($match['player1_team_hp'], true);
-    $match['player2_team_hp'] = json_decode($match['player2_team_hp'], true);
     
     // Déterminer si c'est mon tour
     $is_my_turn = ($match['current_turn'] == $user_id);
