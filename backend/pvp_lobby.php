@@ -222,8 +222,7 @@ if ($action === 'send_challenge') {
         
         // Récupérer l'équipe du challenger (3 Pokémon is_team=1)
         $stmt = $pdo->prepare("
-            SELECT id, tyradex_id, level, current_hp, name, sprite_url,
-                   (20 + (level * 5) + (tyradex_id % 10)) as max_hp
+            SELECT id, tyradex_id, level, current_hp, nickname
             FROM user_pokemon 
             WHERE user_id = ? AND is_team = 1 
             ORDER BY id ASC 
@@ -231,6 +230,15 @@ if ($action === 'send_challenge') {
         ");
         $stmt->execute([$user_id]);
         $myTeam = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Enrichir les données (comme dans collection.php)
+        foreach ($myTeam as &$p) {
+            $p['max_hp'] = 20 + ($p['level'] * 5) + ($p['tyradex_id'] % 10);
+            if ($p['current_hp'] > $p['max_hp']) $p['current_hp'] = $p['max_hp'];
+            $p['sprite_url'] = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/{$p['tyradex_id']}.png";
+            $p['name'] = $p['nickname'] ?: "Pokemon #{$p['tyradex_id']}";
+        }
+        unset($p);
         
         if (count($myTeam) < 3) {
             echo json_encode(['success' => false, 'message' => 'Tu dois avoir 3 Pokémon dans ton équipe pour défier un adversaire']);
@@ -329,8 +337,7 @@ if ($action === 'accept_challenge') {
     
     // Récupérer mon équipe (joueur qui accepte)
     $stmt = $pdo->prepare("
-        SELECT id, tyradex_id, level, current_hp, name, sprite_url,
-               (20 + (level * 5) + (tyradex_id % 10)) as max_hp
+        SELECT id, tyradex_id, level, current_hp, nickname
         FROM user_pokemon 
         WHERE user_id = ? AND is_team = 1 
         ORDER BY id ASC 
@@ -338,6 +345,15 @@ if ($action === 'accept_challenge') {
     ");
     $stmt->execute([$user_id]);
     $myTeam = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Enrichir les données
+    foreach ($myTeam as &$p) {
+        $p['max_hp'] = 20 + ($p['level'] * 5) + ($p['tyradex_id'] % 10);
+        if ($p['current_hp'] > $p['max_hp']) $p['current_hp'] = $p['max_hp'];
+        $p['sprite_url'] = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/{$p['tyradex_id']}.png";
+        $p['name'] = $p['nickname'] ?: "Pokemon #{$p['tyradex_id']}";
+    }
+    unset($p);
     
     if (count($myTeam) < 3) {
         echo json_encode(['success' => false, 'message' => 'Tu dois avoir 3 Pokémon dans ton équipe pour accepter un défi']);
