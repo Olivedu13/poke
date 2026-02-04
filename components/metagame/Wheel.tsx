@@ -44,7 +44,7 @@ const generatePreviewSegments = (bet: number): WheelSegment[] => {
         { type: 'POKEMON', label: 'POKEMON', img: genericPoke, color: '#ef4444', isMystery: true },
         { type: 'GOLD', value: Math.floor((goldMin+goldMax)/2), label: 'OR', color: '#fbbf24' },
         { type: 'ITEM', label: 'OBJET', img: genericItem, color: '#a855f7', isMystery: true },
-        { type: 'GOLD', value: goldMax, label: 'JACKPOT', color: '#10b981' },
+        { type: 'GOLD', value: 10000, label: 'JACKPOT 💰', color: '#10b981' },
     ];
 };
 
@@ -80,16 +80,17 @@ export const Wheel: React.FC = () => {
 
     try {
       let targetIndex = 0;
-      let newSegments = segments; 
+      let newSegments = segments;
+      let apiResponse: any = null;
       
       try {
           // Token handles Auth, user_id removed
-          const res = await api.post(`/spin.php`, { bet: bet });
+          apiResponse = await api.post(`/spin.php`, { bet: bet });
           
-          if (res.data.success) {
-            targetIndex = res.data.result_index;
-            if (res.data.segments && Array.isArray(res.data.segments) && res.data.segments.length > 0) {
-                 newSegments = res.data.segments.map((s: any) => ({
+          if (apiResponse.data.success) {
+            targetIndex = apiResponse.data.result_index;
+            if (apiResponse.data.segments && Array.isArray(apiResponse.data.segments) && apiResponse.data.segments.length > 0) {
+                 newSegments = apiResponse.data.segments.map((s: any) => ({
                      ...s,
                      img: s.type === 'POKEMON' ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${s.id}.png` : s.img
                  }));
@@ -119,13 +120,13 @@ export const Wheel: React.FC = () => {
       playSfx('REWARD'); 
       
       // Mettre à jour immédiatement avec les valeurs retournées par l'API
-      if (res.data.new_gold !== undefined || res.data.new_xp !== undefined) {
+      if (apiResponse?.data && (apiResponse.data.new_gold !== undefined || apiResponse.data.new_xp !== undefined)) {
           useGameStore.setState((state) => ({
               user: state.user ? {
                   ...state.user,
-                  gold: res.data.new_gold ?? state.user.gold,
-                  global_xp: res.data.new_xp ?? state.user.global_xp,
-                  tokens: res.data.new_tokens ?? state.user.tokens
+                  gold: apiResponse.data.new_gold ?? state.user.gold,
+                  global_xp: apiResponse.data.new_xp ?? state.user.global_xp,
+                  tokens: apiResponse.data.new_tokens ?? state.user.tokens
               } : null
           }));
       }

@@ -88,6 +88,29 @@ try {
     $pdo->exec($sqlPvpQueue);
     echo "✅ Table 'pvp_queue' vérifiée.<br>";
 
+    // 3.4 Table ONLINE_PLAYERS (joueurs en ligne pour le lobby PvP)
+    $sqlOnlinePlayers = "CREATE TABLE IF NOT EXISTS `online_players` (
+      `user_id` INT(11) NOT NULL PRIMARY KEY,
+      `status` ENUM('available', 'in_battle', 'challenged') DEFAULT 'available',
+      `last_seen` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      KEY `idx_last_seen` (`last_seen`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+    $pdo->exec($sqlOnlinePlayers);
+    echo "✅ Table 'online_players' vérifiée.<br>";
+
+    // 3.5 Table PVP_CHALLENGES (défis entre joueurs)
+    $sqlPvpChallenges = "CREATE TABLE IF NOT EXISTS `pvp_challenges` (
+      `id` INT(11) AUTO_INCREMENT PRIMARY KEY,
+      `challenger_id` INT(11) NOT NULL,
+      `challenged_id` INT(11) NOT NULL,
+      `status` ENUM('pending', 'accepted', 'declined', 'expired') DEFAULT 'pending',
+      `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      KEY `idx_challenged` (`challenged_id`, `status`),
+      KEY `idx_challenger` (`challenger_id`, `status`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;";
+    $pdo->exec($sqlPvpChallenges);
+    echo "✅ Table 'pvp_challenges' vérifiée.<br>";
+
     // 4. Table ITEMS (Catalogue)
     $sqlItems = "CREATE TABLE IF NOT EXISTS `items` (
       `id` VARCHAR(50) NOT NULL PRIMARY KEY,

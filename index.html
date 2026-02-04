@@ -75,6 +75,16 @@
         background: #06b6d4; 
         border-radius: 4px;
       }
+      /* Mobile text optimization */
+      @media (max-width: 640px) {
+        * {
+          -webkit-tap-highlight-color: transparent;
+        }
+        button, a {
+          -webkit-touch-callout: none;
+          user-select: none;
+        }
+      }
     </style>
   <script type="importmap">
 {
