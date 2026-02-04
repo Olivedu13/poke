@@ -2,7 +2,17 @@
 // Capturer toutes les erreurs pour debug
 error_reporting(E_ALL);
 ini_set('display_errors', 0); // Ne pas afficher les erreurs en HTML
+
+// Démarrer l'output buffering pour capturer les erreurs sans bloquer les headers
+ob_start();
+
+require_once __DIR__ . '/protected_setup.php';
+
+header('Content-Type: application/json');
+
+// Définir les error handlers APRÈS l'inclusion (pour ne pas bloquer les headers de cors.php)
 set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    ob_clean(); // Nettoyer le buffer
     http_response_code(500);
     echo json_encode([
         'success' => false,
@@ -15,6 +25,7 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 });
 
 set_exception_handler(function($e) {
+    ob_clean(); // Nettoyer le buffer
     http_response_code(500);
     echo json_encode([
         'success' => false,
@@ -25,10 +36,6 @@ set_exception_handler(function($e) {
     ]);
     exit;
 });
-
-require_once __DIR__ . '/protected_setup.php';
-
-header('Content-Type: application/json');
 
 // Alias pour compatibilité (protected_setup.php définit $userId)
 $user_id = $userId;
@@ -153,14 +160,6 @@ if ($action === 'get_challenges') {
             'error' => $e->getMessage()
         ]);
     }
-    exit;
-}
-    }
-    
-    echo json_encode([
-        'success' => true,
-        'challenges' => $challenges
-    ]);
     exit;
 }
 

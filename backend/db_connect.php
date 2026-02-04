@@ -1,4 +1,3 @@
-
 <?php
 // backend/db_connect.php
 require_once 'cors.php';
