@@ -16,11 +16,11 @@ if ($user['tokens'] < $bet) {
 // --- 2. CONFIGURATION DES TIERS (POOLS) ---
 $tier = [];
 if ($bet === 1) {
-    $tier = ['items' => ['heal_r1', 'atk_r1', 'def_r1'], 'gold_min' => 50, 'gold_max' => 200, 'xp_val' => 100, 'poke_min' => 10, 'poke_max' => 50];
+    $tier = ['items' => ['heal_r1', 'atk_r1', 'def_r1'], 'gold_min' => 50, 'gold_max' => 200, 'xp_val' => 100, 'poke_min' => 10, 'poke_max' => 50, 'jackpot' => 10000];
 } elseif ($bet === 5) {
-    $tier = ['items' => ['heal_r3', 'atk_r3', 'xp_pack', 'joker'], 'gold_min' => 250, 'gold_max' => 600, 'xp_val' => 500, 'poke_min' => 1, 'poke_max' => 100];
+    $tier = ['items' => ['heal_r3', 'atk_r3', 'xp_pack', 'joker'], 'gold_min' => 250, 'gold_max' => 600, 'xp_val' => 500, 'poke_min' => 1, 'poke_max' => 100, 'jackpot' => 10000];
 } else { 
-    $tier = ['items' => ['heal_r5', 'masterball', 'mirror_r5', 'team_r5'], 'gold_min' => 1000, 'gold_max' => 5000, 'xp_val' => 2000, 'poke_min' => 100, 'poke_max' => 151];
+    $tier = ['items' => ['heal_r5', 'masterball', 'mirror_r5', 'team_r5'], 'gold_min' => 1000, 'gold_max' => 5000, 'xp_val' => 2000, 'poke_min' => 100, 'poke_max' => 151, 'jackpot' => 10000];
 }
 
 function getRandomPokeId($min, $max, $exclude = []) {
@@ -46,8 +46,8 @@ $g2 = floor(($tier['gold_min'] + $tier['gold_max']) / 2);
 $segments[5] = ['type' => 'GOLD', 'value' => $g2, 'label' => "$g2 OR", 'color' => '#eab308'];
 $iId2 = $tier['items'][array_rand($tier['items'])];
 $segments[6] = ['type' => 'ITEM', 'id' => $iId2, 'label' => 'OBJET', 'color' => '#a855f7'];
-$g3 = $tier['gold_max'];
-$segments[7] = ['type' => 'GOLD', 'value' => $g3, 'label' => "JACKPOT", 'color' => '#10b981'];
+$jackpot = $tier['jackpot'];
+$segments[7] = ['type' => 'GOLD', 'value' => $jackpot, 'label' => "JACKPOT 💰", 'color' => '#10b981'];
 
 // --- 4. CHOIX DU GAGNANT ---
 $weights = [0 => 10, 1 => 20, 2 => 15, 3 => 15, 4 => 5, 5 => 20, 6 => 10, 7 => 5];

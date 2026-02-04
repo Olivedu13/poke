@@ -15,7 +15,7 @@ export const useBattleLogic = () => {
         collection, fetchCollection, inventory, fetchInventory, claimBattleRewards,
         gradeGauge, updateGradeProgress, combo, specialGauge, consumeSpecial,
         battlePhase, setBattlePhase, previewEnemy, selectedPlayer,
-        setPreviewEnemy, setSelectedPlayer, battleMode, trainerOpponent,
+        setPreviewEnemy, setPreviewEnemyTeam, setSelectedPlayer, battleMode, trainerOpponent,
         setTrainerOpponent
     } = useGameStore();
 
@@ -107,13 +107,18 @@ export const useBattleLogic = () => {
 
     // --- SETUP INITIAL ---
     useEffect(() => {
+        // Ne lancer le setup QUE si on est en phase LOADING (après un clic sur un mode de combat)
+        // Ne PAS lancer automatiquement si on est en NONE (sélection du mode)
+        if (battlePhase === 'NONE' || battlePhase === 'PVP_LOBBY') {
+            return; // Ne rien faire, on attend la sélection du mode
+        }
+        
         // Ne pas réinitialiser si un combat est déjà en cours
-        if (battlePhase !== 'NONE' && battlePhase !== 'LOADING' && playerPokemon && enemyPokemon) {
+        if (battlePhase !== 'LOADING' && playerPokemon && enemyPokemon) {
             return;
         }
         
-        if (battlePhase === 'NONE' || battlePhase === 'LOADING') {
-            setBattlePhase('LOADING');
+        if (battlePhase === 'LOADING') {
             const setup = async () => {
                 // Vérifier si on peut lancer un PvP (limite de 6 simultanés)
                 if (battleMode === 'PVP') {
@@ -156,12 +161,14 @@ export const useBattleLogic = () => {
                     const trainer = await generateTrainerOpponent(baseLevel);
                     setTrainerOpponent(trainer);
                     setPreviewEnemy(trainer.team[0]);
+                    setPreviewEnemyTeam(trainer.team);
                 } else {
                     // Mode WILD classique
                     const enemyLevel = Math.max(1, baseLevel + Math.floor(Math.random() * 3) - 1);
                     const enemyId = Math.floor(Math.random() * 150) + 1;
                     const enemy = await fetchTyradexData(enemyId, enemyLevel);
                     setPreviewEnemy(enemy);
+                    setPreviewEnemyTeam([enemy]);
                 }
                 
                 setBattlePhase('PREVIEW');

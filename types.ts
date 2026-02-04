@@ -89,3 +89,4 @@ export interface CombatLog {
 }
 
 export type ViewState = 'AUTH' | 'DASHBOARD' | 'GAME' | 'COLLECTION' | 'SHOP' | 'WHEEL';
+export type BattlePhase = 'NONE' | 'LOADING' | 'PREVIEW' | 'FIGHTING' | 'VICTORY' | 'DEFEAT' | 'PVP_LOBBY';

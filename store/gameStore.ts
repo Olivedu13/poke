@@ -1,6 +1,6 @@
 
 import { create } from 'zustand';
-import { User, Pokemon, Item, CombatLog, ViewState, GradeLevel, BattleMode, TrainerOpponent } from '../types';
+import { User, Pokemon, Item, CombatLog, ViewState, GradeLevel, BattleMode, TrainerOpponent, BattlePhase } from '../types';
 import { api } from '../services/api'; // V3 API
 import { playSfx } from '../utils/soundEngine';
 
@@ -18,13 +18,14 @@ interface GameState {
   playerPokemon: Pokemon | null;
   enemyPokemon: Pokemon | null;
   previewEnemy: Pokemon | null;
+  previewEnemyTeam: Pokemon[];
   selectedPlayer: Pokemon | null;
   battleMode: BattleMode;
   trainerOpponent: TrainerOpponent | null;
   battleLogs: CombatLog[];
   isPlayerTurn: boolean;
   battleOver: boolean;
-  battlePhase: 'NONE' | 'LOADING' | 'PREVIEW' | 'FIGHTING' | 'CAPTURE' | 'FINISHED';
+  battlePhase: BattlePhase;
   combo: number;         
   specialGauge: number;  
   seenQuestionIds: (string | number)[]; 
@@ -39,10 +40,11 @@ interface GameState {
   updateUserConfig: (config: Partial<User>) => void;
   
   initBattle: (player: Pokemon, enemy: Pokemon) => void;
-  setBattlePhase: (phase: 'NONE' | 'LOADING' | 'PREVIEW' | 'FIGHTING' | 'CAPTURE' | 'FINISHED') => void;
+  setBattlePhase: (phase: BattlePhase) => void;
   setBattleMode: (mode: BattleMode) => void;
   setTrainerOpponent: (trainer: TrainerOpponent | null) => void;
   setPreviewEnemy: (enemy: Pokemon | null) => void;
+  setPreviewEnemyTeam: (team: Pokemon[]) => void;
   setSelectedPlayer: (player: Pokemon | null) => void;
   addLog: (log: CombatLog) => void;
   damageEntity: (target: 'PLAYER' | 'ENEMY', amount: number) => void;
@@ -69,6 +71,7 @@ export const useGameStore = create<GameState>((set, get) => ({
   playerPokemon: null,
   enemyPokemon: null,
   previewEnemy: null,
+  previewEnemyTeam: [],
   selectedPlayer: null,
   battleMode: 'WILD',
   trainerOpponent: null,
@@ -96,7 +99,12 @@ export const useGameStore = create<GameState>((set, get) => ({
   
   setView: (view) => {
       playSfx('CLICK');
-      set({ currentView: view });
+      // Réinitialiser le battlePhase à 'NONE' quand on va sur la vue GAME
+      if (view === 'GAME') {
+          set({ currentView: view, battlePhase: 'NONE' });
+      } else {
+          set({ currentView: view });
+      }
   },
   
   updateUserConfig: (config) => set((state) => ({
@@ -121,6 +129,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   setTrainerOpponent: (trainer) => set({ trainerOpponent: trainer }),
 
   setPreviewEnemy: (enemy) => set({ previewEnemy: enemy }),
+
+  setPreviewEnemyTeam: (team) => set({ previewEnemyTeam: team }),
 
   setSelectedPlayer: (player) => set({ selectedPlayer: player }),
 

@@ -32,8 +32,9 @@ export const BattleModeSelector: React.FC = () => {
     }, []);
 
     const handleSelectMode = (mode: BattleMode) => {
-        if (mode === 'PVP' && pvpStats.available <= 0) {
-            alert(`Serveur PvP plein (${pvpStats.active}/${pvpStats.max} combats actifs). Réessayez dans quelques instants.`);
+        if (mode === 'PVP') {
+            // Rediriger vers le lobby PvP au lieu du matchmaking automatique
+            setBattlePhase('PVP_LOBBY');
             return;
         }
         setBattleMode(mode);
@@ -46,22 +47,11 @@ export const BattleModeSelector: React.FC = () => {
             
             <div className="relative z-10 max-w-5xl w-full">
                 <h1 className="text-4xl md:text-6xl font-display font-black text-center mb-4 bg-gradient-to-r from-cyan-400 to-purple-500 bg-clip-text text-transparent drop-shadow-2xl">
-                    CHOISIS TON COMBAT
+                    CHOISIS TON ADVERSAIRE
                 </h1>
-                <p className="text-center text-slate-400 mb-4 text-sm md:text-base">
-                    Sélectionne le type de combat que tu souhaites affronter
+                <p className="text-center text-slate-400 mb-8 text-sm md:text-base">
+                    Pokémon sauvage, dresseur robot ou joueur en ligne ?
                 </p>
-                
-                {/* Indicateur de slots PvP disponibles */}
-                <div className="flex items-center justify-center gap-2 mb-8">
-                    <div className={`px-4 py-2 rounded-full border-2 font-bold text-sm ${
-                        pvpStats.available > 0 
-                            ? 'bg-purple-900/30 border-purple-500/50 text-purple-400' 
-                            : 'bg-red-900/30 border-red-500/50 text-red-400'
-                    }`}>
-                        <span className="animate-pulse">●</span> PvP : {pvpStats.available}/{pvpStats.max} slots libres
-                    </div>
-                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
                     {/* Combat Pokémon Sauvage */}
@@ -102,10 +92,10 @@ export const BattleModeSelector: React.FC = () => {
                                 👤
                             </div>
                             <h2 className="text-2xl md:text-3xl font-display font-bold text-red-400 group-hover:text-red-300">
-                                DRESSEUR
+                                DRESSEUR (BOT)
                             </h2>
                             <p className="text-slate-300 text-sm md:text-base text-center">
-                                Affronte un dresseur avec 3 Pokémon. Potions traîtres disponibles !
+                                Combat contre un robot avec 3 Pokémon. Potions traîtres disponibles !
                             </p>
                             <div className="flex gap-2 mt-2">
                                 <span className="px-3 py-1 bg-red-500/20 rounded-full text-red-400 text-xs font-bold">3v3</span>
@@ -114,13 +104,10 @@ export const BattleModeSelector: React.FC = () => {
                         </div>
                     </button>
 
-                    {/* Combat PvP (À venir) */}
+                    {/* Combat PvP */}
                     <button
                         onClick={() => handleSelectMode('PVP')}
-                        disabled={pvpStats.available <= 0}
-                        className={`group relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-900/40 to-pink-800/40 border-2 border-purple-500/30 hover:border-purple-400 p-8 transition-all hover:scale-105 hover:shadow-[0_0_50px_rgba(168,85,247,0.3)] md:col-span-2 ${
-                            pvpStats.available <= 0 ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
+                        className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-900/40 to-pink-800/40 border-2 border-purple-500/30 hover:border-purple-400 p-8 transition-all hover:scale-105 hover:shadow-[0_0_50px_rgba(168,85,247,0.3)] md:col-span-2"
                     >
                         <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
                         
@@ -129,12 +116,10 @@ export const BattleModeSelector: React.FC = () => {
                                 ⚔️
                             </div>
                             <h2 className="text-2xl md:text-3xl font-display font-bold text-purple-400 group-hover:text-purple-300">
-                                JOUEUR EN LIGNE
+                                JOUEUR EN LIGNE (PVP)
                             </h2>
                             <p className="text-slate-300 text-sm md:text-base text-center">
-                                {pvpStats.available > 0 
-                                    ? 'Affronte de vrais joueurs en temps réel ! Tour par tour.'
-                                    : 'Serveur PvP plein. Réessaye dans quelques instants.'}
+                                Défiez de vrais joueurs ! Sélectionnez votre adversaire dans le lobby.
                             </p>
                             <div className="flex gap-2 mt-2">
                                 <span className="px-3 py-1 bg-purple-500/20 rounded-full text-purple-400 text-xs font-bold">
