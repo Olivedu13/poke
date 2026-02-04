@@ -199,9 +199,9 @@ if ($action === 'get_state') {
         }
     }
     
-    // Préparer la question actuelle (seulement si c'est mon tour)
+    // Préparer la question actuelle (VISIBLE PAR LES 2 JOUEURS)
     $current_question = null;
-    if ($is_my_turn && $match['question_id'] && $match['waiting_for_answer']) {
+    if ($match['question_id'] && $match['waiting_for_answer']) {
         $options = json_decode($match['options_json'], true);
         $current_question = [
             'id' => $match['question_id'],

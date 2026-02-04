@@ -96,7 +96,7 @@ export const PvPBattleProc: React.FC = () => {
             if (res.data.success) {
                 console.log('fetchState:', {
                     is_my_turn: res.data.is_my_turn,
-                    current_question: res.data.current_question,
+                    has_question: !!res.data.current_question,
                     current_turn: res.data.match.current_turn,
                     my_id: res.data.my_id
                 });
@@ -105,14 +105,11 @@ export const PvPBattleProc: React.FC = () => {
                 setHistory(res.data.history);
                 setIsMyTurn(res.data.is_my_turn);
                 
-                // IMPORTANT: Ne définir la question que si c'est mon tour
-                if (res.data.is_my_turn && res.data.current_question) {
-                    setCurrentQuestion(res.data.current_question);
-                    setWaitingForOpponent(false);
-                } else {
-                    setCurrentQuestion(null);
-                    setWaitingForOpponent(true);
-                }
+                // La question est visible par les 2 joueurs
+                setCurrentQuestion(res.data.current_question);
+                
+                // Mais seul le joueur actif peut répondre
+                setWaitingForOpponent(!res.data.is_my_turn);
                 
                 setLoading(false);
                 setError(null);
@@ -332,43 +329,56 @@ export const PvPBattleProc: React.FC = () => {
                         })}
                     </div>
 
-                    {/* Zone centrale - Question ou Attente */}
+                    {/* Zone centrale - Question (visible par les 2 joueurs) */}
                     <div className="flex-1 flex items-center justify-center">
-                        {isMyTurn && currentQuestion ? (
-                            <div className="w-full max-w-2xl bg-slate-900/80 rounded-xl p-6 border-2 border-cyan-500">
+                        {currentQuestion ? (
+                            <div className={`w-full max-w-2xl bg-slate-900/80 rounded-xl p-6 border-2 ${isMyTurn ? 'border-cyan-500' : 'border-orange-500'}`}>
+                                {/* Indicateur de tour */}
+                                <div className="mb-4 text-center">
+                                    {isMyTurn ? (
+                                        <div className="inline-block px-4 py-2 bg-cyan-600 text-white font-bold rounded-full text-sm">
+                                            ✨ C'EST TON TOUR
+                                        </div>
+                                    ) : (
+                                        <div className="inline-block px-4 py-2 bg-orange-600 text-white font-bold rounded-full text-sm">
+                                            ⏳ TOUR DE {opponentName.toUpperCase()}
+                                        </div>
+                                    )}
+                                </div>
+                                
                                 <h2 className="text-2xl text-white font-bold mb-4">{currentQuestion.question_text}</h2>
                                 <div className="space-y-2">
                                     {currentQuestion.options.map((option, idx) => (
                                         <button
                                             key={idx}
-                                            onClick={() => setSelectedAnswer(idx)}
+                                            onClick={() => isMyTurn && setSelectedAnswer(idx)}
+                                            disabled={!isMyTurn}
                                             className={`w-full p-4 rounded-lg border-2 text-left transition-all ${
-                                                selectedAnswer === idx
-                                                    ? 'bg-cyan-600 border-cyan-400 text-white'
-                                                    : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
+                                                isMyTurn
+                                                    ? selectedAnswer === idx
+                                                        ? 'bg-cyan-600 border-cyan-400 text-white'
+                                                        : 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700 cursor-pointer'
+                                                    : 'bg-slate-800/50 border-slate-700/50 text-slate-500 cursor-not-allowed'
                                             }`}
                                         >
                                             {option}
                                         </button>
                                     ))}
                                 </div>
-                                <button
-                                    onClick={submitAnswer}
-                                    disabled={selectedAnswer === null}
-                                    className="w-full mt-4 py-3 bg-green-600 hover:bg-green-500 disabled:bg-slate-700 disabled:opacity-50 text-white font-bold rounded-lg transition-colors"
-                                >
-                                    VALIDER
-                                </button>
-                            </div>
-                        ) : waitingForOpponent ? (
-                            <div className="text-center">
-                                <div className="text-4xl mb-4 animate-pulse">⏳</div>
-                                <p className="text-slate-400 text-xl">En attente de {opponentName}...</p>
+                                {isMyTurn && (
+                                    <button
+                                        onClick={submitAnswer}
+                                        disabled={selectedAnswer === null}
+                                        className="w-full mt-4 py-3 bg-green-600 hover:bg-green-500 disabled:bg-slate-700 disabled:opacity-50 text-white font-bold rounded-lg transition-colors"
+                                    >
+                                        VALIDER
+                                    </button>
+                                )}
                             </div>
                         ) : (
                             <div className="text-center">
-                                <div className="text-4xl mb-4">⚔️</div>
-                                <p className="text-slate-400 text-xl">Combat en cours...</p>
+                                <div className="text-4xl mb-4 animate-pulse">⏳</div>
+                                <p className="text-slate-400 text-xl">Chargement de la question...</p>
                             </div>
                         )}
                     </div>
