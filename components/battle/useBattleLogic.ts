@@ -394,7 +394,9 @@ export const useBattleLogic = () => {
             battleMode: 'WILD',
             trainerOpponent: null,
             previewEnemy: null,
-            selectedPlayer: null
+            previewEnemyTeam: [],
+            selectedPlayer: null,
+            currentView: 'COLLECTION'
         });
     };
 
