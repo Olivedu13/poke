@@ -115,6 +115,13 @@ try {
         $changes[] = "Colonne waiting_for_answer ajoutée";
     }
     
+    // 6b. Ajouter une colonne pour stocker la question actuelle
+    $stmt = $pdo->query("SHOW COLUMNS FROM pvp_matches LIKE 'current_question_id'");
+    if (!$stmt->fetch()) {
+        $pdo->exec("ALTER TABLE pvp_matches ADD COLUMN current_question_id INT DEFAULT NULL COMMENT 'ID de la question en cours'");
+        $changes[] = "Colonne current_question_id ajoutée";
+    }
+    
     // 7. Ajouter les équipes dans pvp_challenges
     $stmt = $pdo->query("SHOW COLUMNS FROM pvp_challenges LIKE 'challenger_team'");
     if (!$stmt->fetch()) {
