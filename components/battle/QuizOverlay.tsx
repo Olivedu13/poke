@@ -6,14 +6,15 @@ import { ASSETS_BASE_URL } from '../../config';
 import { useGameStore } from '../../store/gameStore';
 
 interface QuizOverlayProps {
-  user: User;
-    onComplete: (isCorrect: boolean, dmgDealt: number, difficulty: string, questionId?: string | number) => void;
-  onClose: () => void;
+    user: User;
+    onComplete: (isCorrect: boolean, dmgDealt: number, difficulty: string, questionId?: string | number, answerIndex?: number) => void;
+    onClose: () => void;
+    preloadedQuestion?: Question;
 }
 
-export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onClose }) => {
-  const [loading, setLoading] = useState(true);
-  const [question, setQuestion] = useState<Question | null>(null);
+export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onClose, preloadedQuestion }) => {
+    const [loading, setLoading] = useState(!preloadedQuestion);
+    const [question, setQuestion] = useState<Question | null>(preloadedQuestion || null);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [result, setResult] = useState<{correct: boolean, explanation: string} | null>(null);
   const [error, setError] = useState<string>('');
@@ -39,6 +40,12 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
   };
 
   const fetchQuestion = useCallback(async () => {
+      if (preloadedQuestion) {
+          setQuestion(preloadedQuestion);
+          setLoading(false);
+          return;
+      }
+
       setLoading(true);
       setError('');
       submitting.current = false;
@@ -69,11 +76,11 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
       } finally {
         setLoading(false);
       }
-  }, [seenQuestionIds]);
+  }, [seenQuestionIds, preloadedQuestion]);
 
   useEffect(() => {
     fetchQuestion();
-  }, []);
+  }, [preloadedQuestion]); // Refetch if preloaded changes (should switch turns)
 
   const handleAnswer = async (index: number) => {
     if (submitting.current || selectedOption !== null || !question) return;
@@ -82,6 +89,10 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
 
     const isCorrect = index === question.correct_index;
     let damage = isCorrect ? 25 : 0;
+    
+    // Si la question vient du PVP (via preloaded), le calcul de dégâts se fait côté serveur
+    // MAIS, QuizOverlay ne sait pas si c'est PVP ou pas facilement. Soit on passe une prop, soit on check source.
+    // Pour l'instant on garde battle_mode logic de l'appelant. useBattleLogic ignorera 'damage' ici si PVP.
     
     try {
         const combatRes = await api.post(`/combat_engine.php`, {
@@ -96,7 +107,8 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
     setResult({ correct: isCorrect, explanation: question.explanation });
 
     setTimeout(() => {
-        onComplete(isCorrect, damage, question.difficulty, question.id);
+        // En PVP, question.id est CRITIQUE pour valider la réponse côté serveur.
+        onComplete(isCorrect, damage, question.difficulty, question.id, index);
     }, 2500); 
   };
 

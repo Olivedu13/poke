@@ -36,6 +36,9 @@ const App: React.FC = () => {
             });
             playSfx('victory'); // Son de notification
           }
+        } else if (pvpNotification) {
+          // Plus d'invitation (acceptée ailleurs ou expirée)
+          setPvpNotification(null);
         }
       } catch (e) {
         console.error('Erreur vérification invitations PVP:', e);
