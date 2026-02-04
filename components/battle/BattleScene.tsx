@@ -6,6 +6,7 @@ import { QuizOverlay } from './QuizOverlay';
 import { InventoryBar } from './InventoryBar';
 import { BattleModeSelector } from './BattleModeSelector';
 import { PvPLobby } from './PvPLobby';
+import { PvPBattleProc } from './PvPBattleProc';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Item, Pokemon } from '../../types';
 import { ASSETS_BASE_URL } from '../../config';
@@ -265,8 +266,13 @@ export const BattleScene: React.FC = () => {
     }
 
     // Lobby PvP pour défier des joueurs
-    if (phase === 'PVP_LOBBY') {
+    if (phase === 'PVP_LOBBY' || phase === 'LOBBY') {
         return <PvPLobby />;
+    }
+
+    // Combat PvP procédural
+    if (battleMode === 'PVP' && (phase === 'BATTLE' || phase === 'ACTIVE')) {
+        return <PvPBattleProc />;
     }
 
     if (phase === 'LOADING') return <div className="flex h-full items-center justify-center text-cyan-500 font-display animate-pulse">RECHERCHE D'ADVERSAIRE...</div>;

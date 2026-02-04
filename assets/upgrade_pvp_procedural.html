@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Migration PVP Procédural</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 2rem;
+            color: #fff;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            padding: 3rem;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+            text-align: center;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+        }
+        .emoji {
+            font-size: 3rem;
+            display: block;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+        .section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 2rem;
+            margin: 2rem 0;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+        }
+        .section h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1rem;
+            color: #ffd700;
+        }
+        .btn {
+            display: inline-block;
+            padding: 1rem 2rem;
+            font-size: 1.2rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            border: none;
+            border-radius: 50px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        .btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+        }
+        .btn-success {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+        }
+        .btn-center {
+            display: block;
+            text-align: center;
+            margin: 2rem auto;
+            width: fit-content;
+        }
+        #result {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            border-radius: 10px;
+            display: none;
+        }
+        #result.success {
+            background: rgba(67, 233, 123, 0.2);
+            border: 2px solid #43e97b;
+        }
+        #result.error {
+            background: rgba(245, 87, 108, 0.2);
+            border: 2px solid #f5576c;
+        }
+        .feature-list {
+            list-style: none;
+            margin: 1rem 0;
+        }
+        .feature-list li {
+            padding: 0.8rem;
+            margin: 0.5rem 0;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 4px solid #43e97b;
+        }
+        .feature-list li::before {
+            content: "✓ ";
+            color: #43e97b;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+        code {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 0.2rem 0.5rem;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            color: #ffd700;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <span class="emoji">⚔️🎮</span>
+        <h1>Migration PVP Procédural</h1>
+        
+        <div class="section">
+            <h2>🎯 Objectif</h2>
+            <p>Mise à jour du système de combat PVP pour un mode <strong>procédural tour par tour</strong> avec :</p>
+            <ul class="feature-list">
+                <li>Aperçu de l'équipe adverse lors du défi (3 Pokémon)</li>
+                <li>Tirage au sort du premier joueur</li>
+                <li>Combat strictement procédural (un joueur à la fois)</li>
+                <li>Historique visible des questions/réponses pour les 2 joueurs</li>
+                <li>Objectif pédagogique : voir toutes les questions même quand ce n'est pas son tour</li>
+                <li>XP uniquement pour le vainqueur</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>📋 Étape 1 : Migration de la base de données</h2>
+            <p>Cette étape ajoute les colonnes nécessaires pour gérer les équipes complètes et l'historique des questions.</p>
+            
+            <button class="btn btn-center" onclick="runMigration()">
+                🚀 LANCER LA MIGRATION
+            </button>
+            
+            <div id="result"></div>
+        </div>
+
+        <div class="section">
+            <h2>✅ Fichiers créés/modifiés</h2>
+            <ul class="feature-list">
+                <li><code>backend/upgrade_pvp_procedural.php</code> - Script de migration</li>
+                <li><code>backend/pvp_lobby.php</code> - Gestion des défis avec équipes</li>
+                <li><code>backend/pvp_battle_procedural.php</code> - Nouveau système de combat procédural</li>
+                <li><code>components/battle/PvPLobby.tsx</code> - Affichage équipe adverse</li>
+                <li><code>components/battle/PvPBattleProc.tsx</code> - Interface combat procédural</li>
+                <li><code>components/battle/BattleScene.tsx</code> - Intégration du nouveau système</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>🧪 Étape 2 : Tester</h2>
+            <p>Une fois la migration effectuée :</p>
+            <ol class="feature-list">
+                <li>Ouvrez 2 fenêtres de navigation privée (ou 2 navigateurs différents)</li>
+                <li>Connectez-vous avec 2 comptes différents</li>
+                <li>Allez dans <strong>Bataille → PVP</strong></li>
+                <li>Un joueur envoie un défi (l'équipe adverse s'affiche)</li>
+                <li>L'autre joueur accepte le défi</li>
+                <li>Le combat commence avec tirage au sort</li>
+                <li>Répondez aux questions tour par tour</li>
+                <li>Vérifiez que l'historique s'affiche correctement</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // Détecter automatiquement le domaine
+        const currentDomain = window.location.origin;
+        const backendPath = currentDomain + '/backend/upgrade_pvp_procedural.php';
+
+        async function runMigration() {
+            const btn = event.target;
+            const resultDiv = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Migration en cours...';
+            resultDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch(backendPath);
+                const data = await response.json();
+                
+                resultDiv.style.display = 'block';
+                
+                if (data.success) {
+                    resultDiv.className = 'success';
+                    resultDiv.innerHTML = `
+                        <h3 style="color: #43e97b; margin-bottom: 1rem;">✅ Migration réussie !</h3>
+                        <p><strong>Message :</strong> ${data.message}</p>
+                        ${data.changes && data.changes.length > 0 ? `
+                            <p style="margin-top: 1rem;"><strong>Modifications :</strong></p>
+                            <ul style="margin-left: 2rem;">
+                                ${data.changes.map(c => `<li>${c}</li>`).join('')}
+                            </ul>
+                        ` : ''}
+                        <p style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                            🎉 Le système PVP procédural est maintenant prêt !<br>
+                            Vous pouvez tester le combat PVP avec les nouvelles fonctionnalités.
+                        </p>
+                    `;
+                    btn.textContent = '✓ MIGRATION EFFECTUÉE';
+                    btn.className = 'btn btn-success btn-center';
+                } else {
+                    throw new Error(data.message || 'Erreur inconnue');
+                }
+            } catch (error) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'error';
+                resultDiv.innerHTML = `
+                    <h3 style="color: #f5576c; margin-bottom: 1rem;">❌ Erreur</h3>
+                    <p><strong>Message :</strong> ${error.message}</p>
+                    <p style="margin-top: 1rem;">
+                        <strong>Vérifiez :</strong><br>
+                        1. Le fichier config.php existe dans /backend/<br>
+                        2. Les identifiants de BDD sont corrects<br>
+                        3. L'utilisateur MySQL a les droits CREATE/ALTER
+                    </p>
+                `;
+                btn.disabled = false;
+                btn.textContent = '🔄 RÉESSAYER';
+            }
+        }
+    </script>
+</body>
+</html>
