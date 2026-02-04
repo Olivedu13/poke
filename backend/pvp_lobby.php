@@ -71,6 +71,7 @@ if ($action === 'get_challenges') {
             c.challenger_id,
             u.username as challenger_name,
             c.challenged_id,
+            c.challenger_team,
             c.status,
             c.created_at
         FROM pvp_challenges c
@@ -81,6 +82,13 @@ if ($action === 'get_challenges') {
     ");
     $stmt->execute([$user_id]);
     $challenges = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Décoder les équipes JSON
+    foreach ($challenges as &$challenge) {
+        if ($challenge['challenger_team']) {
+            $challenge['challenger_team'] = json_decode($challenge['challenger_team'], true);
+        }
+    }
     
     echo json_encode([
         'success' => true,
@@ -145,6 +153,22 @@ if ($action === 'send_challenge') {
         exit;
     }
     
+    // Récupérer l'équipe du challenger (3 Pokémon is_team=1)
+    $stmt = $pdo->prepare("
+        SELECT id, tyradex_id, level, current_hp, max_hp, name, sprite_url
+        FROM user_pokemon 
+        WHERE user_id = ? AND is_team = 1 
+        ORDER BY id ASC 
+        LIMIT 3
+    ");
+    $stmt->execute([$user_id]);
+    $myTeam = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    if (count($myTeam) < 3) {
+        echo json_encode(['success' => false, 'message' => 'Tu dois avoir 3 Pokémon dans ton équipe pour défier un adversaire']);
+        exit;
+    }
+    
     // Vérifier que le joueur cible existe et est en ligne
     $stmt = $pdo->prepare("
         SELECT u.id, op.status 
@@ -178,12 +202,12 @@ if ($action === 'send_challenge') {
         exit;
     }
     
-    // Créer le défi
+    // Créer le défi avec l'équipe du challenger
     $stmt = $pdo->prepare("
-        INSERT INTO pvp_challenges (challenger_id, challenged_id, status, created_at)
-        VALUES (?, ?, 'pending', NOW())
+        INSERT INTO pvp_challenges (challenger_id, challenged_id, challenger_team, status, created_at)
+        VALUES (?, ?, ?, 'pending', NOW())
     ");
-    $stmt->execute([$user_id, $challenged_id]);
+    $stmt->execute([$user_id, $challenged_id, json_encode($myTeam)]);
     
     // Marquer le joueur comme défié
     updatePlayerPresence($user_id, 'available');
@@ -206,7 +230,23 @@ if ($action === 'accept_challenge') {
         exit;
     }
     
-    // Récupérer le défi
+    // Récupérer mon équipe (joueur qui accepte)
+    $stmt = $pdo->prepare("
+        SELECT id, tyradex_id, level, current_hp, max_hp, name, sprite_url
+        FROM user_pokemon 
+        WHERE user_id = ? AND is_team = 1 
+        ORDER BY id ASC 
+        LIMIT 3
+    ");
+    $stmt->execute([$user_id]);
+    $myTeam = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    if (count($myTeam) < 3) {
+        echo json_encode(['success' => false, 'message' => 'Tu dois avoir 3 Pokémon dans ton équipe pour accepter un défi']);
+        exit;
+    }
+    
+    // Récupérer le défi avec l'équipe du challenger
     $stmt = $pdo->prepare("
         SELECT * FROM pvp_challenges 
         WHERE id = ? AND challenged_id = ? AND status = 'pending'
@@ -218,6 +258,8 @@ if ($action === 'accept_challenge') {
         echo json_encode(['success' => false, 'message' => 'Défi introuvable ou expiré']);
         exit;
     }
+    
+    $challengerTeam = json_decode($challenge['challenger_team'], true);
     
     // Accepter le défi
     $stmt = $pdo->prepare("UPDATE pvp_challenges SET status = 'accepted' WHERE id = ?");
@@ -240,12 +282,29 @@ if ($action === 'accept_challenge') {
         $user_id, $challenge['challenger_id']
     ]);
     
-    // Créer le match PvP (sans current_turn pour l'instant)
+    // Créer les tableaux de HP initiaux
+    $player1_hp = array_map(fn($p) => (int)$p['current_hp'], $challengerTeam);
+    $player2_hp = array_map(fn($p) => (int)$p['current_hp'], $myTeam);
+    
+    // Créer le match PvP avec les équipes complètes
     $stmt = $pdo->prepare("
-        INSERT INTO pvp_matches (player1_id, player2_id, status, created_at)
-        VALUES (?, ?, 'IN_PROGRESS', NOW())
+        INSERT INTO pvp_matches (
+            player1_id, player2_id, 
+            player1_team, player2_team,
+            player1_team_hp, player2_team_hp,
+            player1_active_pokemon, player2_active_pokemon,
+            status, created_at
+        )
+        VALUES (?, ?, ?, ?, ?, ?, 0, 0, 'IN_PROGRESS', NOW())
     ");
-    $stmt->execute([$challenge['challenger_id'], $user_id]);
+    $stmt->execute([
+        $challenge['challenger_id'], 
+        $user_id,
+        $challenge['challenger_team'], 
+        json_encode($myTeam),
+        json_encode($player1_hp),
+        json_encode($player2_hp)
+    ]);
     $match_id = $pdo->lastInsertId();
     
     // Marquer les deux joueurs comme en combat

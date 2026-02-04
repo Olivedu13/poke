@@ -19,6 +19,15 @@ interface Challenge {
     challenger_id: number;
     challenger_name: string;
     challenged_id: number;
+    challenger_team?: Array<{
+        id: number;
+        tyradex_id: number;
+        level: number;
+        name: string;
+        sprite_url: string;
+        current_hp: number;
+        max_hp: number;
+    }>;
     status: 'pending' | 'accepted' | 'declined';
     created_at: string;
 }
@@ -224,27 +233,53 @@ export const PvPLobby: React.FC = () => {
                                 <span className="text-2xl animate-pulse">⚡</span>
                                 DÉFIS REÇUS ({incomingChallenges.length})
                             </h2>
-                            <div className="space-y-2">
+                            <div className="space-y-3">
                                 {incomingChallenges.map(challenge => (
-                                    <div key={challenge.id} className="bg-slate-800/60 rounded-lg p-3 flex items-center justify-between">
-                                        <div>
-                                            <p className="text-white font-bold">{challenge.challenger_name}</p>
-                                            <p className="text-slate-400 text-sm">t'a défié en combat !</p>
+                                    <div key={challenge.id} className="bg-slate-800/60 rounded-lg p-4 border border-slate-700">
+                                        <div className="flex items-start justify-between mb-3">
+                                            <div>
+                                                <p className="text-white font-bold text-lg">{challenge.challenger_name}</p>
+                                                <p className="text-slate-400 text-sm">t'a défié en combat !</p>
+                                            </div>
+                                            <div className="flex gap-2">
+                                                <button 
+                                                    onClick={() => handleAccept(challenge.id)}
+                                                    className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg transition-colors"
+                                                >
+                                                    ✓ ACCEPTER
+                                                </button>
+                                                <button 
+                                                    onClick={() => handleDecline(challenge.id)}
+                                                    className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg transition-colors"
+                                                >
+                                                    ✕ REFUSER
+                                                </button>
+                                            </div>
                                         </div>
-                                        <div className="flex gap-2">
-                                            <button 
-                                                onClick={() => handleAccept(challenge.id)}
-                                                className="px-4 py-2 bg-green-600 hover:bg-green-500 text-white font-bold rounded-lg transition-colors"
-                                            >
-                                                ✓ ACCEPTER
-                                            </button>
-                                            <button 
-                                                onClick={() => handleDecline(challenge.id)}
-                                                className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white font-bold rounded-lg transition-colors"
-                                            >
-                                                ✕ REFUSER
-                                            </button>
-                                        </div>
+                                        
+                                        {/* Équipe de l'adversaire */}
+                                        {challenge.challenger_team && challenge.challenger_team.length > 0 && (
+                                            <div className="mt-3 pt-3 border-t border-slate-700">
+                                                <p className="text-xs text-slate-500 mb-2 uppercase font-bold">Équipe adverse</p>
+                                                <div className="flex gap-2">
+                                                    {challenge.challenger_team.map((pokemon, idx) => (
+                                                        <div 
+                                                            key={idx} 
+                                                            className="flex-1 bg-slate-900/60 border border-red-500/30 rounded-lg p-2 flex flex-col items-center"
+                                                        >
+                                                            <img 
+                                                                src={pokemon.sprite_url || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${pokemon.tyradex_id}.png`}
+                                                                alt={pokemon.name}
+                                                                className="w-12 h-12 object-contain"
+                                                            />
+                                                            <p className="text-white text-xs font-bold text-center truncate w-full">{pokemon.name}</p>
+                                                            <p className="text-slate-400 text-[10px]">Niv. {pokemon.level}</p>
+                                                            <p className="text-red-400 text-[10px]">{pokemon.current_hp}/{pokemon.max_hp} PV</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
                                 ))}
                             </div>
