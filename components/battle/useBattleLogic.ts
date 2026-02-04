@@ -28,6 +28,11 @@ export const useBattleLogic = () => {
     const [captureAttempted, setCaptureAttempted] = useState(false);
     const [captureSuccess, setCaptureSuccess] = useState(false);
 
+    // --- PVP STATE ---
+    const [pvpMatchId, setPvpMatchId] = useState<number | null>(null);
+    const [isPvpMyTurn, setIsPvpMyTurn] = useState(true);
+    const [pvpOpponentAction, setPvpOpponentAction] = useState<any>(null);
+
     // --- ANIMATION STATE ---
     const controlsPlayer = useAnimation();
     const controlsEnemy = useAnimation();
@@ -179,6 +184,7 @@ export const useBattleLogic = () => {
                         
                         const opponentTeam = opponentRes.data.collection.filter((p: any) => p.is_team && p.current_hp > 0);
                         console.log('🎮 [PVP] Équipe adverse filtrée:', opponentTeam.length, 'Pokémon');
+                        console.log('🎮 [PVP] Premier Pokémon adverse:', opponentTeam[0]);
                         
                         if (opponentTeam.length === 0) {
                             console.error('🎮 [PVP] ERREUR: L\'adversaire n\'a pas de Pokémon disponible');
@@ -190,16 +196,33 @@ export const useBattleLogic = () => {
                         const opponentName = opponentRes.data.opponent_name || 'Adversaire';
                         console.log('🎮 [PVP] Nom de l\'adversaire:', opponentName);
                         
+                        // Formater les Pokémon adverses au bon format
+                        const formattedOpponentTeam = opponentTeam.map((p: any) => ({
+                            id: p.id,
+                            name: p.nickname || `Pokémon #${p.tyradex_id}`,
+                            sprite_url: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${p.tyradex_id}.png`,
+                            level: p.level,
+                            max_hp: p.max_hp || 100,
+                            current_hp: p.current_hp,
+                            type: 'Normal',
+                            stats: { atk: 50, def: 50, spe: 50 },
+                            current_xp: p.current_xp || 0,
+                            tyradex_id: p.tyradex_id,
+                            next_level_xp: 100
+                        }));
+                        
+                        console.log('🎮 [PVP] Équipe formatée:', formattedOpponentTeam);
+                        
                         const pvpOpponent = {
                             name: opponentName,
                             avatar: '🎮',
-                            team: opponentTeam,
+                            team: formattedOpponentTeam,
                             currentPokemonIndex: 0
                         };
                         
                         setTrainerOpponent(pvpOpponent);
-                        setPreviewEnemy(opponentTeam[0]);
-                        setPreviewEnemyTeam(opponentTeam);
+                        setPreviewEnemy(formattedOpponentTeam[0]);
+                        setPreviewEnemyTeam(formattedOpponentTeam);
                         
                         console.log('🎮 [PVP] Combat PVP initialisé avec succès !');
                         addLog({ message: `Combat PVP contre ${opponentName} !`, type: 'INFO' });
@@ -306,6 +329,7 @@ export const useBattleLogic = () => {
     }, [battleOver, battlePhase, captureAttempted]);
 
     useEffect(() => {
+        if (battleMode === 'PVP') return;
         if (battlePhase === 'FIGHTING' && !isPlayerTurn && !battleOver && enemyPokemon && playerPokemon) {
             const aiTurn = async () => {
                 await new Promise(r => setTimeout(r, 1000));
@@ -322,16 +346,99 @@ export const useBattleLogic = () => {
         }
     }, [isPlayerTurn, battleOver, battlePhase]);
 
+    // --- PVP POLLING ---
+    useEffect(() => {
+        if (battleMode !== 'PVP' || !pvpMatchId || battlePhase !== 'FIGHTING') return;
+
+        console.log('🎮 [PVP] Démarrage du polling pour match:', pvpMatchId);
+        
+        const checkPvPState = async () => {
+            try {
+                const res = await api.get(`/pvp_battle.php?action=get_match_state&match_id=${pvpMatchId}`);
+                if (res.data.success) {
+                    const wasMyTurn = isPvpMyTurn;
+                    const isNowMyTurn = res.data.is_my_turn;
+                    
+                    setIsPvpMyTurn(isNowMyTurn);
+                    
+                    // Si c'est maintenant mon tour et que ce n'était pas le cas avant
+                    if (isNowMyTurn && !wasMyTurn) {
+                        console.log('🎮 [PVP] C\'est maintenant mon tour !');
+                        addLog({ message: 'À votre tour !', type: 'INFO' });
+                        playSfx('victory');
+                        
+                        // Récupérer la dernière action de l'adversaire
+                        if (res.data.turns && res.data.turns.length > 0) {
+                            const lastTurn = res.data.turns[res.data.turns.length - 1];
+                            if (lastTurn.player_id !== user?.id) {
+                                console.log('🎮 [PVP] Dernière action adverse:', lastTurn);
+                                setPvpOpponentAction(lastTurn);
+                                
+                                // Appliquer les dégâts si l'adversaire a réussi
+                                if (lastTurn.is_correct && lastTurn.damage_dealt > 0) {
+                                    damageEntity('PLAYER', lastTurn.damage_dealt);
+                                    spawnFloatingText(`-${lastTurn.damage_dealt}`, 'text-red-500', true);
+                                    triggerShake();
+                                    triggerFlash('red');
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('🎮 [PVP] Erreur polling état match:', e);
+            }
+        };
+
+        // Vérifier immédiatement
+        checkPvPState();
+        
+        // Puis toutes les 2 secondes
+        const interval = setInterval(checkPvPState, 2000);
+        
+        return () => clearInterval(interval);
+    }, [battleMode, pvpMatchId, battlePhase, isPvpMyTurn]);
+
     // --- ACTIONS JOUEUR ---
     const startBattle = async () => {
-        // Enregistrer la session de combat
-        try {
-            await api.post('/battle_session.php', { 
-                action: 'start',
-                battle_type: battleMode
-            });
-        } catch (e) {
-            console.warn('Impossible d\'enregistrer la session:', e);
+        console.log('🎮 [BATTLE] Démarrage du combat, mode:', battleMode);
+        
+        // Mode PVP : Initialiser le système de tours
+        if (battleMode === 'PVP') {
+            try {
+                const pvpMatchStr = localStorage.getItem('pvp_match');
+                if (pvpMatchStr) {
+                    const pvpMatch = JSON.parse(pvpMatchStr);
+                    console.log('🎮 [PVP] Initialisation du système de tours pour match:', pvpMatch.match_id);
+                    
+                    // Appeler l'API pour tirer au sort le premier joueur
+                    const initRes = await api.get(`/pvp_battle.php?action=init_battle&match_id=${pvpMatch.match_id}`);
+                    console.log('🎮 [PVP] Résultat init_battle:', initRes.data);
+                    
+                    if (initRes.data.success) {
+                        setPvpMatchId(pvpMatch.match_id);
+                        setIsPvpMyTurn(initRes.data.is_my_turn);
+                        
+                        if (initRes.data.is_my_turn) {
+                            addLog({ message: 'C\'est votre tour !', type: 'INFO' });
+                        } else {
+                            addLog({ message: 'Au tour de l\'adversaire...', type: 'INFO' });
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('🎮 [PVP] Erreur initialisation système de tours:', e);
+            }
+        } else {
+            // Enregistrer la session de combat pour modes non-PVP
+            try {
+                await api.post('/battle_session.php', { 
+                    action: 'start',
+                    battle_type: battleMode
+                });
+            } catch (e) {
+                console.warn('Impossible d\'enregistrer la session:', e);
+            }
         }
         
         if(selectedPlayer && previewEnemy) {
@@ -340,19 +447,23 @@ export const useBattleLogic = () => {
         }
     };
 
-    const executeAttack = async (isUltimate = false, isCorrect = true, difficulty = 'HARD') => {
+    const executeAttack = async (isUltimate = false, isCorrect = true, difficulty = 'HARD', forcedDamage?: number) => {
         let damage = 0;
-        try {
-             const combatRes = await api.post(`/combat_engine.php`, {
-                is_correct: isCorrect,
-                attacker_level: playerPokemon?.level || 1, 
-                attacker_type: 'FIRE', 
-                enemy_type: 'PLANTE',
-                combo: combo,
-                is_ultimate: isUltimate
-            });
-            if(combatRes.data && combatRes.data.damage) damage = combatRes.data.damage;
-        } catch(e) { damage = isUltimate ? 50 : 12; }
+        if (typeof forcedDamage === 'number') {
+            damage = forcedDamage;
+        } else {
+            try {
+                 const combatRes = await api.post(`/combat_engine.php`, {
+                    is_correct: isCorrect,
+                    attacker_level: playerPokemon?.level || 1, 
+                    attacker_type: 'FIRE', 
+                    enemy_type: 'PLANTE',
+                    combo: combo,
+                    is_ultimate: isUltimate
+                });
+                if(combatRes.data && combatRes.data.damage) damage = combatRes.data.damage;
+            } catch(e) { damage = isUltimate ? 50 : 12; }
+        }
 
         if (isCorrect) {
             await controlsPlayer.start({ x: 100, y: -100, scale: isUltimate ? 1.5 : 1.2, transition: { duration: 0.2 } });
@@ -369,7 +480,9 @@ export const useBattleLogic = () => {
                 spawnFloatingText("CRITIQUE!", "text-yellow-300", false);
             }
             addLog({ message: isUltimate ? `FRAPPE ULTIME -${damage}!` : `Coup réussi ! -${damage}`, type: 'PLAYER' });
-            endTurn();
+            if (battleMode !== 'PVP') {
+                endTurn();
+            }
         } else {
             addLog({ message: `Raté...`, type: 'INFO' });
             triggerShake(0.5); 
@@ -377,11 +490,33 @@ export const useBattleLogic = () => {
         }
     };
 
-    const handleQuizComplete = async (isCorrect: boolean, dmgDealt: number, difficulty: string) => {
+    const handleQuizComplete = async (isCorrect: boolean, dmgDealt: number, difficulty: string, questionId?: string | number) => {
         setShowQuiz(false);
         const leveled = await updateGradeProgress(isCorrect, difficulty);
         if(!isCorrect) triggerFlash('red'); 
-        executeAttack(false, isCorrect, difficulty);
+        
+        // En mode PVP : enregistrer l'action
+        if (battleMode === 'PVP' && pvpMatchId) {
+            try {
+                console.log('🎮 [PVP] Enregistrement de la réponse:', { isCorrect, dmgDealt, questionId });
+                await api.post('/pvp_battle.php', {
+                    action: 'submit_answer',
+                    match_id: pvpMatchId,
+                    question_id: questionId || 0,
+                    answer_index: isCorrect ? 1 : 0,
+                    is_correct: isCorrect,
+                    damage_dealt: dmgDealt
+                });
+                
+                // Mon tour est terminé
+                setIsPvpMyTurn(false);
+                addLog({ message: 'En attente de l\'adversaire...', type: 'INFO' });
+            } catch (e) {
+                console.error('🎮 [PVP] Erreur enregistrement réponse:', e);
+            }
+        }
+        
+        executeAttack(false, isCorrect, difficulty, battleMode === 'PVP' ? dmgDealt : undefined);
     };
 
     const handleUltimate = () => {
@@ -409,13 +544,22 @@ export const useBattleLogic = () => {
                  await fetchInventory();
             } catch(e) {}
             setShowInventory(false);
-            endTurn();
+            if (battleMode !== 'PVP') {
+                endTurn();
+            } else {
+                setIsPvpMyTurn(false);
+            }
         }
     };
 
     const handleSwitchPokemon = (newPoke: Pokemon, isFromTeam: boolean) => {
         if (isFromTeam) {
-            useGameStore.setState({ playerPokemon: newPoke, isPlayerTurn: false });
+            if (battleMode !== 'PVP') {
+                useGameStore.setState({ playerPokemon: newPoke, isPlayerTurn: false });
+            } else {
+                useGameStore.setState({ playerPokemon: newPoke });
+                setIsPvpMyTurn(false);
+            }
             setShowTeam(false);
             addLog({ message: `Go ${newPoke.name} !`, type: 'PLAYER' });
         }
@@ -520,6 +664,10 @@ export const useBattleLogic = () => {
         shake, flash, floatingTexts,
         controlsPlayer, controlsEnemy,
         captureSuccess,
+        
+        // PVP State
+        isPvpMyTurn,
+        pvpOpponentAction,
         
         // Actions
         startBattle,
