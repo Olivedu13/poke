@@ -141,9 +141,10 @@ if ($action === 'init_battle') {
             'message' => $first_player == $user_id ? 'C\'est ton tour !' : 'L\'adversaire commence !'
         ]);
         exit;
-        ]);
-        exit;
     } catch (Exception $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         error_log("Erreur init_battle match_id=$match_id: " . $e->getMessage() . "\n" . $e->getTraceAsString());
         echo json_encode(['success' => false, 'message' => 'Erreur serveur lors de l\'initialisation: ' . $e->getMessage()]);
         exit;
