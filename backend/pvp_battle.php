@@ -49,9 +49,13 @@ if ($action === 'get_match_state') {
     $stmt = $pdo->prepare("
         SELECT 
             t.*,
-            u.username as player_name
+            u.username as player_name,
+            qb.question_text,
+            qb.options_json,
+            qb.correct_index
         FROM pvp_turns t
         JOIN users u ON t.player_id = u.id
+        LEFT JOIN question_bank qb ON t.question_id = qb.id
         WHERE t.match_id = ?
         ORDER BY t.turn_number ASC
     ");
@@ -67,6 +71,61 @@ if ($action === 'get_match_state') {
         'turns' => $turns,
         'is_my_turn' => $is_my_turn,
         'my_id' => $user_id
+    ]);
+    exit;
+}
+
+// Initialiser le combat (tirage au sort du premier joueur)
+if ($action === 'init_battle') {
+    $match_id = $_GET['match_id'] ?? $_POST['match_id'] ?? null;
+    
+    if (!$match_id) {
+        echo json_encode(['success' => false, 'message' => 'ID match manquant']);
+        exit;
+    }
+    
+    // Vérifier que le match existe et n'a pas de current_turn
+    $stmt = $pdo->prepare("
+        SELECT * FROM pvp_matches 
+        WHERE id = ? AND (player1_id = ? OR player2_id = ?) AND current_turn IS NULL
+    ");
+    $stmt->execute([$match_id, $user_id, $user_id]);
+    $match = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if (!$match) {
+        // Peut-être déjà initialisé, récupérer les infos
+        $stmt = $pdo->prepare("SELECT * FROM pvp_matches WHERE id = ?");
+        $stmt->execute([$match_id]);
+        $match = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($match && $match['current_turn']) {
+            echo json_encode([
+                'success' => true,
+                'message' => 'Combat déjà initialisé',
+                'first_player' => $match['current_turn'],
+                'is_my_turn' => ($match['current_turn'] == $user_id)
+            ]);
+            exit;
+        }
+        
+        echo json_encode(['success' => false, 'message' => 'Match introuvable']);
+        exit;
+    }
+    
+    // Tirage au sort : 50/50 entre player1 et player2
+    $first_player = (rand(0, 1) === 0) ? $match['player1_id'] : $match['player2_id'];
+    
+    // Mettre à jour le match
+    $stmt = $pdo->prepare("
+        UPDATE pvp_matches SET current_turn = ? WHERE id = ?
+    ");
+    $stmt->execute([$first_player, $match_id]);
+    
+    echo json_encode([
+        'success' => true,
+        'message' => 'Combat initialisé',
+        'first_player' => $first_player,
+        'is_my_turn' => ($first_player == $user_id)
     ]);
     exit;
 }

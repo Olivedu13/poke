@@ -233,6 +233,8 @@ export const BattleScene: React.FC = () => {
         shake, flash, floatingTexts,
         controlsPlayer, controlsEnemy,
         captureSuccess,
+        isPvpMyTurn,
+        pvpOpponentAction,
         startBattle,
         handleQuizComplete,
         handleUltimate,
@@ -248,6 +250,7 @@ export const BattleScene: React.FC = () => {
         ? ['HEAL', 'BUFF_ATK', 'BUFF_DEF', 'REVIVE', 'TRAITOR', 'JOKER']
         : ['HEAL', 'BUFF_ATK', 'BUFF_DEF', 'REVIVE', 'CAPTURE', 'JOKER'];
     const battleItems = inventory.filter(i => i.quantity > 0 && allowedItems.includes(i.effect_type));
+    const actionsDisabled = battleMode === 'PVP' ? !isPvpMyTurn : !isPlayerTurn;
     const teamPokemon = collection.filter(p => p.is_team);
     const boxPokemon = collection.filter(p => !p.is_team);
 
@@ -315,6 +318,36 @@ export const BattleScene: React.FC = () => {
                 <div className="absolute -top-1 sm:-top-1.5 md:-top-2 lg:-top-3 left-0 right-0 h-1 sm:h-1.5 md:h-2 lg:h-3 bg-slate-950 flex justify-center overflow-hidden">
                     <motion.div className="h-full bg-gradient-to-r from-blue-600 via-purple-500 to-blue-600 bg-[length:200%_100%] animate-[shimmer_2s_linear_infinite]" initial={{ width: 0 }} animate={{ width: `${specialGauge}%` }} />
                 </div>
+                
+                {/* Affichage PVP : Tour de l'adversaire */}
+                {battleMode === 'PVP' && !isPvpMyTurn && (
+                    <div className="mb-2 bg-purple-900/50 border border-purple-500 rounded-lg p-2">
+                        <div className="text-center text-purple-300 text-xs font-display font-bold animate-pulse">
+                            ⏳ Au tour de l'adversaire...
+                        </div>
+                        {pvpOpponentAction && (
+                            <div className="mt-1 text-[10px] text-purple-200">
+                                <div>Action: {pvpOpponentAction.is_correct ? '✅ Correct' : '❌ Incorrect'}</div>
+                                <div>Dégâts: {pvpOpponentAction.damage_dealt}</div>
+                                {pvpOpponentAction.question_text && (
+                                    <div className="mt-1">
+                                        <div className="font-bold">Q: {pvpOpponentAction.question_text}</div>
+                                        {pvpOpponentAction.options_json && (() => {
+                                            try {
+                                                const options = JSON.parse(pvpOpponentAction.options_json);
+                                                const chosen = options?.[pvpOpponentAction.answer_index] ?? 'Réponse inconnue';
+                                                return <div>Réponse: {chosen}</div>;
+                                            } catch {
+                                                return null;
+                                            }
+                                        })()}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
+                
                 <div className="flex justify-between items-center mb-2 sm:mb-2 px-0.5">
                     <div className="text-[9px] sm:text-xs md:text-sm lg:text-base text-slate-400 font-mono truncate max-w-[100px] sm:max-w-none">VS <span className="text-white font-bold">{enemyPokemon.name}</span></div>
                     <div className="h-5 sm:h-5 md:h-6 lg:h-7 px-2 sm:px-2 md:px-3 lg:px-4 bg-slate-800 rounded flex items-center text-[9px] sm:text-xs md:text-sm lg:text-base font-mono text-cyan-200 border border-slate-700 truncate max-w-[120px] sm:max-w-[160px] md:max-w-[200px] lg:max-w-[240px]">
@@ -323,12 +356,12 @@ export const BattleScene: React.FC = () => {
                 </div>
                 <div className="grid grid-cols-3 gap-2 sm:gap-2 md:gap-3">
                     {specialGauge >= 100 ? (
-                        <ActionButton label="FRAPPE ULTIME" isUltimate onClick={handleUltimate} disabled={!isPlayerTurn || battleOver} />
+                        <ActionButton label="FRAPPE ULTIME" isUltimate onClick={handleUltimate} disabled={actionsDisabled || battleOver} />
                     ) : (
-                        <ActionButton label="ATTAQUE" color="red" onClick={() => setShowQuiz(true)} disabled={!isPlayerTurn || battleOver} />
+                        <ActionButton label="ATTAQUE" color="red" onClick={() => setShowQuiz(true)} disabled={actionsDisabled || battleOver} />
                     )}
-                    <ActionButton label="OBJETS" color="yellow" onClick={() => setShowInventory(true)} disabled={!isPlayerTurn || battleOver} />
-                    <ActionButton label="ÉQUIPE" color="blue" onClick={() => setShowTeam(true)} disabled={!isPlayerTurn || battleOver} />
+                    <ActionButton label="OBJETS" color="yellow" onClick={() => setShowInventory(true)} disabled={actionsDisabled || battleOver} />
+                    <ActionButton label="ÉQUIPE" color="blue" onClick={() => setShowTeam(true)} disabled={actionsDisabled || battleOver} />
                 </div>
             </div>
             <AnimatePresence>

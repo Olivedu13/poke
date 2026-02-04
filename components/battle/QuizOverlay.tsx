@@ -7,7 +7,7 @@ import { useGameStore } from '../../store/gameStore';
 
 interface QuizOverlayProps {
   user: User;
-  onComplete: (isCorrect: boolean, dmgDealt: number, difficulty: string) => void;
+    onComplete: (isCorrect: boolean, dmgDealt: number, difficulty: string, questionId?: string | number) => void;
   onClose: () => void;
 }
 
@@ -96,7 +96,7 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
     setResult({ correct: isCorrect, explanation: question.explanation });
 
     setTimeout(() => {
-        onComplete(isCorrect, damage, question.difficulty);
+        onComplete(isCorrect, damage, question.difficulty, question.id);
     }, 2500); 
   };
 
