@@ -1,4 +1,31 @@
 <?php
+// Capturer toutes les erreurs pour debug
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // Ne pas afficher les erreurs en HTML
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Erreur serveur',
+        'error' => $errstr,
+        'file' => basename($errfile),
+        'line' => $errline
+    ]);
+    exit;
+});
+
+set_exception_handler(function($e) {
+    http_response_code(500);
+    echo json_encode([
+        'success' => false,
+        'message' => 'Exception non gérée',
+        'error' => $e->getMessage(),
+        'file' => basename($e->getFile()),
+        'line' => $e->getLine()
+    ]);
+    exit;
+});
+
 require_once __DIR__ . '/protected_setup.php';
 
 header('Content-Type: application/json');
@@ -65,29 +92,69 @@ if ($action === 'get_online_players') {
 
 // Récupérer les défis reçus
 if ($action === 'get_challenges') {
-    $stmt = $pdo->prepare("
-        SELECT 
-            c.id,
-            c.challenger_id,
-            u.username as challenger_name,
-            c.challenged_id,
-            c.challenger_team,
-            c.status,
-            c.created_at
-        FROM pvp_challenges c
-        JOIN users u ON c.challenger_id = u.id
-        WHERE c.challenged_id = ? AND c.status = 'pending'
-        AND c.created_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
-        ORDER BY c.created_at DESC
-    ");
-    $stmt->execute([$user_id]);
-    $challenges = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Décoder les équipes JSON
-    foreach ($challenges as &$challenge) {
-        if ($challenge['challenger_team']) {
-            $challenge['challenger_team'] = json_decode($challenge['challenger_team'], true);
+    try {
+        // Vérifier si la colonne challenger_team existe
+        $stmt = $pdo->query("SHOW COLUMNS FROM pvp_challenges LIKE 'challenger_team'");
+        $hasTeamColumn = $stmt->fetch();
+        
+        if ($hasTeamColumn) {
+            // Nouvelle version avec équipe
+            $stmt = $pdo->prepare("
+                SELECT 
+                    c.id,
+                    c.challenger_id,
+                    u.username as challenger_name,
+                    c.challenged_id,
+                    c.challenger_team,
+                    c.status,
+                    c.created_at
+                FROM pvp_challenges c
+                JOIN users u ON c.challenger_id = u.id
+                WHERE c.challenged_id = ? AND c.status = 'pending'
+                AND c.created_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+                ORDER BY c.created_at DESC
+            ");
+        } else {
+            // Ancienne version sans équipe
+            $stmt = $pdo->prepare("
+                SELECT 
+                    c.id,
+                    c.challenger_id,
+                    u.username as challenger_name,
+                    c.challenged_id,
+                    c.status,
+                    c.created_at
+                FROM pvp_challenges c
+                JOIN users u ON c.challenger_id = u.id
+                WHERE c.challenged_id = ? AND c.status = 'pending'
+                AND c.created_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+                ORDER BY c.created_at DESC
+            ");
         }
+        
+        $stmt->execute([$user_id]);
+        $challenges = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Décoder les équipes JSON si disponibles
+        foreach ($challenges as &$challenge) {
+            if (isset($challenge['challenger_team']) && $challenge['challenger_team']) {
+                $challenge['challenger_team'] = json_decode($challenge['challenger_team'], true);
+            }
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'challenges' => $challenges
+        ]);
+    } catch (PDOException $e) {
+        echo json_encode([
+            'success' => false,
+            'message' => 'Erreur lors de la récupération des défis',
+            'error' => $e->getMessage()
+        ]);
+    }
+    exit;
+}
     }
     
     echo json_encode([
@@ -203,20 +270,43 @@ if ($action === 'send_challenge') {
     }
     
     // Créer le défi avec l'équipe du challenger
-    $stmt = $pdo->prepare("
-        INSERT INTO pvp_challenges (challenger_id, challenged_id, challenger_team, status, created_at)
-        VALUES (?, ?, ?, 'pending', NOW())
-    ");
-    $stmt->execute([$user_id, $challenged_id, json_encode($myTeam)]);
-    
-    // Marquer le joueur comme défié
-    updatePlayerPresence($user_id, 'available');
-    
-    echo json_encode([
-        'success' => true,
-        'message' => 'Défi envoyé !',
-        'challenge_id' => $pdo->lastInsertId()
-    ]);
+    try {
+        // Vérifier d'abord si la colonne challenger_team existe
+        $stmt = $pdo->query("SHOW COLUMNS FROM pvp_challenges LIKE 'challenger_team'");
+        $hasTeamColumn = $stmt->fetch();
+        
+        if ($hasTeamColumn) {
+            // Nouvelle version avec équipe
+            $stmt = $pdo->prepare("
+                INSERT INTO pvp_challenges (challenger_id, challenged_id, challenger_team, status, created_at)
+                VALUES (?, ?, ?, 'pending', NOW())
+            ");
+            $stmt->execute([$user_id, $challenged_id, json_encode($myTeam)]);
+        } else {
+            // Ancienne version sans équipe (fallback)
+            $stmt = $pdo->prepare("
+                INSERT INTO pvp_challenges (challenger_id, challenged_id, status, created_at)
+                VALUES (?, ?, 'pending', NOW())
+            ");
+            $stmt->execute([$user_id, $challenged_id]);
+        }
+        
+        // Marquer le joueur comme défié
+        updatePlayerPresence($user_id, 'available');
+        
+        echo json_encode([
+            'success' => true,
+            'message' => 'Défi envoyé !',
+            'challenge_id' => $pdo->lastInsertId(),
+            'team_included' => $hasTeamColumn ? true : false
+        ]);
+    } catch (PDOException $e) {
+        echo json_encode([
+            'success' => false, 
+            'message' => 'Erreur lors de l\'envoi du défi',
+            'error' => $e->getMessage()
+        ]);
+    }
     exit;
 }
 
