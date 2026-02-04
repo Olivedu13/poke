@@ -57,7 +57,32 @@ if ($action === 'init_battle') {
                 'success' => true,
                 'already_initialized' => true,
                 'first_player' => $match['current_turn'],
-                'is_my_turn' => ($match['current_turn'] == $user_id)
+                'is_my_turn' => ($match['current_turn'] == $user_id),
+                'question_id' => $match['current_question_id']
+            ]);
+            exit;
+        }
+        
+        // Utiliser une transaction pour éviter les race conditions
+        $pdo->beginTransaction();
+        
+        // Re-vérifier que le tour n'est toujours pas défini (lock de la ligne)
+        $stmt = $pdo->prepare("
+            SELECT * FROM pvp_matches 
+            WHERE id = ? FOR UPDATE
+        ");
+        $stmt->execute([$match_id]);
+        $match = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($match['current_turn']) {
+            // L'adversaire a déjà initialisé pendant qu'on attendait
+            $pdo->commit();
+            echo json_encode([
+                'success' => true,
+                'already_initialized' => true,
+                'first_player' => $match['current_turn'],
+                'is_my_turn' => ($match['current_turn'] == $user_id),
+                'question_id' => $match['current_question_id']
             ]);
             exit;
         }
@@ -92,32 +117,30 @@ if ($action === 'init_battle') {
         }
         
         if (!$question) {
+            $pdo->rollBack();
             error_log("init_battle: Aucune question dans question_bank pour match_id=$match_id");
             echo json_encode(['success' => false, 'message' => 'Aucune question disponible dans la base']);
             exit;
         }
         
-        // Définir le joueur qui commence ET la première question (éviter race condition)
+        // Définir le joueur qui commence ET la première question
         $stmt = $pdo->prepare("
             UPDATE pvp_matches 
             SET current_turn = ?, current_question_id = ?, waiting_for_answer = 1
-            WHERE id = ? AND current_turn IS NULL
+            WHERE id = ?
         ");
         $stmt->execute([$first_player, $question['id'], $match_id]);
         
-        // Vérifier si c'est bien nous qui avons défini le tour
-        if ($stmt->rowCount() === 0) {
-            // L'adversaire l'a déjà fait, récupérer le tour actuel
-            $stmt = $pdo->prepare("SELECT current_turn FROM pvp_matches WHERE id = ?");
-            $stmt->execute([$match_id]);
-            $first_player = $stmt->fetchColumn();
-        }
+        $pdo->commit();
         
         echo json_encode([
             'success' => true,
             'first_player' => $first_player,
             'is_my_turn' => ($first_player == $user_id),
+            'question_id' => $question['id'],
             'message' => $first_player == $user_id ? 'C\'est ton tour !' : 'L\'adversaire commence !'
+        ]);
+        exit;
         ]);
         exit;
     } catch (Exception $e) {
