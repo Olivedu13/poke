@@ -132,10 +132,10 @@ export const PvPLobby: React.FC = () => {
                     player1_id: res.data.player1_id,
                     player2_id: res.data.player2_id
                 }));
-                // Changer vers la vue Combat puis lancer
+                // Changer vers la vue Combat puis lancer en mode BATTLE (pas LOADING pour éviter useBattleLogic)
                 setView('GAME');
                 setBattleMode('PVP');
-                setBattlePhase('LOADING');
+                setBattlePhase('BATTLE'); // ← Changé de LOADING à BATTLE pour utiliser PvPBattleProc directement
             } else {
                 alert(res.data.message || 'Impossible d\'accepter le défi');
             }
