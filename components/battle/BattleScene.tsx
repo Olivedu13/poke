@@ -235,6 +235,7 @@ export const BattleScene: React.FC = () => {
         captureSuccess,
         isPvpMyTurn,
         pvpOpponentAction,
+        currentPvPQuestion, // NEW
         startBattle,
         handleQuizComplete,
         handleUltimate,
@@ -345,6 +346,17 @@ export const BattleScene: React.FC = () => {
                                 )}
                             </div>
                         )}
+                        {currentPvPQuestion && !isPvpMyTurn && (
+                            <div className="mt-2 text-left bg-black/40 p-2 rounded">
+                                <div className="text-[10px] text-gray-300 mb-1 font-bold">Question posée à l'adversaire :</div>
+                                <div className="text-white text-xs font-serif italic mb-1">{currentPvPQuestion.question_text}</div>
+                                <div className="grid grid-cols-2 gap-1 opacity-75">
+                                    {(currentPvPQuestion.options || []).map((opt: string, idx: number) => (
+                                        <div key={idx} className="text-[9px] bg-white/10 px-1 rounded truncate">{opt}</div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 )}
                 
@@ -365,7 +377,7 @@ export const BattleScene: React.FC = () => {
                 </div>
             </div>
             <AnimatePresence>
-                {showQuiz && user && <QuizOverlay user={user} onComplete={handleQuizComplete} onClose={() => setShowQuiz(false)} />}
+                {showQuiz && user && <QuizOverlay user={user} onComplete={handleQuizComplete} onClose={() => setShowQuiz(false)} preloadedQuestion={isPvpMyTurn ? currentPvPQuestion : undefined} />}
                 {showInventory && <InventoryBar items={battleItems} onUse={handleUseItem} onClose={() => setShowInventory(false)} />}
                 {showTeam && <TeamManager team={teamPokemon} box={[]} currentId={playerPokemon.id} onSelect={handleSwitchPokemon} onClose={() => setShowTeam(false)} />}
                 {phase === 'CAPTURE' && enemyPokemon && (() => {

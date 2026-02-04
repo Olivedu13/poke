@@ -116,10 +116,10 @@ export const useGameStore = create<GameState>((set, get) => ({
     user: state.user ? { ...state.user, ...config } : null
   })),
 
-  initBattle: (player, enemy) => set({
+  initBattle: (player, enemy, startMessage) => set({
     playerPokemon: player,
     enemyPokemon: enemy,
-    battleLogs: [{ message: `Un ${enemy.name} sauvage !`, type: 'INFO' }],
+    battleLogs: [{ message: startMessage || `Un ${enemy.name} sauvage !`, type: 'INFO' }],
     isPlayerTurn: true,
     battleOver: false,
     battlePhase: 'PREVIEW',

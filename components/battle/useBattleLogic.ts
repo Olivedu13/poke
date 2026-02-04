@@ -30,8 +30,11 @@ export const useBattleLogic = () => {
 
     // --- PVP STATE ---
     const [pvpMatchId, setPvpMatchId] = useState<number | null>(null);
-    const [isPvpMyTurn, setIsPvpMyTurn] = useState(true);
+    const [isPvpMyTurn, setIsPvpMyTurn] = useState(false);
     const [pvpOpponentAction, setPvpOpponentAction] = useState<any>(null);
+    const [currentPvPQuestion, setCurrentPvPQuestion] = useState<any>(null); // Nouvelle question du serveur
+    const [lastPvpTurnNumber, setLastPvpTurnNumber] = useState<number>(0);
+    const lastPvpTurnRef = useRef<number>(0); // Ref pour éviter les problèmes de closure/state async
 
     // --- ANIMATION STATE ---
     const controlsPlayer = useAnimation();
@@ -252,6 +255,13 @@ export const useBattleLogic = () => {
         }
     }, [battlePhase]);
 
+    // Auto-démarrage PVP dès l'écran PREVIEW
+    useEffect(() => {
+        if (battleMode === 'PVP' && battlePhase === 'PREVIEW') {
+            startBattle();
+        }
+    }, [battleMode, battlePhase]);
+
     // --- GAME LOOP & IA ---
     useEffect(() => {
         if (battleOver && enemyPokemon?.current_hp === 0 && battlePhase === 'FIGHTING') {
@@ -359,6 +369,11 @@ export const useBattleLogic = () => {
                     const wasMyTurn = isPvpMyTurn;
                     const isNowMyTurn = res.data.is_my_turn;
                     
+                    // MàJ Question Courante
+                    if (res.data.current_question) {
+                        setCurrentPvPQuestion(res.data.current_question);
+                    }
+
                     setIsPvpMyTurn(isNowMyTurn);
                     
                     // Si c'est maintenant mon tour et que ce n'était pas le cas avant
@@ -366,21 +381,38 @@ export const useBattleLogic = () => {
                         console.log('🎮 [PVP] C\'est maintenant mon tour !');
                         addLog({ message: 'À votre tour !', type: 'INFO' });
                         playSfx('victory');
-                        
-                        // Récupérer la dernière action de l'adversaire
-                        if (res.data.turns && res.data.turns.length > 0) {
-                            const lastTurn = res.data.turns[res.data.turns.length - 1];
-                            if (lastTurn.player_id !== user?.id) {
-                                console.log('🎮 [PVP] Dernière action adverse:', lastTurn);
-                                setPvpOpponentAction(lastTurn);
-                                
-                                // Appliquer les dégâts si l'adversaire a réussi
-                                if (lastTurn.is_correct && lastTurn.damage_dealt > 0) {
-                                    damageEntity('PLAYER', lastTurn.damage_dealt);
-                                    spawnFloatingText(`-${lastTurn.damage_dealt}`, 'text-red-500', true);
-                                    triggerShake();
-                                    triggerFlash('red');
-                                }
+                    }
+
+                    // Récupérer la dernière action de l'adversaire (une seule fois)
+                    if (res.data.turns && res.data.turns.length > 0) {
+                        const lastTurn = res.data.turns[res.data.turns.length - 1];
+                        const turnNumber = lastTurn.turn_number || 0;
+                        const lastProcessed = lastPvpTurnRef.current;
+
+                        if (turnNumber > lastProcessed && lastTurn.player_id !== user?.id) {
+                            console.log('🎮 [PVP] Nouvelle action adverse:', lastTurn);
+                            
+                            // Mettre à jour la ref et le state pour ne pas rejouer ce tour
+                            lastPvpTurnRef.current = turnNumber;
+                            setLastPvpTurnNumber(turnNumber);
+                            setPvpOpponentAction(lastTurn);
+
+                            // Log de l'action adverse
+                            const isCorrect = lastTurn.is_correct ? 'Correct' : 'Faux';
+                            let answerText = 'Réponse secrète';
+                            try {
+                                const opts = JSON.parse(lastTurn.options_json || '[]');
+                                if (opts[lastTurn.answer_index]) answerText = opts[lastTurn.answer_index];
+                            } catch (e) {}
+                            
+                            addLog({ message: `Adv: ${answerText} (${isCorrect})`, type: 'ENEMY' });
+
+                            // Appliquer les dégâts si l'adversaire a réussi
+                            if (lastTurn.is_correct && lastTurn.damage_dealt > 0) {
+                                damageEntity('PLAYER', lastTurn.damage_dealt);
+                                spawnFloatingText(`-${lastTurn.damage_dealt}`, 'text-red-500', true);
+                                triggerShake();
+                                triggerFlash('red');
                             }
                         }
                     }
@@ -397,7 +429,16 @@ export const useBattleLogic = () => {
         const interval = setInterval(checkPvPState, 2000);
         
         return () => clearInterval(interval);
-    }, [battleMode, pvpMatchId, battlePhase, isPvpMyTurn]);
+    }, [battleMode, pvpMatchId, battlePhase, isPvpMyTurn, user]); // Removed lastPvpTurnNumber dependency to use Ref logic
+
+    // Ouvrir automatiquement la question quand c'est mon tour en PVP
+    useEffect(() => {
+        if (battleMode === 'PVP' && pvpMatchId && battlePhase === 'FIGHTING' && isPvpMyTurn && !showQuiz) {
+            if (currentPvPQuestion && currentPvPQuestion.id) {
+                setShowQuiz(true);
+            }
+        }
+    }, [battleMode, pvpMatchId, battlePhase, isPvpMyTurn, showQuiz, currentPvPQuestion]);
 
     // --- ACTIONS JOUEUR ---
     const startBattle = async () => {
@@ -416,14 +457,58 @@ export const useBattleLogic = () => {
                     console.log('🎮 [PVP] Résultat init_battle:', initRes.data);
                     
                     if (initRes.data.success) {
+                        // SÉCURITÉ : Récupérer d'abord l'état actuel pour éviter les "dégâts fantômes" du passé
+                        // Si on rejoint un match en cours (ou terminé malproprement), on ne veut pas rejouer tous les tours comme des nouvelles attaques
+                        try {
+                            const stateRes = await api.get(`/pvp_battle.php?action=get_match_state&match_id=${pvpMatch.match_id}`);
+                            if (stateRes.data.success) {
+                                if (stateRes.data.current_question) {
+                                    setCurrentPvPQuestion(stateRes.data.current_question);
+                                }
+                            }
+
+                            if (stateRes.data.success && stateRes.data.turns && stateRes.data.turns.length > 0) {
+                                const maxTurn = stateRes.data.turns.reduce((acc: number, t: any) => Math.max(acc, t.turn_number || 0), 0);
+                                console.log(`🎮 [PVP] Synchro historique : On reprend au tour ${maxTurn}`);
+                                setLastPvpTurnNumber(maxTurn);
+                                lastPvpTurnRef.current = maxTurn;
+                            } else {
+                                setLastPvpTurnNumber(0);
+                                lastPvpTurnRef.current = 0;
+                            }
+                        } catch (err) {
+                            console.warn('🎮 [PVP] Erreur synchro historique', err);
+                            setLastPvpTurnNumber(0);
+                            lastPvpTurnRef.current = 0;
+                        }
+
                         setPvpMatchId(pvpMatch.match_id);
-                        setIsPvpMyTurn(initRes.data.is_my_turn);
+                        setIsPvpMyTurn(false);
+                        setPvpOpponentAction(null);
+                        setShowQuiz(false);
+
+                        // Appliquer le tour après init
+                        const myTurn = !!initRes.data.is_my_turn;
+                        setIsPvpMyTurn(myTurn);
                         
-                        if (initRes.data.is_my_turn) {
+                        // Initialiser la question si disponible
+                        if (initRes.data.current_question) {
+                            setCurrentPvPQuestion(initRes.data.current_question); // Note: init_battle ne renvoie pas current_question dans le JSON actuel, il faudra le rajouter ou attendre le poll
+                            // Pour l'instant, le polling prendra le relais
+                        }
+
+                        // Initialiser le store avec message CUSTOM pour PVP
+                        if(selectedPlayer && previewEnemy) {
+                            initBattle(selectedPlayer, previewEnemy, "Combat PVP commence !");
+                            setBattlePhase('FIGHTING');
+                        }
+                        
+                        if (myTurn) {
                             addLog({ message: 'C\'est votre tour !', type: 'INFO' });
                         } else {
                             addLog({ message: 'Au tour de l\'adversaire...', type: 'INFO' });
                         }
+                        return; // Important: ne pas exécuter le reste de la fonction (initBattle standard)
                     }
                 }
             } catch (e) {
@@ -490,7 +575,7 @@ export const useBattleLogic = () => {
         }
     };
 
-    const handleQuizComplete = async (isCorrect: boolean, dmgDealt: number, difficulty: string, questionId?: string | number) => {
+    const handleQuizComplete = async (isCorrect: boolean, dmgDealt: number, difficulty: string, questionId?: string | number, answerIndex?: number) => {
         setShowQuiz(false);
         const leveled = await updateGradeProgress(isCorrect, difficulty);
         if(!isCorrect) triggerFlash('red'); 
@@ -499,14 +584,18 @@ export const useBattleLogic = () => {
         if (battleMode === 'PVP' && pvpMatchId) {
             try {
                 console.log('🎮 [PVP] Enregistrement de la réponse:', { isCorrect, dmgDealt, questionId });
-                await api.post('/pvp_battle.php', {
+                const submitRes = await api.post('/pvp_battle.php', {
                     action: 'submit_answer',
                     match_id: pvpMatchId,
                     question_id: questionId || 0,
-                    answer_index: isCorrect ? 1 : 0,
+                    answer_index: typeof answerIndex === 'number' ? answerIndex : 0,
                     is_correct: isCorrect,
                     damage_dealt: dmgDealt
                 });
+
+                if (submitRes.data?.turn_number) {
+                    setLastPvpTurnNumber(submitRes.data.turn_number);
+                }
                 
                 // Mon tour est terminé
                 setIsPvpMyTurn(false);
@@ -516,7 +605,9 @@ export const useBattleLogic = () => {
             }
         }
         
-        executeAttack(false, isCorrect, difficulty, battleMode === 'PVP' ? dmgDealt : undefined);
+        if (battleMode !== 'PVP') {
+            executeAttack(false, isCorrect, difficulty, undefined);
+        }
     };
 
     const handleUltimate = () => {
@@ -668,6 +759,7 @@ export const useBattleLogic = () => {
         // PVP State
         isPvpMyTurn,
         pvpOpponentAction,
+        currentPvPQuestion, // NEW
         
         // Actions
         startBattle,

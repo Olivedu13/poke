@@ -64,28 +64,51 @@ try {
     ");
     
     // Créer la table pvp_matches
-    $pdo->exec("
-        CREATE TABLE IF NOT EXISTS `pvp_matches` (
-          `id` INT(11) NOT NULL AUTO_INCREMENT,
-          `player1_id` INT(11) NOT NULL,
-          `player2_id` INT(11) NOT NULL,
-          `status` ENUM('WAITING', 'IN_PROGRESS', 'COMPLETED', 'ABANDONED') DEFAULT 'WAITING',
-          `winner_id` INT(11) DEFAULT NULL,
-          `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          `ended_at` TIMESTAMP NULL DEFAULT NULL,
-          PRIMARY KEY (`id`),
-          KEY `idx_player1` (`player1_id`),
-          KEY `idx_player2` (`player2_id`),
-          CONSTRAINT `fk_match_player1` FOREIGN KEY (`player1_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-          CONSTRAINT `fk_match_player2` FOREIGN KEY (`player2_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
-          CONSTRAINT `fk_match_winner` FOREIGN KEY (`winner_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-    ");
+        $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `pvp_matches` (
+                    `id` INT(11) NOT NULL AUTO_INCREMENT,
+                    `player1_id` INT(11) NOT NULL,
+                    `player2_id` INT(11) NOT NULL,
+                    `status` ENUM('WAITING', 'IN_PROGRESS', 'COMPLETED', 'ABANDONED') DEFAULT 'WAITING',
+                    `current_turn` INT(11) DEFAULT NULL,
+                    `current_question_id` INT(11) DEFAULT NULL,
+                    `winner_id` INT(11) DEFAULT NULL,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    `ended_at` TIMESTAMP NULL DEFAULT NULL,
+                    PRIMARY KEY (`id`),
+                    KEY `idx_player1` (`player1_id`),
+                    KEY `idx_player2` (`player2_id`),
+                    CONSTRAINT `fk_match_player1` FOREIGN KEY (`player1_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+                    CONSTRAINT `fk_match_player2` FOREIGN KEY (`player2_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+                    CONSTRAINT `fk_match_winner` FOREIGN KEY (`winner_id`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+                    CONSTRAINT `fk_match_current_turn` FOREIGN KEY (`current_turn`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+                    CONSTRAINT `fk_match_current_question` FOREIGN KEY (`current_question_id`) REFERENCES `question_bank` (`id`) ON DELETE SET NULL
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+
+        // Créer la table pvp_turns
+        $pdo->exec("
+                CREATE TABLE IF NOT EXISTS `pvp_turns` (
+                    `id` INT(11) NOT NULL AUTO_INCREMENT,
+                    `match_id` INT(11) NOT NULL,
+                    `player_id` INT(11) NOT NULL,
+                    `turn_number` INT(11) NOT NULL,
+                    `question_id` INT(11) DEFAULT NULL,
+                    `answer_index` TINYINT(4) DEFAULT NULL,
+                    `is_correct` TINYINT(1) DEFAULT NULL,
+                    `damage_dealt` INT(11) DEFAULT 0,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    PRIMARY KEY (`id`),
+                    KEY `idx_match` (`match_id`),
+                    CONSTRAINT `fk_turn_match` FOREIGN KEY (`match_id`) REFERENCES `pvp_matches` (`id`) ON DELETE CASCADE,
+                    CONSTRAINT `fk_turn_player` FOREIGN KEY (`player_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
     
     echo json_encode([
         'success' => true,
         'message' => 'Tables PVP créées avec succès !',
-        'tables' => ['online_players', 'pvp_challenges', 'pvp_matches']
+        'tables' => ['online_players', 'pvp_challenges', 'pvp_matches', 'pvp_turns']
     ]);
 
 } catch (PDOException $e) {

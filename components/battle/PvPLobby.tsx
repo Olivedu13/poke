@@ -111,6 +111,7 @@ export const PvPLobby: React.FC = () => {
             });
             if (res.data.success) {
                 playSfx('victory');
+                useGameStore.getState().setPvpNotification(null); // Nettoyer notif
                 // Stocker les infos du match dans localStorage pour le combat
                 localStorage.setItem('pvp_match', JSON.stringify({
                     match_id: res.data.match_id,
