@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test PVP System</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #4f46e5;
+        }
+        .success {
+            background: #10b981;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .error {
+            background: #ef4444;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        .info {
+            background: #3b82f6;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+        pre {
+            background: #000;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #444;
+        }
+        th {
+            background: #333;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Test PVP System</h1>
+    
+    <div class="section">
+        <h2>1. Installation des Tables</h2>
+        <p>Cliquez sur le bouton ci-dessous pour créer les tables PVP nécessaires :</p>
+        <button onclick="installTables()">📦 Installer les Tables PVP</button>
+        <div id="install-result"></div>
+    </div>
+
+    <div class="section">
+        <h2>2. État des Joueurs en Ligne</h2>
+        <p>Affiche les joueurs actuellement connectés au lobby PVP :</p>
+        <button onclick="checkOnlinePlayers()">👥 Voir les Joueurs en Ligne</button>
+        <button onclick="cleanPlayers()">🧹 Nettoyer les Joueurs Inactifs</button>
+        <div id="players-result"></div>
+    </div>
+
+    <div class="section">
+        <h2>3. Défis en Attente</h2>
+        <p>Affiche tous les défis actuellement en cours :</p>
+        <button onclick="checkChallenges()">⚔️ Voir les Défis</button>
+        <button onclick="cleanOldChallenges()">🗑️ Nettoyer les Vieux Défis</button>
+        <div id="challenges-result"></div>
+    </div>
+
+    <div class="section">
+        <h2>4. Matches PVP</h2>
+        <p>Affiche tous les matches en cours ou terminés :</p>
+        <button onclick="checkMatches()">🎮 Voir les Matches</button>
+        <div id="matches-result"></div>
+    </div>
+
+    <script>
+        async function installTables() {
+            const resultDiv = document.getElementById('install-result');
+            resultDiv.innerHTML = '<div class="info">Installation en cours...</div>';
+            
+            try {
+                const response = await fetch('../backend/install_pvp_tables.php');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="success">
+                            <strong>✅ Succès !</strong><br>
+                            ${data.message}<br>
+                            Tables créées : ${data.tables.join(', ')}
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="error">
+                            <strong>❌ Erreur !</strong><br>
+                            ${data.message}<br>
+                            ${data.error || ''}
+                        </div>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="error">
+                        <strong>❌ Erreur réseau !</strong><br>
+                        ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        async function checkOnlinePlayers() {
+            const resultDiv = document.getElementById('players-result');
+            resultDiv.innerHTML = '<div class="info">Chargement...</div>';
+            
+            try {
+                const response = await fetch('../backend/test_pvp_status.php?action=online_players');
+                const data = await response.json();
+                
+                if (data.success) {
+                    let html = `<div class="success">Joueurs en ligne : ${data.count}</div>`;
+                    
+                    if (data.players.length > 0) {
+                        html += '<table><tr><th>ID</th><th>Username</th><th>Statut</th><th>Dernière activité</th></tr>';
+                        data.players.forEach(player => {
+                            html += `<tr>
+                                <td>${player.user_id}</td>
+                                <td>${player.username}</td>
+                                <td>${player.status}</td>
+                                <td>${player.last_seen}</td>
+                            </tr>`;
+                        });
+                        html += '</table>';
+                    } else {
+                        html += '<p>Aucun joueur en ligne</p>';
+                    }
+                    
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">${data.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">${error.message}</div>`;
+            }
+        }
+
+        async function checkChallenges() {
+            const resultDiv = document.getElementById('challenges-result');
+            resultDiv.innerHTML = '<div class="info">Chargement...</div>';
+            
+            try {
+                const response = await fetch('../backend/test_pvp_status.php?action=challenges');
+                const data = await response.json();
+                
+                if (data.success) {
+                    let html = `<div class="success">Défis trouvés : ${data.count}</div>`;
+                    
+                    if (data.challenges.length > 0) {
+                        html += '<table><tr><th>ID</th><th>Challenger</th><th>Challenged</th><th>Statut</th><th>Créé le</th></tr>';
+                        data.challenges.forEach(challenge => {
+                            html += `<tr>
+                                <td>${challenge.id}</td>
+                                <td>${challenge.challenger_name}</td>
+                                <td>${challenge.challenged_name}</td>
+                                <td>${challenge.status}</td>
+                                <td>${challenge.created_at}</td>
+                            </tr>`;
+                        });
+                        html += '</table>';
+                    } else {
+                        html += '<p>Aucun défi en cours</p>';
+                    }
+                    
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">${data.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">${error.message}</div>`;
+            }
+        }
+
+        async function checkMatches() {
+            const resultDiv = document.getElementById('matches-result');
+            resultDiv.innerHTML = '<div class="info">Chargement...</div>';
+            
+            try {
+                const response = await fetch('../backend/test_pvp_status.php?action=matches');
+                const data = await response.json();
+                
+                if (data.success) {
+                    let html = `<div class="success">Matches trouvés : ${data.count}</div>`;
+                    
+                    if (data.matches.length > 0) {
+                        html += '<table><tr><th>ID</th><th>Joueur 1</th><th>Joueur 2</th><th>Statut</th><th>Gagnant</th><th>Créé le</th></tr>';
+                        data.matches.forEach(match => {
+                            html += `<tr>
+                                <td>${match.id}</td>
+                                <td>${match.player1_name}</td>
+                                <td>${match.player2_name}</td>
+                                <td>${match.status}</td>
+                                <td>${match.winner_name || 'N/A'}</td>
+                                <td>${match.created_at}</td>
+                            </tr>`;
+                        });
+                        html += '</table>';
+                    } else {
+                        html += '<p>Aucun match</p>';
+                    }
+                    
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<div class="error">${data.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">${error.message}</div>`;
+            }
+        }
+
+        async function cleanPlayers() {
+            const resultDiv = document.getElementById('players-result');
+            resultDiv.innerHTML = '<div class="info">Nettoyage en cours...</div>';
+            
+            try {
+                const response = await fetch('../backend/test_pvp_status.php?action=clean_players');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<div class="success">✅ ${data.message}</div>`;
+                    setTimeout(checkOnlinePlayers, 500);
+                } else {
+                    resultDiv.innerHTML = `<div class="error">${data.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">${error.message}</div>`;
+            }
+        }
+
+        async function cleanOldChallenges() {
+            const resultDiv = document.getElementById('challenges-result');
+            resultDiv.innerHTML = '<div class="info">Nettoyage en cours...</div>';
+            
+            try {
+                const response = await fetch('../backend/test_pvp_status.php?action=clean_challenges');
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `<div class="success">✅ ${data.message}</div>`;
+                    setTimeout(checkChallenges, 500);
+                } else {
+                    resultDiv.innerHTML = `<div class="error">${data.message}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="error">${error.message}</div>`;
+            }
+        }
+    </script>
+</body>
+</html>

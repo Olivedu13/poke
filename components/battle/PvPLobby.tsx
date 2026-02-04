@@ -38,6 +38,7 @@ export const PvPLobby: React.FC = () => {
                 setOnlinePlayers(res.data.players.filter((p: OnlinePlayer) => p.id !== user?.id));
             }
             setLoading(false);
+            setError(null);
         } catch (e) {
             console.error('Erreur récupération joueurs:', e);
             setError('Impossible de charger les joueurs en ligne');
@@ -87,6 +88,13 @@ export const PvPLobby: React.FC = () => {
             });
             if (res.data.success) {
                 playSfx('victory');
+                // Stocker les infos du match dans localStorage pour le combat
+                localStorage.setItem('pvp_match', JSON.stringify({
+                    match_id: res.data.match_id,
+                    player1_id: res.data.player1_id,
+                    player2_id: res.data.player2_id,
+                    current_turn: res.data.current_turn
+                }));
                 // Lancer le combat PvP
                 setBattleMode('PVP');
                 setBattlePhase('LOADING');
@@ -131,6 +139,13 @@ export const PvPLobby: React.FC = () => {
         setBattlePhase('NONE');
     };
 
+    const handleRefresh = async () => {
+        setLoading(true);
+        await fetchOnlinePlayers();
+        await fetchIncomingChallenges();
+        playSfx('buttonClick');
+    };
+
     if (loading) {
         return (
             <div className="flex h-full items-center justify-center">
@@ -152,12 +167,22 @@ export const PvPLobby: React.FC = () => {
                     <h1 className="text-3xl md:text-5xl font-display font-black bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
                         ⚔️ LOBBY PVP
                     </h1>
-                    <button 
-                        onClick={handleBack}
-                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-bold transition-colors"
-                    >
-                        ← RETOUR
-                    </button>
+                    <div className="flex gap-2">
+                        <button 
+                            onClick={handleRefresh}
+                            disabled={loading}
+                            className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:opacity-50 text-white rounded-lg font-bold transition-colors flex items-center gap-2"
+                        >
+                            <span className={loading ? 'animate-spin' : ''}>🔄</span>
+                            RAFRAÎCHIR
+                        </button>
+                        <button 
+                            onClick={handleBack}
+                            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg font-bold transition-colors"
+                        >
+                            ← RETOUR
+                        </button>
+                    </div>
                 </div>
 
                 {/* Défis entrants */}

@@ -6,7 +6,10 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "node deploy.js",
+    "deploy:backend": "node deploy.js --backend-only",
+    "deploy:pvp": "node deploy_pvp.js"
   },
   "dependencies": {
     "react-dom": "18.3.1",
