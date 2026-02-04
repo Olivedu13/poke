@@ -270,8 +270,8 @@ export const BattleScene: React.FC = () => {
         return <PvPLobby />;
     }
 
-    // Combat PvP procédural
-    if (battleMode === 'PVP' && (phase === 'BATTLE' || phase === 'ACTIVE')) {
+    // Combat PvP procédural (forcer PvPBattleProc pour tout état PVP)
+    if (battleMode === 'PVP' && phase !== 'PVP_LOBBY' && phase !== 'LOBBY' && phase !== 'NONE') {
         return <PvPBattleProc />;
     }
 
