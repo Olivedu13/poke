@@ -86,9 +86,16 @@ elseif ($winSegment['type'] === 'POKEMON') {
 }
 $pdo->commit();
 
+// Récupérer les nouvelles valeurs après mise à jour
+$stmtUpdated = $pdo->prepare("SELECT gold, tokens, global_xp FROM users WHERE id = ?");
+$stmtUpdated->execute([$userId]);
+$updatedUser = $stmtUpdated->fetch();
+
 echo json_encode([
     'success' => true,
-    'new_tokens' => $user['tokens'] - $bet,
+    'new_tokens' => $updatedUser['tokens'],
+    'new_gold' => $updatedUser['gold'],
+    'new_xp' => $updatedUser['global_xp'],
     'segments' => $segments,
     'result_index' => $winningIndex,
     'reward_text' => $rewardLog

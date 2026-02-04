@@ -4,6 +4,7 @@ import { useGameStore } from '../../store/gameStore';
 import { useBattleLogic } from './useBattleLogic';
 import { QuizOverlay } from './QuizOverlay';
 import { InventoryBar } from './InventoryBar';
+import { BattleModeSelector } from './BattleModeSelector';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Item, Pokemon } from '../../types';
 import { ASSETS_BASE_URL } from '../../config';
@@ -50,17 +51,18 @@ const BattleHud = ({ pokemon, isEnemy }: { pokemon: Pokemon, isEnemy?: boolean }
     );
 };
 
-const GradeGauge = ({ current, max = 20, grade }: { current: number, max?: number, grade: string }) => {
+const GradeGauge = ({ current, max = 5, grade }: { current: number, max?: number, grade: string }) => {
     const percent = Math.min(100, Math.max(0, (current / max) * 100));
+    const isNearLevel = percent >= 80;
     return (
         <div className="absolute top-1 md:top-4 left-1 md:left-4 z-40 flex flex-col items-start gap-0.5">
             <div className="bg-slate-900/80 backdrop-blur-md px-1.5 md:px-3 py-0.5 md:py-1 rounded-full border border-purple-500/50 shadow-lg flex items-center gap-0.5 md:gap-2">
                 <span className="text-[8px] md:text-xs text-purple-300 font-mono uppercase tracking-widest">Niv</span>
                 <span className="text-xs md:text-lg font-display font-bold text-white">{grade}</span>
             </div>
-            <div className="w-24 md:w-48 h-1.5 md:h-3 bg-slate-900 rounded-full border border-slate-700 overflow-hidden relative shadow-inner">
+            <div className={`w-24 md:w-48 h-1.5 md:h-3 bg-slate-900 rounded-full border border-slate-700 overflow-hidden relative shadow-inner ${isNearLevel ? 'animate-pulse shadow-[0_0_15px_rgba(168,85,247,0.8)]' : ''}`}>
                  <motion.div 
-                    className="h-full bg-gradient-to-r from-purple-700 via-purple-500 to-pink-500"
+                    className={`h-full bg-gradient-to-r from-purple-700 via-purple-500 to-pink-500 ${isNearLevel ? 'shadow-[0_0_20px_rgba(168,85,247,1)] brightness-125' : ''}`}
                     initial={{ width: '0%' }} animate={{ width: `${percent}%` }} transition={{ type: "spring", stiffness: 50 }}
                  />
             </div>
@@ -191,30 +193,41 @@ export const BattleScene: React.FC = () => {
     const { 
         user, playerPokemon, enemyPokemon, battleLogs, 
         isPlayerTurn, battleOver, collection, inventory, 
-        gradeGauge, combo, specialGauge 
+        gradeGauge, combo, specialGauge, previewEnemy, selectedPlayer,
+        battleMode, battlePhase
     } = useGameStore();
 
     // UTILISATION DU NOUVEAU HOOK QUI GÈRE TOUTE LA LOGIQUE
     const {
-        phase, previewEnemy, selectedPlayer, rewards, lootRevealed,
+        phase, rewards, lootRevealed,
         showQuiz, setShowQuiz,
         showInventory, setShowInventory,
         showTeam, setShowTeam,
         shake, flash, floatingTexts,
         controlsPlayer, controlsEnemy,
+        captureSuccess,
         startBattle,
         handleQuizComplete,
         handleUltimate,
         handleUseItem,
         handleSwitchPokemon,
         handleExitBattle,
-        revealLoot
+        revealLoot,
+        handleCapture
     } = useBattleLogic();
 
     const containerRef = useRef<HTMLDivElement>(null);
-    const battleItems = inventory.filter(i => i.quantity > 0 && ['HEAL', 'BUFF_ATK', 'BUFF_DEF'].includes(i.effect_type));
+    const allowedItems = battleMode === 'TRAINER' 
+        ? ['HEAL', 'BUFF_ATK', 'BUFF_DEF', 'REVIVE', 'TRAITOR', 'JOKER']
+        : ['HEAL', 'BUFF_ATK', 'BUFF_DEF', 'REVIVE', 'CAPTURE', 'JOKER'];
+    const battleItems = inventory.filter(i => i.quantity > 0 && allowedItems.includes(i.effect_type));
     const teamPokemon = collection.filter(p => p.is_team);
     const boxPokemon = collection.filter(p => !p.is_team);
+
+    // Sélection du mode si battlePhase est NONE
+    if (phase === 'NONE') {
+        return <BattleModeSelector />;
+    }
 
     if (phase === 'LOADING') return <div className="flex h-full items-center justify-center text-cyan-500 font-display animate-pulse">RECHERCHE D'ADVERSAIRE...</div>;
     
@@ -250,10 +263,10 @@ export const BattleScene: React.FC = () => {
                 </AnimatePresence>
                 <div className="absolute top-[8%] right-[8%] w-[35%] h-[25%] flex flex-col items-center justify-center z-10">
                     <BattleHud pokemon={activeEnemy} isEnemy />
-                    <motion.img src={activeEnemy.sprite_url} animate={controlsEnemy} initial={{ y: 0 }} className={`object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)] z-20 ${activeEnemy.isBoss ? 'w-32 h-32 md:w-80 md:h-80 drop-shadow-[0_0_30px_rgba(255,0,0,0.6)]' : 'w-24 h-24 md:w-56 md:h-56'}`} style={{ filter: activeEnemy.isBoss ? 'drop-shadow(0px 0px 10px rgba(255,0,0,0.8))' : 'drop-shadow(0px 0px 10px rgba(255,0,0,0.2))' }} />
+                    <motion.img src={activeEnemy.sprite_url} animate={controlsEnemy} initial={{ y: 0 }} className={`object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)] z-20 ${activeEnemy.isBoss ? 'w-48 h-48 md:w-96 md:h-96 drop-shadow-[0_0_30px_rgba(255,0,0,0.6)]' : 'w-40 h-40 md:w-80 md:h-80'}`} style={{ filter: activeEnemy.isBoss ? 'drop-shadow(0px 0px 10px rgba(255,0,0,0.8))' : 'drop-shadow(0px 0px 10px rgba(255,0,0,0.2))' }} />
                 </div>
                 <div className="absolute bottom-[3%] left-[8%] w-[40%] h-[35%] flex flex-col items-center justify-center z-20">
-                    <motion.img src={activePla.sprite_url} animate={controlsPlayer} className="w-28 h-28 md:w-72 md:h-72 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)] z-20" style={{ filter: 'drop-shadow(0px 0px 15px rgba(6,182,212,0.3))' }} />
+                    <motion.img src={activePla.sprite_url} animate={controlsPlayer} className="w-40 h-40 md:w-80 md:h-80 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.6)] z-20" style={{ filter: 'drop-shadow(0px 0px 15px rgba(6,182,212,0.3))' }} />
                     <BattleHud pokemon={activePla} />
                 </div>
                 <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
@@ -286,6 +299,37 @@ export const BattleScene: React.FC = () => {
                 {showQuiz && user && <QuizOverlay user={user} onComplete={handleQuizComplete} onClose={() => setShowQuiz(false)} />}
                 {showInventory && <InventoryBar items={battleItems} onUse={handleUseItem} onClose={() => setShowInventory(false)} />}
                 {showTeam && <TeamManager team={teamPokemon} box={[]} currentId={playerPokemon.id} onSelect={handleSwitchPokemon} onClose={() => setShowTeam(false)} />}
+                {phase === 'CAPTURE' && enemyPokemon && (() => {
+                    const hasPokeball = inventory.some(i => i.effect_type === 'CAPTURE' && i.quantity > 0);
+                    return hasPokeball ? (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6">
+                        <motion.img src={enemyPokemon.sprite_url} className="w-48 h-48 md:w-64 md:h-64 object-contain mb-6 drop-shadow-2xl" animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }} transition={{ duration: 2, repeat: Infinity }} />
+                        <h2 className="text-4xl md:text-6xl font-display font-black text-yellow-400 mb-4 drop-shadow-[0_4px_0_rgba(0,0,0,1)]">{enemyPokemon.name}</h2>
+                        <p className="text-slate-300 text-lg md:text-2xl mb-8 text-center">Voulez-vous tenter de capturer ce Pokémon ?</p>
+                        <div className="flex gap-4 w-full max-w-md">
+                            <button onClick={() => handleCapture(false)} className="flex-1 py-4 bg-red-600 hover:bg-red-500 text-white font-display font-black text-xl rounded-xl shadow-lg transition-all hover:scale-105">NON</button>
+                            <button onClick={() => handleCapture(true)} className="flex-1 py-4 bg-green-600 hover:bg-green-500 text-white font-display font-black text-xl rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.4)] transition-all hover:scale-105">CAPTURER</button>
+                        </div>
+                        {captureSuccess && (
+                            <motion.div initial={{ scale: 0, y: 50 }} animate={{ scale: 1, y: 0 }} className="absolute inset-0 flex items-center justify-center bg-black/80">
+                                <div className="text-center">
+                                    <div className="text-8xl mb-4">✨</div>
+                                    <h3 className="text-5xl font-display font-black text-green-400 drop-shadow-[0_4px_0_rgba(0,0,0,1)]">CAPTURÉ !</h3>
+                                </div>
+                            </motion.div>
+                        )}
+                    </motion.div>
+                    ) : (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6">
+                            <div className="text-center">
+                                <div className="text-8xl mb-6">🚫</div>
+                                <h2 className="text-4xl md:text-6xl font-display font-black text-red-400 mb-4 drop-shadow-[0_4px_0_rgba(0,0,0,1)]">PAS DE POKÉBALL !</h2>
+                                <p className="text-slate-300 text-lg md:text-2xl mb-8">Vous devez acheter des Pokéballs dans le shop pour capturer des Pokémon sauvages.</p>
+                                <button onClick={() => handleCapture(false)} className="py-4 px-8 bg-cyan-600 hover:bg-cyan-500 text-white font-display font-black text-xl rounded-xl shadow-lg transition-all hover:scale-105">CONTINUER</button>
+                            </div>
+                        </motion.div>
+                    );
+                })()}
                 {phase === 'FINISHED' && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="absolute inset-0 z-50 bg-slate-950/95 backdrop-blur-md flex flex-col items-center justify-center p-6">
                         <h2 className={`text-6xl font-display font-black mb-8 ${enemyPokemon.current_hp === 0 ? 'text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 drop-shadow-[0_4px_0_rgba(0,0,0,1)]' : 'text-red-500'}`}>

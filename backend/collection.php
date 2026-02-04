@@ -245,6 +245,25 @@ try {
             $pdo->prepare("UPDATE user_pokemon SET is_team = ? WHERE id = ?")->execute([$isTeam ? 0 : 1, $pokeId]);
             ApiResponse::send(null, true, $isTeam ? 'Mis en réserve' : 'Rejoint l\'équipe');
         }
+        
+        // --- CAPTURE WILD ---
+        elseif ($action === 'capture_wild') {
+            $tyradexId = (int)($input['tyradex_id'] ?? 0);
+            $level = (int)($input['level'] ?? 5);
+            $name = $input['name'] ?? "Pokemon #$tyradexId";
+            
+            if ($tyradexId <= 0) {
+                ApiResponse::error('ID Pokémon invalide');
+            }
+            
+            $hp = 20 + ($level * 5) + ($tyradexId % 10);
+            $uuid = uniqid('captured_', true);
+            
+            $pdo->prepare("INSERT INTO user_pokemon (id, user_id, tyradex_id, nickname, level, current_hp, current_xp, is_team) VALUES (?, ?, ?, ?, ?, ?, 0, 0)")
+                ->execute([$uuid, $userId, $tyradexId, $name, $level, $hp]);
+            
+            ApiResponse::send(['pokemon_id' => $uuid], true, 'Pokémon capturé avec succès !');
+        }
     }
 } catch (Exception $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();

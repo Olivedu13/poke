@@ -167,7 +167,7 @@ export const Shop: React.FC = () => {
                                 <div className="text-center text-xs font-mono text-slate-400 mb-4">{poke.rarityLabel}</div>
                                 <div className="space-y-2">
                                     <button onClick={() => handleTransaction('buy', 'pokemon', poke.id, poke.computedPrice)} disabled={(user?.gold || 0) < poke.computedPrice} className="w-full bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 disabled:grayscale text-black font-bold py-2 rounded flex justify-center items-center gap-2 font-display">RECRUTER <span className="bg-black/20 px-1 rounded text-white">{poke.computedPrice} ₵</span></button>
-                                    {poke.ownedCount > 0 && (<button onClick={() => handleTransaction('sell', 'pokemon', poke.id, 500)} className="w-full bg-slate-950 hover:bg-red-900/40 border border-slate-800 hover:border-red-500 text-slate-500 hover:text-red-400 font-bold py-1.5 rounded text-xs transition-colors">LIBÉRER (+500 ₵)</button>)}
+                                    {poke.ownedCount > 0 && ![1, 4, 7].includes(poke.pokedexId) && (<button onClick={() => handleTransaction('sell', 'pokemon', poke.id, 500)} className="w-full bg-slate-950 hover:bg-red-900/40 border border-slate-800 hover:border-red-500 text-slate-500 hover:text-red-400 font-bold py-1.5 rounded text-xs transition-colors">LIBÉRER (+500 ₵)</button>)}
                                 </div>
                             </div>
                         ))}
