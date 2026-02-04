@@ -94,11 +94,13 @@ export const PvPBattleProc: React.FC = () => {
         try {
             const res = await api.get(`/pvp_battle_procedural.php?action=get_state&match_id=${matchId}`);
             if (res.data.success) {
-                console.log('fetchState:', {
+                console.log('fetchState DETAIL:', {
                     is_my_turn: res.data.is_my_turn,
                     has_question: !!res.data.current_question,
+                    question_id: res.data.current_question?.id,
                     current_turn: res.data.match.current_turn,
-                    my_id: res.data.my_id
+                    my_id: res.data.my_id,
+                    waiting_for_answer: res.data.match.waiting_for_answer
                 });
                 
                 setMatchState(res.data.match);
@@ -143,12 +145,16 @@ export const PvPBattleProc: React.FC = () => {
     const submitAnswer = async () => {
         if (selectedAnswer === null) return;
         
+        console.log('submitAnswer:', { matchId, selectedAnswer });
+        
         try {
             const res = await api.post('/pvp_battle_procedural.php', {
                 action: 'submit_answer',
                 match_id: matchId,
                 answer_index: selectedAnswer
             });
+            
+            console.log('submitAnswer response:', res.data);
             
             if (res.data.success) {
                 playSfx(res.data.is_correct ? 'hit' : 'miss');
@@ -159,9 +165,12 @@ export const PvPBattleProc: React.FC = () => {
                     await fetchState(); // Recharger l'état final
                 } else {
                     // Passer au tour suivant
+                    console.log('Tour suivant:', res.data.next_turn, 'Mon ID:', user?.id);
                     setWaitingForOpponent(true);
                     setCurrentQuestion(null);
                     setSelectedAnswer(null);
+                    // Attendre un peu avant de recharger pour laisser le backend finir
+                    await new Promise(resolve => setTimeout(resolve, 500));
                     await fetchState();
                 }
             }
