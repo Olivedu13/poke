@@ -115,6 +115,11 @@ export const useBattleLogic = () => {
 
     // --- SETUP INITIAL ---
     useEffect(() => {
+        // Désactiver complètement le flux PVP legacy (on utilise PvPBattleProc)
+        if (battleMode === 'PVP') {
+            return;
+        }
+
         // Ne lancer le setup QUE si on est en phase LOADING (après un clic sur un mode de combat)
         // Ne PAS lancer automatiquement si on est en NONE (sélection du mode)
         if (battlePhase === 'NONE' || battlePhase === 'PVP_LOBBY') {
@@ -255,15 +260,16 @@ export const useBattleLogic = () => {
         }
     }, [battlePhase]);
 
-    // Auto-démarrage PVP dès l'écran PREVIEW
+    // Auto-démarrage : seulement pour modes non-PVP
     useEffect(() => {
-        if (battleMode === 'PVP' && battlePhase === 'PREVIEW') {
+        if (battleMode !== 'PVP' && battlePhase === 'PREVIEW') {
             startBattle();
         }
     }, [battleMode, battlePhase]);
 
     // --- GAME LOOP & IA ---
     useEffect(() => {
+        if (battleMode === 'PVP') return;
         if (battleOver && enemyPokemon?.current_hp === 0 && battlePhase === 'FIGHTING') {
             // Mode TRAINER ou PVP : vérifier s'il reste des Pokemon
             if ((battleMode === 'TRAINER' || battleMode === 'PVP') && trainerOpponent) {
@@ -356,9 +362,10 @@ export const useBattleLogic = () => {
         }
     }, [isPlayerTurn, battleOver, battlePhase]);
 
-    // --- PVP POLLING ---
+    // --- PVP POLLING (legacy) ---
     useEffect(() => {
-        if (battleMode !== 'PVP' || !pvpMatchId || battlePhase !== 'FIGHTING') return;
+        if (battleMode === 'PVP') return;
+        if (!pvpMatchId || battlePhase !== 'FIGHTING') return;
 
         console.log('🎮 [PVP] Démarrage du polling pour match:', pvpMatchId);
         
@@ -431,9 +438,10 @@ export const useBattleLogic = () => {
         return () => clearInterval(interval);
     }, [battleMode, pvpMatchId, battlePhase, isPvpMyTurn, user]); // Removed lastPvpTurnNumber dependency to use Ref logic
 
-    // Ouvrir automatiquement la question quand c'est mon tour en PVP
+    // Ouvrir automatiquement la question (legacy) - désactivé pour PVP procédural
     useEffect(() => {
-        if (battleMode === 'PVP' && pvpMatchId && battlePhase === 'FIGHTING' && isPvpMyTurn && !showQuiz) {
+        if (battleMode === 'PVP') return;
+        if (pvpMatchId && battlePhase === 'FIGHTING' && isPvpMyTurn && !showQuiz) {
             if (currentPvPQuestion && currentPvPQuestion.id) {
                 setShowQuiz(true);
             }
@@ -442,6 +450,9 @@ export const useBattleLogic = () => {
 
     // --- ACTIONS JOUEUR ---
     const startBattle = async () => {
+        if (battleMode === 'PVP') {
+            return; // PvP procédural géré par PvPBattleProc
+        }
         console.log('🎮 [BATTLE] Démarrage du combat, mode:', battleMode);
         
         // Mode PVP : Initialiser le système de tours
