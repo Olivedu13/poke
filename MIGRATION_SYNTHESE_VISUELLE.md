@@ -253,7 +253,7 @@ rsync -avz dist/ root@vps:/opt/poke-edu/
 ssh root@vps "pm2 restart all"
 
 # SSL
-certbot --nginx -d poke.sarlatc.com
+certbot --nginx -d jeu.sarlatc.com
 
 # Monitoring
 pm2 monit                 # Dashboard

@@ -270,8 +270,8 @@ touch src/store/pvpStore.ts
 ```bash
 # Créer .env.local
 cat > .env.local <<EOF
-VITE_API_URL=https://poke.sarlatc.com/api
-VITE_SOCKET_URL=https://poke.sarlatc.com
+VITE_API_URL=https://jeu.sarlatc.com/api
+VITE_SOCKET_URL=https://jeu.sarlatc.com
 EOF
 ```
 
@@ -346,7 +346,7 @@ DATABASE_URL=postgresql://poke_edu:PASSWORD@localhost:5432/poke_edu_db
 REDIS_URL=redis://localhost:6379
 JWT_SECRET=$(openssl rand -base64 64)
 JWT_EXPIRES_IN=24h
-ALLOWED_ORIGINS=https://poke.sarlatc.com
+ALLOWED_ORIGINS=https://jeu.sarlatc.com
 EOF
 
 # Générer Prisma client
@@ -370,7 +370,7 @@ pm2 logs
 
 ```bash
 # Sur VPS
-certbot --nginx -d poke.sarlatc.com
+certbot --nginx -d jeu.sarlatc.com
 
 # Accepter les conditions
 # Entrer votre email
@@ -397,10 +397,10 @@ systemctl status nginx
 
 ```bash
 # Depuis votre machine locale
-curl https://poke.sarlatc.com/health
+curl https://jeu.sarlatc.com/health
 # Doit retourner: healthy
 
-curl https://poke.sarlatc.com/api/health
+curl https://jeu.sarlatc.com/api/health
 # Doit retourner: {"status":"ok"}
 ```
 
@@ -410,7 +410,7 @@ curl https://poke.sarlatc.com/api/health
 
 ### 7.1 Tests fonctionnels
 
-Dans le navigateur: `https://poke.sarlatc.com`
+Dans le navigateur: `https://jeu.sarlatc.com`
 
 - [ ] Login fonctionne
 - [ ] Chargement collection Pokemon
@@ -429,7 +429,7 @@ npm install -g artillery
 # Créer test
 cat > load-test.yml <<EOF
 config:
-  target: "https://poke.sarlatc.com"
+  target: "https://jeu.sarlatc.com"
   phases:
     - duration: 60
       arrivalRate: 10
@@ -659,7 +659,7 @@ systemctl status certbot.timer
 ## ✅ CHECKLIST FINALE
 
 - [ ] VPS accessible via SSH
-- [ ] DNS pointe vers VPS (dig poke.sarlatc.com)
+- [ ] DNS pointe vers VPS (dig jeu.sarlatc.com)
 - [ ] PostgreSQL migré et vérifié
 - [ ] Backend Node.js déployé
 - [ ] Frontend React déployé

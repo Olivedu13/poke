@@ -2,114 +2,125 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    
+    <!-- PWA & Mobile Meta -->
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-    <title>Poke-Edu | Learn & Battle</title>
+    <meta name="apple-mobile-web-app-title" content="Poke-Edu" />
+    <meta name="theme-color" content="#020617" />
+    <meta name="format-detection" content="telephone=no" />
+    
+    <!-- SEO -->
+    <meta name="description" content="Poke-Edu - Apprends en t'amusant avec des combats Pokémon éducatifs" />
+    
+    <title>Poke-Edu | Apprends & Combats</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="/assets/pokeball.webp" />
+    <link rel="apple-touch-icon" href="/assets/pokeball.webp" />
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Orbitron:wght@500;600;700;800;900&display=swap" rel="stylesheet" />
+    
+    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Orbitron:wght@500;700;900&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         theme: {
           extend: {
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
+              sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
               display: ['Orbitron', 'sans-serif'],
             },
             colors: {
               slate: {
                 850: '#151e2e',
-                950: '#020617', // Main BG
+                950: '#020617',
               },
-              cyan: {
-                500: '#06b6d4', // Cyber accent
-                400: '#22d3ee',
-              }
             },
             animation: {
               'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
               'float': 'float 3s ease-in-out infinite',
+              'glow': 'glow 2s ease-in-out infinite',
             },
             keyframes: {
               float: {
                 '0%, 100%': { transform: 'translateY(0)' },
                 '50%': { transform: 'translateY(-10px)' },
+              },
+              glow: {
+                '0%, 100%': { boxShadow: '0 0 5px currentColor' },
+                '50%': { boxShadow: '0 0 20px currentColor' },
               }
-            }
+            },
+            screens: {
+              'xs': '375px',
+              'touch': { 'raw': '(hover: none)' },
+            },
           }
         }
       }
     </script>
+    
     <style>
+      *, *::before, *::after { box-sizing: border-box; }
+      html { -webkit-text-size-adjust: 100%; -webkit-tap-highlight-color: transparent; }
       body {
-        background-color: #020617;
-        color: #f8fafc;
+        margin: 0; padding: 0;
+        background-color: #020617; color: #f8fafc;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
         overflow-x: hidden;
-        /* Support iPhone notch and safe areas */
-        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+        min-height: 100vh; min-height: 100dvh;
+        -webkit-font-smoothing: antialiased;
       }
-      /* Prevent mobile overscroll bounce */
-      html, body {
-        overscroll-behavior: none;
-        position: fixed;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
+      #root { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+      .loading-screen {
+        position: fixed; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        background: #020617; z-index: 9999;
       }
-      #root {
-        width: 100%;
-        height: 100%;
-        overflow: auto;
+      .loading-spinner {
+        width: 48px; height: 48px;
+        border: 4px solid #1e293b; border-top-color: #06b6d4;
+        border-radius: 50%; animation: spin 1s linear infinite;
       }
-      /* Custom scrollbar for Holo-feel */
-      ::-webkit-scrollbar {
-        width: 8px;
+      @keyframes spin { to { transform: rotate(360deg); } }
+      html, body { overscroll-behavior: none; }
+      @media (hover: none) and (pointer: coarse) {
+        button, a, input, select, textarea { min-height: 44px; }
+        input, select, textarea { font-size: 16px !important; }
       }
-      ::-webkit-scrollbar-track {
-        background: #0f172a; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #06b6d4; 
-        border-radius: 4px;
-      }
-      /* Mobile text optimization */
-      @media (max-width: 640px) {
-        * {
-          -webkit-tap-highlight-color: transparent;
-        }
-        button, a {
-          -webkit-touch-callout: none;
-          user-select: none;
-        }
-      }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: #0f172a; }
+      ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+      ::selection { background-color: #06b6d4; color: #020617; }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react-dom/client": "https://esm.sh/react-dom@18.3.1/client?external=react",
-    "react-dom": "https://esm.sh/react-dom@18.3.1?external=react",
-    "react": "https://esm.sh/react@18.3.1",
-    "react/": "https://esm.sh/react@18.3.1/",
-    "zustand": "https://esm.sh/zustand@4.5.2?external=react",
-    "axios": "https://esm.sh/axios@1.6.8",
-    "framer-motion": "https://esm.sh/framer-motion@11.0.8?external=react,react-dom",
-    "canvas-confetti": "https://esm.sh/canvas-confetti@1.9.2",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "child_process": "https://esm.sh/child_process@^1.0.2",
-    "path": "https://esm.sh/path@^0.12.7",
-    "dotenv": "https://esm.sh/dotenv@^17.2.3",
-    "url": "https://esm.sh/url@^0.11.4",
-    "ssh2-sftp-client": "https://esm.sh/ssh2-sftp-client@^12.0.1"
-  }
-}
-</script>
-<link rel="stylesheet" href="/index.css">
-</head>
+  </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="loading-screen" id="loading">
+        <div class="loading-spinner"></div>
+        <p style="margin-top: 1rem; color: #64748b; font-family: 'Orbitron', sans-serif; font-size: 0.875rem;">CHARGEMENT...</p>
+      </div>
+    </div>
     <script type="module" src="/index.tsx"></script>
+    <script>
+      window.addEventListener('load', function() {
+        setTimeout(function() {
+          var loading = document.getElementById('loading');
+          if (loading) {
+            loading.style.opacity = '0';
+            loading.style.transition = 'opacity 0.3s';
+            setTimeout(function() { loading.remove(); }, 300);
+          }
+        }, 100);
+      });
+    </script>
   </body>
 </html>

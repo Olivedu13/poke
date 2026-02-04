@@ -1,0 +1,228 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Inventory {
+  userId   Int    @map("user_id")
+  itemId   String @map("item_id") @db.VarChar(50)
+  quantity Int    @default(0)
+  item     Item   @relation(fields: [itemId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([userId, itemId])
+  @@map("inventory")
+}
+
+model Item {
+  id          String       @id @db.VarChar(50)
+  name        String       @db.VarChar(100)
+  description String       @db.VarChar(255)
+  price       Int
+  effectType  String       @map("effect_type") @db.VarChar(50)
+  value       Int
+  rarity      RarityType?  @default(COMMON)
+  image       String       @default("pokeball.webp") @db.VarChar(100)
+  inventories Inventory[]
+
+  @@map("items")
+}
+
+model QuestionBank {
+  id           Int             @id @default(autoincrement())
+  subject      String          @db.VarChar(50)
+  gradeLevel   GradeLevelType  @map("grade_level")
+  difficulty   DifficultyType? @default(MEDIUM)
+  category     String?         @db.VarChar(50)
+  questionText String          @map("question_text")
+  optionsJson  Json            @map("options_json")
+  correctIndex Int             @map("correct_index") @db.SmallInt
+  explanation  String
+
+  @@map("question_bank")
+}
+
+model UserPokemon {
+  id         String   @id @db.Char(36)
+  userId     Int      @map("user_id")
+  tyradexId  Int      @map("tyradex_id")
+  nickname   String?  @db.VarChar(50)
+  level      Int      @default(1)
+  currentHp  Int      @map("current_hp") @default(20)
+  currentXp  Int      @map("current_xp") @default(0)
+  isTeam     Boolean? @map("is_team") @default(false)
+  obtainedAt DateTime? @map("obtained_at") @default(now()) @db.Timestamptz(6)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("user_pokemon")
+}
+
+model User {
+  id                 Int            @id @default(autoincrement())
+  username           String         @unique @db.VarChar(50)
+  passwordHash       String         @map("password_hash") @db.VarChar(255)
+  gradeLevel         GradeLevelType @map("grade_level") @default(CE1)
+  activeSubjects     Json           @map("active_subjects")
+  customPromptActive Boolean?       @map("custom_prompt_active") @default(false)
+  customPromptText   String?        @map("custom_prompt_text")
+  gold               Int?           @default(0)
+  tokens             Int?           @default(0)
+  globalXp           Int?           @map("global_xp") @default(0)
+  quizElo            Int?           @map("quiz_elo") @default(1000)
+  streak             Int?           @default(0)
+  createdAt          DateTime?      @map("created_at") @default(now()) @db.Timestamptz(6)
+  focusCategories    Json?          @map("focus_categories")
+  lastSpinAt         DateTime?      @map("last_spin_at") @db.Timestamptz(6)
+
+  inventories        Inventory[]
+  userPokemon        UserPokemon[]
+  onlineStatus       OnlinePlayer?
+  challengesSent     PvpChallenge[]  @relation("ChallengerRelation")
+  challengesReceived PvpChallenge[]  @relation("ChallengedRelation")
+  matchesAsPlayer1   PvpMatch[]      @relation("Player1Relation")
+  matchesAsPlayer2   PvpMatch[]      @relation("Player2Relation")
+  matchesWon         PvpMatch[]      @relation("WinnerRelation")
+  matchesTurn        PvpMatch[]      @relation("CurrentTurnRelation")
+  pvpTurns           PvpTurn[]
+
+  @@map("users")
+}
+
+// ============ PVP SYSTEM ============
+
+model OnlinePlayer {
+  userId   Int              @id @map("user_id")
+  status   PlayerStatusType @default(available)
+  lastSeen DateTime         @default(now()) @map("last_seen") @db.Timestamptz(6)
+  user     User             @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("online_players")
+}
+
+model PvpChallenge {
+  id             Int                 @id @default(autoincrement())
+  challengerId   Int                 @map("challenger_id")
+  challengedId   Int                 @map("challenged_id")
+  status         ChallengeStatusType @default(pending)
+  createdAt      DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  challengerTeam Json?               @map("challenger_team")
+  challenger     User                @relation("ChallengerRelation", fields: [challengerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  challenged     User                @relation("ChallengedRelation", fields: [challengedId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("pvp_challenges")
+}
+
+model PvpMatch {
+  id                   Int             @id @default(autoincrement())
+  player1Id            Int             @map("player1_id")
+  player2Id            Int             @map("player2_id")
+  status               MatchStatusType @default(WAITING)
+  currentTurnId        Int?            @map("current_turn")
+  winnerId             Int?            @map("winner_id")
+  createdAt            DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  endedAt              DateTime?       @map("ended_at") @db.Timestamptz(6)
+  player1Team          Json?           @map("player1_team")
+  player2Team          Json?           @map("player2_team")
+  player1TeamHp        Json?           @map("player1_team_hp")
+  player2TeamHp        Json?           @map("player2_team_hp")
+  player1ActivePokemon Int?            @default(0) @map("player1_active_pokemon") @db.SmallInt
+  player2ActivePokemon Int?            @default(0) @map("player2_active_pokemon") @db.SmallInt
+  xpReward             Int?            @default(50) @map("xp_reward")
+  waitingForAnswer     Boolean?        @default(false) @map("waiting_for_answer")
+  currentQuestionId    Int?            @map("current_question_id")
+  turnNumber           Int?            @default(0) @map("turn_number")
+
+  player1     User      @relation("Player1Relation", fields: [player1Id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  player2     User      @relation("Player2Relation", fields: [player2Id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  winner      User?     @relation("WinnerRelation", fields: [winnerId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  currentTurn User?     @relation("CurrentTurnRelation", fields: [currentTurnId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  turns       PvpTurn[]
+
+  @@map("pvp_matches")
+}
+
+model PvpTurn {
+  id                 Int       @id @default(autoincrement())
+  matchId            Int       @map("match_id")
+  playerId           Int       @map("player_id")
+  turnNumber         Int       @map("turn_number")
+  questionId         Int?      @map("question_id")
+  answerIndex        Int?      @map("answer_index") @db.SmallInt
+  isCorrect          Boolean?  @map("is_correct")
+  damageDealt        Int?      @default(0) @map("damage_dealt")
+  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  questionText       String?   @map("question_text")
+  questionOptions    Json?     @map("question_options")
+  correctIndex       Int?      @map("correct_index") @db.SmallInt
+  targetPokemonIndex Int?      @map("target_pokemon_index") @db.SmallInt
+  itemUsed           String?   @map("item_used") @db.VarChar(50)
+  itemEffect         Json?     @map("item_effect")
+
+  match  PvpMatch @relation(fields: [matchId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  player User     @relation(fields: [playerId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("pvp_turns")
+}
+
+enum ChallengeStatusType {
+  pending
+  accepted
+  declined
+  expired
+  seen
+
+  @@map("challenge_status_type")
+}
+
+enum DifficultyType {
+  EASY
+  MEDIUM
+  HARD
+
+  @@map("difficulty_type")
+}
+
+enum GradeLevelType {
+  CP
+  CE1
+  CE2
+  CM1
+  CM2
+  SIXIEME   @map("6EME")
+  CINQUIEME @map("5EME")
+  QUATRIEME @map("4EME")
+  TROISIEME @map("3EME")
+
+  @@map("grade_level_type")
+}
+
+enum MatchStatusType {
+  WAITING
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+
+  @@map("match_status_type")
+}
+
+enum PlayerStatusType {
+  available
+  in_battle
+  challenged
+
+  @@map("player_status_type")
+}
+
+enum RarityType {
+  COMMON
+  UNCOMMON
+  RARE
+  EPIC
+  LEGENDARY
+
+  @@map("rarity_type")
+}

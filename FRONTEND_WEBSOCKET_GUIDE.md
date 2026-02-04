@@ -82,7 +82,7 @@ class SocketService {
     }
     
     // Créer connexion WebSocket
-    this.socket = io(import.meta.env.VITE_SOCKET_URL || 'wss://poke.sarlatc.com', {
+    this.socket = io(import.meta.env.VITE_SOCKET_URL || 'wss://jeu.sarlatc.com', {
       auth: { token },
       autoConnect: true,
       reconnection: true,

@@ -55,13 +55,13 @@
         <p>Test avec les balises audio natives du navigateur</p>
         
         <h3>teleportation.mp3</h3>
-        <audio controls src="https://poke.sarlatc.com/assets/teleportation.mp3"></audio>
+        <audio controls src="https://jeu.sarlatc.com/assets/teleportation.mp3"></audio>
         
         <h3>potion.mp3</h3>
-        <audio controls src="https://poke.sarlatc.com/assets/potion.mp3"></audio>
+        <audio controls src="https://jeu.sarlatc.com/assets/potion.mp3"></audio>
         
         <h3>evolution.mp3</h3>
-        <audio controls src="https://poke.sarlatc.com/assets/evolution.mp3"></audio>
+        <audio controls src="https://jeu.sarlatc.com/assets/evolution.mp3"></audio>
     </div>
 
     <div class="sound-test">
@@ -82,7 +82,7 @@
 
     <script>
         const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const baseUrl = 'https://poke.sarlatc.com/assets';
+        const baseUrl = 'https://jeu.sarlatc.com/assets';
 
         async function testSound(filename) {
             const status = document.getElementById('apiStatus');

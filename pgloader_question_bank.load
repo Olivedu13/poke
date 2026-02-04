@@ -1,0 +1,31 @@
+LOAD DATABASE
+    FROM mysql://root@localhost/dbs15241915
+    INTO postgresql://poke_edu@localhost/poke_edu
+
+WITH
+    include drop,
+    create tables,
+    create indexes,
+    reset sequences,
+    workers = 4,
+    concurrency = 1,
+    multiple readers per thread,
+    rows per range = 50000
+
+SET MySQL PARAMETERS
+    net_read_timeout = '300',
+    net_write_timeout = '300'
+
+BEFORE LOAD DO
+    $$ CREATE EXTENSION IF NOT EXISTS "uuid-ossp"; $$;
+
+LOAD ONLY TABLE NAMES MATCHING ~/question_bank/
+    INTO question_bank
+
+WITH
+    columns (*),
+    drop indexes,
+    create indexes
+
+AFTER LOAD DO
+    $$ SELECT setval('question_bank_id_seq', (SELECT MAX(id) FROM question_bank)); $$;

@@ -172,10 +172,10 @@ rsync -avz dist/ root@vps:/opt/poke-edu/
 ssh root@vps "pm2 restart all"
 
 # 6. SSL
-ssh root@vps "certbot --nginx -d poke.sarlatc.com"
+ssh root@vps "certbot --nginx -d jeu.sarlatc.com"
 
 # 7. Test
-curl https://poke.sarlatc.com/health
+curl https://jeu.sarlatc.com/health
 ```
 
 ---

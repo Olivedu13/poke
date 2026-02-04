@@ -490,7 +490,7 @@ Toute la documentation nécessaire est fournie:
 
 ### Checklist Pré-Migration
 - [ ] VPS loué (Hetzner CX32 recommandé)
-- [ ] DNS configuré (poke.sarlatc.com → IP VPS)
+- [ ] DNS configuré (jeu.sarlatc.com → IP VPS)
 - [ ] Backup MySQL IONOS téléchargé
 - [ ] Branche `vps` créée et à jour
 - [ ] Documentation lue et comprise
