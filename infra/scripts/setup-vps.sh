@@ -210,7 +210,7 @@ REDIS_URL=redis://localhost:6379
 GEMINI_API_KEY=your_gemini_api_key_here
 
 # CORS
-ALLOWED_ORIGINS=https://poke.sarlatc.com,http://localhost:5173
+ALLOWED_ORIGINS=https://jeu.sarlatc.com,http://localhost:5173
 
 # Logs
 LOG_LEVEL=info
@@ -229,7 +229,7 @@ step8_configure_nginx() {
     log_info "Configuration de Nginx..."
     
     # Domaine à configurer
-    read -p "Entrez votre domaine (ex: poke.sarlatc.com): " DOMAIN
+    read -p "Entrez votre domaine (ex: jeu.sarlatc.com): " DOMAIN
     
     # Configuration Nginx avec WebSocket
     cat > $NGINX_SITES/poke-edu <<EOF

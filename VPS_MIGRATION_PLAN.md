@@ -393,7 +393,7 @@ const user = await prisma.user.findUnique({ where: { id: 1 } });
    - Datacenter: Falkenstein (Allemagne) ou Helsinki (latence France optimale)
 
 2. **Configurer DNS**
-   - Pointer `poke.sarlatc.com` vers IP VPS
+   - Pointer `jeu.sarlatc.com` vers IP VPS
    - TTL: 300s (pour tests)
 
 3. **Setup initial VPS**
@@ -484,7 +484,7 @@ const user = await prisma.user.findUnique({ where: { id: 1 } });
    // client/src/services/socket.ts
    import { io } from 'socket.io-client';
    
-   export const socket = io('wss://poke.sarlatc.com', {
+   export const socket = io('wss://jeu.sarlatc.com', {
      autoConnect: false,
      auth: { token: localStorage.getItem('token') }
    });
@@ -532,10 +532,10 @@ const user = await prisma.user.findUnique({ where: { id: 1 } });
    # /etc/nginx/sites-available/poke-edu
    server {
        listen 443 ssl http2;
-       server_name poke.sarlatc.com;
+       server_name jeu.sarlatc.com;
        
-       ssl_certificate /etc/letsencrypt/live/poke.sarlatc.com/fullchain.pem;
-       ssl_certificate_key /etc/letsencrypt/live/poke.sarlatc.com/privkey.pem;
+       ssl_certificate /etc/letsencrypt/live/jeu.sarlatc.com/fullchain.pem;
+       ssl_certificate_key /etc/letsencrypt/live/jeu.sarlatc.com/privkey.pem;
        
        # Frontend static
        location / {
@@ -563,7 +563,7 @@ const user = await prisma.user.findUnique({ where: { id: 1 } });
 4. **SSL Let's Encrypt**
    ```bash
    apt install certbot python3-certbot-nginx
-   certbot --nginx -d poke.sarlatc.com
+   certbot --nginx -d jeu.sarlatc.com
    ```
 
 5. **Tests intensifs**

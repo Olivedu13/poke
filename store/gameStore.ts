@@ -40,7 +40,7 @@ interface GameState {
   setView: (view: ViewState) => void;
   updateUserConfig: (config: Partial<User>) => void;
   
-  initBattle: (player: Pokemon, enemy: Pokemon) => void;
+  initBattle: (player: Pokemon, enemy: Pokemon, startMessage?: string) => void;
   setBattlePhase: (phase: BattlePhase) => void;
   setBattleMode: (mode: BattleMode) => void;
   setTrainerOpponent: (trainer: TrainerOpponent | null) => void;
@@ -127,7 +127,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     specialGauge: 0
   }),
 
-  setBattlePhase: (phase: 'NONE' | 'LOADING' | 'PREVIEW' | 'FIGHTING' | 'CAPTURE' | 'FINISHED') => set({ battlePhase: phase }),
+  setBattlePhase: (phase) => set({ battlePhase: phase }),
 
   setBattleMode: (mode) => set({ battleMode: mode }),
 
@@ -212,7 +212,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       set({ gradeGauge: newGauge });
       if (gradeChanged) {
           set((s) => ({ user: s.user ? { ...s.user, grade_level: newGrade } : null }));
-          try { await api.post(`/update_config.php`, { grade_level: newGrade }); } catch (e) {}
+          try { await api.put('/user/config', { grade_level: newGrade }); } catch (e) {}
       }
       return gradeChanged;
   },
@@ -221,7 +221,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       try {
           const safeXp = Math.max(0, xp);
           const safeGold = gold;
-          await api.post(`/battle_rewards.php`, { xp: safeXp, gold: safeGold, item_drop: itemDrop });
+          await api.post('/battle/rewards', { xp: safeXp, gold: safeGold, item_drop: itemDrop });
           set((s) => ({
               user: s.user ? { ...s.user, global_xp: s.user.global_xp + safeXp, gold: s.user.gold + safeGold, streak: s.user.streak + 1 } : null
           }));
@@ -231,21 +231,21 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   fetchCollection: async () => {
     try {
-      const res = await api.get(`/collection.php`);
+      const res = await api.get('/collection');
       if (res.data.success) set({ collection: res.data.data });
     } catch (e) { set({ collection: [] }); }
   },
 
   fetchInventory: async () => {
     try {
-      const res = await api.get(`/shop.php?action=list_items`);
-      if (res.data.success) set({ inventory: Array.isArray(res.data.data) ? res.data.data : MOCK_INV });
-    } catch (e) { set({ inventory: MOCK_INV }); }
+      const res = await api.get('/shop/items');
+      if (res.data.success) set({ inventory: Array.isArray(res.data.data) ? res.data.data : [] });
+    } catch (e) { set({ inventory: [] }); }
   },
   
   fetchUser: async () => {
     try {
-      const res = await api.get(`/auth.php?action=verify`);
+      const res = await api.get('/auth/verify');
       if (res.data.success && res.data.user) {
         set({ user: res.data.user });
       }
@@ -269,8 +269,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   swapTeamMember: async (outId, inId) => {
       playSfx('CLICK');
       try {
-          if (outId) await api.post(`/collection.php`, { action: 'toggle_team', pokemon_id: outId });
-          const res = await api.post(`/collection.php`, { action: 'toggle_team', pokemon_id: inId });
+          if (outId) await api.post('/collection/toggle-team', { pokemon_id: outId });
+          const res = await api.post('/collection/toggle-team', { pokemon_id: inId });
           if (res.data.success) { await get().fetchCollection(); return true; }
       } catch (e) {}
       return false;
