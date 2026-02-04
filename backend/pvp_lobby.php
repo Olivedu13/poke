@@ -3,7 +3,16 @@ require_once __DIR__ . '/protected_setup.php';
 
 header('Content-Type: application/json');
 
-$action = $_GET['action'] ?? $_POST['action'] ?? null;
+// Alias pour compatibilité (protected_setup.php définit $userId)
+$user_id = $userId;
+
+// Lire l'action depuis GET ou depuis le body JSON
+$action = $_GET['action'] ?? null;
+
+if (!$action && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $jsonInput = json_decode(file_get_contents('php://input'), true);
+    $action = $jsonInput['action'] ?? null;
+}
 
 // Mettre à jour la présence en ligne du joueur
 function updatePlayerPresence($userId, $status = 'available') {
@@ -35,10 +44,10 @@ if ($action === 'get_online_players') {
         SELECT 
             u.id, 
             u.username, 
-            u.level,
-            u.grade,
+            u.global_xp as level,
+            u.grade_level as grade,
             op.status,
-            (SELECT tyradex_id FROM pokemon WHERE user_id = u.id AND is_team = 1 ORDER BY id LIMIT 1) as avatar_pokemon_id
+            (SELECT tyradex_id FROM user_pokemon WHERE user_id = u.id AND is_team = 1 ORDER BY id LIMIT 1) as avatar_pokemon_id
         FROM online_players op
         JOIN users u ON op.user_id = u.id
         WHERE op.last_seen >= DATE_SUB(NOW(), INTERVAL 30 SECOND)
@@ -168,12 +177,29 @@ if ($action === 'accept_challenge') {
     $stmt = $pdo->prepare("UPDATE pvp_challenges SET status = 'accepted' WHERE id = ?");
     $stmt->execute([$challenge_id]);
     
+    // Supprimer/décliner tous les autres défis entre ces 2 joueurs
+    $stmt = $pdo->prepare("
+        UPDATE pvp_challenges 
+        SET status = 'expired'
+        WHERE id != ?
+        AND (
+            (challenger_id = ? AND challenged_id = ?)
+            OR (challenger_id = ? AND challenged_id = ?)
+        )
+        AND status = 'pending'
+    ");
+    $stmt->execute([
+        $challenge_id,
+        $challenge['challenger_id'], $user_id,
+        $user_id, $challenge['challenger_id']
+    ]);
+    
     // Créer le match PvP
     $stmt = $pdo->prepare("
-        INSERT INTO pvp_matches (player1_id, player2_id, status, created_at)
-        VALUES (?, ?, 'WAITING', NOW())
+        INSERT INTO pvp_matches (player1_id, player2_id, status, current_turn, created_at)
+        VALUES (?, ?, 'IN_PROGRESS', ?, NOW())
     ");
-    $stmt->execute([$challenge['challenger_id'], $user_id]);
+    $stmt->execute([$challenge['challenger_id'], $user_id, $challenge['challenger_id']]);
     $match_id = $pdo->lastInsertId();
     
     // Marquer les deux joueurs comme en combat
@@ -183,7 +209,10 @@ if ($action === 'accept_challenge') {
     echo json_encode([
         'success' => true,
         'message' => 'Défi accepté ! Le combat commence.',
-        'match_id' => $match_id
+        'match_id' => $match_id,
+        'player1_id' => $challenge['challenger_id'],
+        'player2_id' => $user_id,
+        'current_turn' => $challenge['challenger_id']
     ]);
     exit;
 }
