@@ -29,6 +29,7 @@ const ADMIN_CODE = '7452';
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const [authenticated, setAuthenticated] = useState(false);
   const [codeInput, setCodeInput] = useState('');
+  const [codeError, setCodeError] = useState(false);
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [selectedUser, setSelectedUser] = useState<AdminUserDetails | null>(null);
   const [loading, setLoading] = useState(false);
@@ -37,12 +38,40 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const [editData, setEditData] = useState({ gold: 0, tokens: 0, global_xp: 0, grade_level: 'CE1' });
   const [addPokemonData, setAddPokemonData] = useState({ tyradex_id: 25, level: 5 });
 
+  const handleDigit = (digit: string) => {
+    if (codeInput.length < 4) {
+      const newCode = codeInput + digit;
+      setCodeInput(newCode);
+      setCodeError(false);
+
+      if (newCode.length === 4) {
+        if (newCode === ADMIN_CODE) {
+          setTimeout(() => {
+            setAuthenticated(true);
+            fetchUsers();
+          }, 200);
+        } else {
+          setCodeError(true);
+          setMessage('Code incorrect');
+          setTimeout(() => setCodeInput(''), 500);
+        }
+      }
+    }
+  };
+
+  const handleDelete = () => {
+    setCodeInput(codeInput.slice(0, -1));
+    setCodeError(false);
+  };
+
   const handleAuth = () => {
     if (codeInput === ADMIN_CODE) {
       setAuthenticated(true);
       fetchUsers();
     } else {
+      setCodeError(true);
       setMessage('Code incorrect');
+      setTimeout(() => setCodeInput(''), 500);
     }
   };
 
@@ -179,28 +208,61 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
           animate={{ scale: 1, opacity: 1 }}
           className="bg-slate-900 border-2 border-red-500/50 rounded-2xl p-6 max-w-sm w-full"
         >
-          <h2 className="text-2xl font-display font-bold text-red-400 mb-4 text-center">🔐 ACCÈS ADMIN</h2>
-          <input
-            type="password"
-            value={codeInput}
-            onChange={(e) => setCodeInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleAuth()}
-            placeholder="Code secret..."
-            className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-3 text-white font-mono text-center focus:border-red-500 outline-none mb-4"
-          />
-          <button
-            onClick={handleAuth}
-            className="w-full bg-red-600 hover:bg-red-500 text-white font-bold py-3 rounded-xl"
-          >
-            ENTRER
-          </button>
-          <button
-            onClick={onClose}
-            className="w-full mt-2 bg-slate-800 hover:bg-slate-700 text-slate-400 font-bold py-2 rounded-xl text-sm"
-          >
-            ANNULER
-          </button>
-          {message && <p className="text-red-400 text-center mt-3 text-sm">{message}</p>}
+          <h2 className="text-2xl font-display font-bold text-red-400 mb-2 text-center">🔐 ACCÈS ADMIN</h2>
+          <p className="text-slate-400 text-center text-sm mb-6">Entrez le code administrateur</p>
+
+          {/* PIN Display */}
+          <div className="flex justify-center gap-3 mb-6">
+            {[0, 1, 2, 3].map((index) => (
+              <div
+                key={index}
+                className={`w-14 h-14 rounded-lg flex items-center justify-center text-2xl font-bold transition ${
+                  codeError
+                    ? 'bg-red-900/50 border-2 border-red-500 animate-shake'
+                    : codeInput.length > index
+                    ? 'bg-red-600 border-2 border-red-400'
+                    : 'bg-slate-800 border-2 border-slate-700'
+                }`}
+              >
+                {codeInput.length > index ? '●' : ''}
+              </div>
+            ))}
+          </div>
+
+          {codeError && (
+            <p className="text-red-400 text-center text-sm mb-4 animate-pulse">❌ Code incorrect</p>
+          )}
+
+          {/* Numpad */}
+          <div className="grid grid-cols-3 gap-3 mb-4">
+            {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
+              <button
+                key={digit}
+                onClick={() => handleDigit(digit)}
+                className="bg-slate-800 hover:bg-slate-700 active:bg-red-600 text-white font-bold text-xl h-14 rounded-lg transition"
+              >
+                {digit}
+              </button>
+            ))}
+            <button
+              onClick={onClose}
+              className="bg-slate-700 hover:bg-slate-600 text-slate-400 font-bold text-sm rounded-lg transition"
+            >
+              ANNULER
+            </button>
+            <button
+              onClick={() => handleDigit('0')}
+              className="bg-slate-800 hover:bg-slate-700 active:bg-red-600 text-white font-bold text-xl h-14 rounded-lg transition"
+            >
+              0
+            </button>
+            <button
+              onClick={handleDelete}
+              className="bg-slate-800 hover:bg-slate-700 text-slate-400 font-bold text-lg rounded-lg transition"
+            >
+              ⌫
+            </button>
+          </div>
         </motion.div>
       </div>
     );

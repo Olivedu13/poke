@@ -319,9 +319,21 @@ export function registerPvpSocketHandlers(io: TypedServer, socket: TypedSocket):
       await pvpService.goOffline(userId);
       socket.to('pvp_lobby').emit('pvp:player_left', { id: userId });
       
-      // Quitter le match si connecté
+      // Forfait automatique si dans un match en cours
       const matchId = socketToMatch.get(socket.id);
       if (matchId) {
+        try {
+          const result = await pvpService.forfeitMatch(matchId, userId);
+          io.to(`match_${matchId}`).emit('pvp:forfeit_result', {
+            forfeiterId: userId,
+            forfeiterName: username,
+            disconnected: true,
+            ...result,
+          });
+          logger.info(`[PvP] ${username} auto-forfeited match ${matchId} due to disconnect`);
+        } catch (e) {
+          // Le match était probablement déjà terminé
+        }
         matchRooms.get(matchId)?.delete(socket.id);
         socketToMatch.delete(socket.id);
       }

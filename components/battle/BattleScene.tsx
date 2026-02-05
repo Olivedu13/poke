@@ -389,6 +389,38 @@ export const BattleScene: React.FC = () => {
         {/* Background */}
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 pointer-events-none" />
         
+        {/* Enemy Team Indicators (Trainer mode) */}
+        {battleMode === 'TRAINER' && previewEnemyTeam && previewEnemyTeam.length > 1 && (
+          <div className="relative z-10 flex justify-center gap-1.5 mb-2">
+            {previewEnemyTeam.map((poke: Pokemon, idx: number) => {
+              const isActive = poke.id === activeEnemy?.id;
+              const isKO = poke.current_hp <= 0;
+              return (
+                <div
+                  key={idx}
+                  className={`flex flex-col items-center p-1.5 rounded-lg border transition-all ${
+                    isActive ? 'bg-red-900/40 border-red-500 scale-110' : 
+                    isKO ? 'bg-slate-900/40 border-slate-700 opacity-40' : 
+                    'bg-slate-900/40 border-slate-700'
+                  }`}
+                >
+                  <img 
+                    src={poke.sprite_url} 
+                    className={`w-10 h-10 sm:w-12 sm:h-12 object-contain ${isKO ? 'grayscale' : ''}`} 
+                    alt={poke.name} 
+                  />
+                  <div className="w-full h-1 bg-slate-800 rounded-full mt-0.5 overflow-hidden">
+                    <div 
+                      className={`h-full ${isKO ? 'bg-slate-600' : 'bg-red-500'}`} 
+                      style={{ width: `${Math.max(0, (poke.current_hp / poke.max_hp) * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         {/* Enemy */}
         <div className="relative z-10 mb-4">
           <PokemonCard pokemon={activeEnemy} isEnemy />
