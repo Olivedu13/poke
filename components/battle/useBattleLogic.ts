@@ -440,6 +440,9 @@ export const useBattleLogic = () => {
         });
     };
 
+    // Alias for fleeing battle
+    const handleFlee = handleExitBattle;
+
     const revealLoot = () => {
         setLootRevealed(true); 
         confetti({ particleCount: 150, spread: 100, origin: { y: 0.6 } });
@@ -517,6 +520,7 @@ export const useBattleLogic = () => {
         startBattle,
         handleQuizComplete,
         handleUltimate,
+        handleFlee,
         handleUseItem,
         handleSwitchPokemon,
         handleExitBattle,
