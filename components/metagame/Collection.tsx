@@ -41,18 +41,19 @@ const EvolutionOverlay = ({ sequence, onClose }: { sequence: number[], onClose: 
     );
 };
 
-const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onToggleTeam }: any) => {
+const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onToggleTeam, collectionSize }: any) => {
     const [tab, setTab] = useState<'STATS' | 'ITEMS'>('STATS');
     const usableItems = inventory.filter((i: Item) => ['HEAL', 'EVOLUTION', 'EVOLUTION_MAX'].includes(i.effect_type) && i.quantity > 0);
     const xpPercent = Math.min(100, (pokemon.current_xp / (pokemon.next_level_xp || 100)) * 100);
     const statLabels: Record<string, string> = { HP: 'SANTÉ', ATK: 'ATTAQUE', DEF: 'DÉFENSE', SPE: 'VITESSE' };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200">
-            <div className="bg-slate-900 border border-cyan-500/50 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200" onClick={onClose}>
+            <div className="bg-slate-900 border border-cyan-500/50 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
                 <div className="p-4 border-b border-slate-700 bg-slate-950 flex justify-between items-center">
-                    <div><h2 className="text-2xl font-display font-bold text-white uppercase">{pokemon.name}</h2><div className="flex gap-2 text-xs font-mono mt-1"><span className="text-cyan-400">NIV {pokemon.level}</span><span className="text-slate-500">|</span><span className="text-slate-400">ID #{pokemon.tyradex_id}</span></div></div>
-                    <button onClick={onClose} className="text-slate-400 hover:text-white px-3 py-1 bg-slate-800 rounded">FERMER</button>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded flex items-center gap-2 transition-colors">← RETOUR</button>
+                    <div className="text-center flex-1"><h2 className="text-2xl font-display font-bold text-white uppercase">{pokemon.name}</h2><div className="flex justify-center gap-2 text-xs font-mono mt-1"><span className="text-cyan-400">NIV {pokemon.level}</span><span className="text-slate-500">|</span><span className="text-slate-400">ID #{pokemon.tyradex_id}</span></div></div>
+                    <div className="w-20"></div>
                 </div>
                 <div className="flex-1 overflow-y-auto p-0 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="flex flex-col items-center p-6 bg-slate-950/50 md:rounded-xl">
@@ -79,10 +80,11 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
                                         <div key={stat}><div className="flex justify-between text-xs font-bold text-slate-300 mb-1"><span>{statLabels[stat]}</span><span>{val} {stat === 'HP' ? `/ ${max}` : ''}</span></div><div className="h-2 bg-slate-800 rounded-full overflow-hidden"><motion.div className={`h-full ${stat==='HP'?'bg-green-500':'bg-yellow-500'}`} initial={{ width: 0 }} animate={{ width: `${Math.min(100, (val/max)*100)}%` }} transition={{ duration: 0.5 }}></motion.div></div></div>
                                     );
                                 })}
-                                <div className="mt-6 pt-6 border-t border-slate-800">
-                                    <button onClick={() => onToggleTeam(pokemon.id)} className={`w-full py-2 rounded border font-bold text-xs uppercase tracking-wider ${pokemon.is_team ? 'border-red-500 text-red-400 hover:bg-red-900/20' : 'border-green-500 text-green-400 hover:bg-green-900/20'}`}>
+                                <div className="mt-6 pt-6 border-t border-slate-800 space-y-2">
+                                    {collectionSize > 3 && (<button onClick={() => onToggleTeam(pokemon.id)} className={`w-full py-2 rounded border font-bold text-xs uppercase tracking-wider ${pokemon.is_team ? 'border-red-500 text-red-400 hover:bg-red-900/20' : 'border-green-500 text-green-400 hover:bg-green-900/20'}`}>
                                         {pokemon.is_team ? 'RETIRER DE L\'ÉQUIPE' : 'AJOUTER À L\'ÉQUIPE'}
-                                    </button>
+                                    </button>)}
+                                    {collectionSize <= 3 && (<div className="text-center text-slate-500 text-xs py-2">Tous tes Pokémon sont automatiquement dans l'équipe</div>)}
                                 </div>
                             </div>
                         )}
@@ -139,6 +141,19 @@ export const Collection: React.FC = () => {
     fetchNames();
   }, []);
 
+  // Auto-select all pokemon to team if collection <= 3
+  useEffect(() => {
+    if (collection.length > 0 && collection.length <= 3) {
+      const notInTeam = collection.filter(p => !p.is_team);
+      notInTeam.forEach(async (p) => {
+        try {
+          await api.post(`/collection/toggle-team`, { pokemonId: p.id });
+        } catch (e) {}
+      });
+      if (notInTeam.length > 0) fetchCollection();
+    }
+  }, [collection.length]);
+
   const correctedCollection = collection.map(p => ({
       ...p,
       name: (p.name && p.name.includes('Pokemon #') && nameMap[p.tyradex_id]) ? nameMap[p.tyradex_id] : (p.name || `Pokémon #${p.tyradex_id}`)
@@ -188,7 +203,7 @@ export const Collection: React.FC = () => {
   return (
     <div className="w-full max-w-6xl mx-auto pb-20">
       <AnimatePresence>{evolutionSeq && (<EvolutionOverlay sequence={evolutionSeq} onClose={() => setEvolutionSeq(null)} />)}</AnimatePresence>
-      <AnimatePresence>{selectedPokemon && (<PokemonDetailModal pokemon={selectedPokemon} user={user} inventory={inventory} onClose={() => setSelectedPokemon(null)} onAction={handleAction} onToggleTeam={(id: string) => handleAction('toggle_team', id)} />)}</AnimatePresence>
+      <AnimatePresence>{selectedPokemon && (<PokemonDetailModal pokemon={selectedPokemon} user={user} inventory={inventory} onClose={() => setSelectedPokemon(null)} onAction={handleAction} onToggleTeam={(id: string) => handleAction('toggle_team', id)} collectionSize={correctedCollection.length} />)}</AnimatePresence>
 
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-slate-900/80 p-6 rounded-2xl border border-slate-700 shadow-xl backdrop-blur-sm">
         <div className="flex items-center gap-4">

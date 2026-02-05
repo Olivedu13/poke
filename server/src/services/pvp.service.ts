@@ -416,9 +416,18 @@ export async function getMatchState(
   }));
 
   // Récupérer la question courante (visible par les 2 joueurs)
-  let currentQuestion: Question | null = null;
+  let currentQuestion: any = null;
   if (match.currentQuestionId && match.waitingForAnswer) {
-    currentQuestion = await getQuestionById(match.currentQuestionId);
+    const q = await getQuestionById(match.currentQuestionId);
+    if (q) {
+      currentQuestion = {
+        id: q.id,
+        text: q.questionText,
+        options: q.options,
+        correctIndex: q.correctIndex,
+        difficulty: q.difficulty,
+      };
+    }
   }
 
   return {
