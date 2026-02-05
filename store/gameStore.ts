@@ -232,13 +232,21 @@ export const useGameStore = create<GameState>((set, get) => ({
   fetchCollection: async () => {
     try {
       const res = await api.get('/collection');
-      if (res.data.success) set({ collection: res.data.data });
+      if (res.data.success) {
+        // Mapper les données du backend vers le format frontend
+        const collection = res.data.data.map((p: any) => ({
+          ...p,
+          is_team: p.is_team ?? false,
+          sprite_url: p.sprite_url || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.tyradex_id}.png`,
+        }));
+        set({ collection });
+      }
     } catch (e) { set({ collection: [] }); }
   },
 
   fetchInventory: async () => {
     try {
-      const res = await api.get('/shop/items');
+      const res = await api.get('/shop/inventory');
       if (res.data.success) set({ inventory: Array.isArray(res.data.data) ? res.data.data : [] });
     } catch (e) { set({ inventory: [] }); }
   },

@@ -128,7 +128,7 @@ export const Collection: React.FC = () => {
     fetchInventory(); 
     const fetchNames = async () => {
         try {
-            const res = await axios.get('https://tyradex.app/api/v1/gen/1');
+            const res = await axios.get('https://tyradex.app/api/v1/pokemon');
             if(Array.isArray(res.data)) {
                 const map: Record<number, string> = {};
                 res.data.forEach((p: any) => { map[p.pokedexId] = p.name.fr; });
@@ -147,11 +147,17 @@ export const Collection: React.FC = () => {
   const handleAction = async (action: string, pokeId: string, itemId?: string) => {
       setLoading(true);
       try {
-          const res = await api.post(`/collection.php`, {
-              action,
-              pokemon_id: pokeId,
-              item_id: itemId
-          });
+          // Router vers le bon endpoint selon l'action
+          let res;
+          if (action === 'feed') {
+              res = await api.post(`/collection/feed`, { pokemonId: pokeId, xpAmount: 100 });
+          } else if (action === 'toggle_team') {
+              res = await api.post(`/collection/toggle-team`, { pokemonId: pokeId });
+          } else if (action === 'use_item') {
+              res = await api.post(`/shop/use-item`, { itemId: itemId, pokemonId: pokeId });
+          } else {
+              res = { data: { success: false, message: 'Action inconnue' } };
+          }
 
           if (res.data.success) {
               await fetchCollection();

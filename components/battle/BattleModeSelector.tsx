@@ -11,18 +11,8 @@ export const BattleModeSelector: React.FC = () => {
     useEffect(() => {
         // Charger les stats PvP uniquement
         const loadStats = async () => {
-            try {
-                const res = await api.get('/battle_session.php?action=can_start');
-                if (res.data.success) {
-                    setPvpStats({
-                        active: res.data.active_pvp || 0,
-                        max: res.data.max_pvp || 6,
-                        available: res.data.available_slots || 6
-                    });
-                }
-            } catch (e) {
-                console.warn('Impossible de charger les stats PvP:', e);
-            }
+            // Stats PvP désactivées temporairement
+            setPvpStats({ active: 0, max: 6, available: 6 });
         };
         loadStats();
         

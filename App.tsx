@@ -13,12 +13,12 @@ import { ASSETS_BASE_URL } from './config';
 import { playSfx } from './utils/soundEngine';
 import { socketService } from './services/socket';
 
-// Navigation items
+// Navigation items with custom icons
 const NAV_ITEMS = [
-  { id: 'GAME', label: 'Combat', icon: '⚔️' },
-  { id: 'COLLECTION', label: 'Équipe', icon: '👥' },
-  { id: 'SHOP', label: 'Shop', icon: '🏪' },
-  { id: 'WHEEL', label: 'Roue', icon: '🎯' },
+  { id: 'GAME', label: 'Combat', icon: 'fight_icon.webp' },
+  { id: 'COLLECTION', label: 'Équipe', icon: 'team_icon.webp' },
+  { id: 'SHOP', label: 'Shop', icon: 'shop_icon.webp' },
+  { id: 'WHEEL', label: 'Roue', icon: 'wheel_icon.webp' },
 ];
 
 const App: React.FC = () => {
@@ -193,20 +193,28 @@ const App: React.FC = () => {
                     : 'text-slate-500 hover:text-slate-300'
                 }`}
               >
-                <span className="text-lg">{item.icon}</span>
+                <img 
+                  src={`${ASSETS_BASE_URL}/${item.icon}`} 
+                  alt={item.label} 
+                  className={`w-6 h-6 object-contain transition-all ${isActive ? 'brightness-125' : 'brightness-75 opacity-70'}`}
+                />
                 <span className={`text-[10px] font-bold uppercase tracking-wide ${isActive ? 'text-cyan-400' : ''}`}>
                   {item.label}
                 </span>
               </button>
             );
           })}
-          {/* Logout */}
+          {/* Params */}
           <button
-            onClick={handleLogout}
-            className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-red-400/70 hover:text-red-400 active:scale-95 transition-all min-w-[56px]"
+            onClick={() => setShowPinModal(true)}
+            className="flex flex-col items-center gap-0.5 px-3 py-2 rounded-xl text-slate-500 hover:text-slate-300 active:scale-95 transition-all min-w-[56px]"
           >
-            <span className="text-lg">🚪</span>
-            <span className="text-[10px] font-bold uppercase tracking-wide">Sortir</span>
+            <img 
+              src={`${ASSETS_BASE_URL}/params_icon.webp`} 
+              alt="Paramètres" 
+              className="w-6 h-6 object-contain brightness-75 opacity-70"
+            />
+            <span className="text-[10px] font-bold uppercase tracking-wide">Params</span>
           </button>
         </div>
       </nav>
