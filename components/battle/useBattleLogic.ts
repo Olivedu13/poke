@@ -29,7 +29,7 @@ export const useBattleLogic = () => {
     const [captureAttempted, setCaptureAttempted] = useState(false);
     const [captureSuccess, setCaptureSuccess] = useState(false);
     
-    // Combat stats tracking (minimum 5 questions, XP based on performance)
+    // Combat stats tracking (XP based on performance)
     const [questionsAnswered, setQuestionsAnswered] = useState(0);
     const [correctAnswers, setCorrectAnswers] = useState(0);
     const [maxCombo, setMaxCombo] = useState(0);
@@ -146,68 +146,49 @@ export const useBattleLogic = () => {
                     setPreviewEnemy(trainer.team[0]);
                     setPreviewEnemyTeam(trainer.team);
                 } else {
-                    // Mode WILD classique
-                    const enemyLevel = Math.max(1, baseLevel + Math.floor(Math.random() * 3) - 1);
-                    const enemyId = Math.floor(Math.random() * 150) + 1;
-                    const enemy = await fetchTyradexData(enemyId, enemyLevel);
-                    setPreviewEnemy(enemy);
-                    setPreviewEnemyTeam([enemy]);
-                }
-                
-                setBattlePhase('PREVIEW');
-            };
-            setup();
-        }
-    }, [battlePhase]);
-
-    // Auto-démarrage : seulement pour modes non-PVP
-    useEffect(() => {
-        if (battleMode !== 'PVP' && battlePhase === 'PREVIEW') {
-            startBattle();
-        }
-    }, [battleMode, battlePhase]);
-
-    // --- GAME LOOP & IA ---
-    const MIN_QUESTIONS = 5; // Minimum de questions avant fin de combat
-    
-    useEffect(() => {
-        if (battleMode === 'PVP') return;
-        // Vérifier victoire: ennemi KO ET minimum de questions atteint
-        if (battleOver && enemyPokemon?.current_hp === 0 && battlePhase === 'FIGHTING') {
-            // Si pas assez de questions, empêcher la victoire temporairement
-            if (questionsAnswered < MIN_QUESTIONS) {
-                // Remettre un peu de HP à l'ennemi pour continuer le combat
-                useGameStore.setState((state) => ({
-                    enemyPokemon: state.enemyPokemon ? { 
-                        ...state.enemyPokemon, 
-                        current_hp: Math.floor(state.enemyPokemon.max_hp * 0.2) 
-                    } : null,
-                    battleOver: false,
-                    isPlayerTurn: true
-                }));
-                addLog({ message: `L'adversaire tient bon ! (${MIN_QUESTIONS - questionsAnswered} questions restantes)`, type: 'INFO' });
-                return;
-            }
-            
-            // Mode TRAINER : vérifier s'il reste des Pokemon
-            if (battleMode === 'TRAINER' && trainerOpponent) {
-                const nextIndex = trainerOpponent.currentPokemonIndex + 1;
-                if (nextIndex < trainerOpponent.team.length) {
-                    addLog({ message: `${trainerOpponent.name} envoie ${trainerOpponent.team[nextIndex].name} !`, type: 'INFO' });
-                    setTrainerOpponent({
-                        ...trainerOpponent,
-                        currentPokemonIndex: nextIndex
-                    });
-                    initBattle(playerPokemon!, trainerOpponent.team[nextIndex]);
-                    return;
-                }
-            }
-            
-            // Vérifier si on a une pokeball pour proposer la capture (uniquement en mode WILD)
-            if (battleMode === 'WILD') {
-                const hasPokeball = inventory.some(i => i.effect_type === 'CAPTURE' && i.quantity > 0);
-                
-                if (hasPokeball) {
+                    // --- GAME LOOP & IA ---
+                    useEffect(() => {
+                        if (battleMode === 'PVP') return;
+                        // Vérifier victoire: ennemi KO
+                        if (battleOver && enemyPokemon?.current_hp === 0 && battlePhase === 'FIGHTING') {
+                            // Mode TRAINER : vérifier s'il reste des Pokemon
+                            if (battleMode === 'TRAINER' && trainerOpponent) {
+                                const nextIndex = trainerOpponent.currentPokemonIndex + 1;
+                                if (nextIndex < trainerOpponent.team.length) {
+                                    addLog({ message: `${trainerOpponent.name} envoie ${trainerOpponent.team[nextIndex].name} !`, type: 'INFO' });
+                                    setTrainerOpponent({
+                                        ...trainerOpponent,
+                                        currentPokemonIndex: nextIndex
+                                    });
+                                    initBattle(playerPokemon!, trainerOpponent.team[nextIndex]);
+                                    return;
+                                }
+                            }
+                            // Mode WILD : proposer la capture si pokeball, sinon récompense
+                            if (battleMode === 'WILD') {
+                                const hasPokeball = inventory.some(i => i.effect_type === 'CAPTURE' && i.quantity > 0);
+                                if (hasPokeball) {
+                                    setBattlePhase('CAPTURE');
+                                } else {
+                                    setCaptureAttempted(true);
+                                    setCaptureSuccess(false);
+                                    setBattlePhase('CAPTURE');
+                                }
+                            } else {
+                                // Mode TRAINER : pas de capture, victoire directe
+                                setCaptureAttempted(true);
+                                setCaptureSuccess(false);
+                                setBattlePhase('CAPTURE');
+                            }
+                        } else if (battlePhase === 'CAPTURE' && captureAttempted) {
+                            // Après tentative de capture, passer à la victoire
+                            setBattlePhase('FINISHED');
+                            confetti({ particleCount: 200, spread: 150, origin: { y: 0.6 } });
+                            if (enemyPokemon) {
+                                claimBattleRewards(enemyPokemon);
+                            }
+                        }
+                    }, [battleOver, battlePhase, enemyPokemon, battleMode, trainerOpponent, inventory, playerPokemon, initBattle, setTrainerOpponent, setBattlePhase, setCaptureAttempted, setCaptureSuccess, claimBattleRewards, addLog]);
                     setBattlePhase('CAPTURE');
                 } else {
                     setCaptureAttempted(true);
@@ -411,6 +392,36 @@ export const useBattleLogic = () => {
         }
     };
 
+    // Fuir le combat - aucune récompense
+    const handleFlee = () => {
+        playSfx('DAMAGE');
+        addLog({ message: 'Vous avez fui le combat !', type: 'INFO' });
+        setRewards(null);
+        setLootRevealed(false);
+        setCaptureAttempted(false);
+        setCaptureSuccess(false);
+        setQuestionsAnswered(0);
+        setCorrectAnswers(0);
+        setMaxCombo(0);
+        setDifficultyPoints(0);
+        useGameStore.setState({ 
+            playerPokemon: null, 
+            enemyPokemon: null, 
+            battleOver: false, 
+            battleLogs: [], 
+            isPlayerTurn: true, 
+            gradeGauge: 0, 
+            combo: 0, 
+            specialGauge: 0, 
+            battlePhase: 'NONE',
+            battleMode: 'WILD',
+            trainerOpponent: null,
+            previewEnemy: null,
+            previewEnemyTeam: [],
+            selectedPlayer: null
+        });
+    };
+
     const handleExitBattle = async () => {
         setRewards(null);
         setLootRevealed(false);
@@ -517,6 +528,7 @@ export const useBattleLogic = () => {
         startBattle,
         handleQuizComplete,
         handleUltimate,
+        handleFlee,
         handleUseItem,
         handleSwitchPokemon,
         handleExitBattle,

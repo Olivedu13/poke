@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Question, ApiResponse, User } from '../../types';
 import { ASSETS_BASE_URL } from '../../config';
 import { useGameStore } from '../../store/gameStore';
+import { playSfx } from '../../utils/soundEngine';
 
 interface QuizOverlayProps {
     user: User;
@@ -64,9 +65,10 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
              try { data = JSON.parse(data); } catch (e) {}
         }
 
-        if (data && data.success && data.data) {
-          setQuestion(data.data);
-          markQuestionAsSeen(data.data.id);
+        if (data && data.success && (data.data || data.question)) {
+          const q = data.data || data.question;
+          setQuestion(q);
+          markQuestionAsSeen(q.id);
         } else {
             setQuestion(getOfflineQuestion());
         }
@@ -88,11 +90,15 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
     setSelectedOption(index);
 
     const isCorrect = index === question.correct_index;
-    let damage = isCorrect ? 25 : 0;
     
-    // Si la question vient du PVP (via preloaded), le calcul de dégâts se fait côté serveur
-    // MAIS, QuizOverlay ne sait pas si c'est PVP ou pas facilement. Soit on passe une prop, soit on check source.
-    // Pour l'instant on garde battle_mode logic de l'appelant. useBattleLogic ignorera 'damage' ici si PVP.
+    // Play sound immediately
+    if (isCorrect) {
+      playSfx('WIN');
+    } else {
+      playSfx('LOSE');
+    }
+    
+    let damage = isCorrect ? 25 : 0;
     
     // Calcul local des dégâts
     const attackerLevel = Math.floor(user.global_xp / 100) + 1;
@@ -100,10 +106,10 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
 
     setResult({ correct: isCorrect, explanation: question.explanation });
 
+    // Reduced delay from 2500ms to 1200ms
     setTimeout(() => {
-        // En PVP, question.id est CRITIQUE pour valider la réponse côté serveur.
         onComplete(isCorrect, damage, question.difficulty, question.id, index);
-    }, 2500); 
+    }, 1200); 
   };
 
   const handleJokerUse = async () => {

@@ -73,11 +73,20 @@
         margin: 0; padding: 0;
         background-color: #020617; color: #f8fafc;
         font-family: 'Inter', system-ui, -apple-system, sans-serif;
-        overflow-x: hidden;
-        min-height: 100vh; min-height: 100dvh;
+        overflow: hidden;
+        height: 100vh; height: 100dvh; height: 100svh;
         -webkit-font-smoothing: antialiased;
+        /* Prevent iOS overscroll */
+        overscroll-behavior: none;
+        position: fixed;
+        width: 100%;
+        touch-action: pan-x pan-y;
       }
-      #root { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; }
+      #root { 
+        height: 100vh; height: 100dvh; height: 100svh; 
+        display: flex; flex-direction: column; 
+        overflow: hidden;
+      }
       .loading-screen {
         position: fixed; inset: 0; display: flex; flex-direction: column;
         align-items: center; justify-content: center;

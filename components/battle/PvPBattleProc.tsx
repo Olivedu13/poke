@@ -63,6 +63,9 @@ export const PvPBattleProc: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showHistory, setShowHistory] = useState(false);
+  const [showCoinFlip, setShowCoinFlip] = useState(false);
+  const [coinFlipWinner, setCoinFlipWinner] = useState<string | null>(null);
+  const [battleReady, setBattleReady] = useState(false);
 
   const matchId = localStorage.getItem('pvp_match_id');
 
@@ -81,17 +84,32 @@ export const PvPBattleProc: React.FC = () => {
 
     // Listen for match state
     socketService.on('pvp:match_state', (data: any) => {
+      const isFirstState = !matchState && data.match?.turnNumber === 1;
       setMatchState(data.match);
       setHistory(data.history || []);
-      setIsMyTurn(data.currentTurnId === user?.id);
+      // Use server-computed isMyTurn which is correct for each player
+      setIsMyTurn(data.isMyTurn === true);
       setCurrentQuestion(data.currentQuestion);
       setLoading(false);
       setError(null);
+      
+      // Show coin flip animation on first state
+      if (isFirstState && !battleReady) {
+        const starterName = data.isMyTurn ? 'TOI' : (data.match?.player1Id === user?.id ? data.match?.player2Name : data.match?.player1Name);
+        setShowCoinFlip(true);
+        setCoinFlipWinner(starterName);
+        playSfx('WIN');
+        setTimeout(() => {
+          setShowCoinFlip(false);
+          setBattleReady(true);
+        }, 3000);
+      } else if (data.match?.turnNumber > 1) {
+        setBattleReady(true);
+      }
     });
 
     socketService.on('pvp:battle_initialized', (data: { matchId: number; isMyTurn: boolean }) => {
       setIsMyTurn(data.isMyTurn);
-      playSfx(data.isMyTurn ? 'WIN' : 'CLICK');
     });
 
     socketService.on('pvp:answer_result', (data: any) => {
@@ -156,6 +174,38 @@ export const PvPBattleProc: React.FC = () => {
           <div className="w-12 h-12 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-purple-400 font-display">CHARGEMENT DU COMBAT...</p>
         </div>
+      </div>
+    );
+  }
+
+  // Coin Flip Animation
+  if (showCoinFlip) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-br from-slate-950 via-purple-950/30 to-slate-950 p-4">
+        <motion.div
+          initial={{ rotateY: 0 }}
+          animate={{ rotateY: 1080 }}
+          transition={{ duration: 2, ease: "easeOut" }}
+          className="w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-yellow-400 to-yellow-600 flex items-center justify-center shadow-[0_0_60px_rgba(234,179,8,0.5)] mb-8"
+        >
+          <span className="text-6xl sm:text-7xl">🪙</span>
+        </motion.div>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 1.5, duration: 0.5 }}
+          className="text-center"
+        >
+          <h2 className="text-2xl sm:text-3xl font-display font-black text-white mb-2">TIRAGE AU SORT</h2>
+          <motion.p 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 2, duration: 0.3 }}
+            className="text-xl sm:text-2xl font-display font-bold text-yellow-400"
+          >
+            {coinFlipWinner === 'TOI' ? '✨ TU COMMENCES ! ✨' : `${coinFlipWinner} COMMENCE !`}
+          </motion.p>
+        </motion.div>
       </div>
     );
   }
@@ -259,7 +309,7 @@ export const PvPBattleProc: React.FC = () => {
       {/* Battle Area */}
       <div className="flex-1 flex flex-col p-3 overflow-y-auto">
         {/* Opponent Team */}
-        <div className="flex justify-center gap-2 mb-4">
+        <div className="flex justify-center gap-2 sm:gap-3 mb-4">
           {opponentTeam.map((pokemon, idx) => {
             const hp = opponentTeamHp[idx];
             const isActive = idx === opponentActivePokemon;
@@ -267,23 +317,23 @@ export const PvPBattleProc: React.FC = () => {
             return (
               <div
                 key={idx}
-                className={`relative bg-slate-900/60 rounded-lg p-2 border ${
+                className={`relative bg-slate-900/60 rounded-lg p-2 sm:p-3 border ${
                   isActive ? 'border-red-500 scale-105' : 'border-slate-700 opacity-60'
-                } transition-all min-w-[70px]`}
+                } transition-all min-w-[80px] sm:min-w-[100px]`}
               >
                 {isActive && (
-                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[8px] px-1.5 rounded-full">
+                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[8px] sm:text-[10px] px-1.5 rounded-full">
                     ACTIF
                   </div>
                 )}
                 <img
                   src={pokemon.spriteUrl}
-                  className={`w-12 h-12 mx-auto ${hp <= 0 ? 'grayscale opacity-30' : ''}`}
+                  className={`w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 mx-auto ${hp <= 0 ? 'grayscale opacity-30' : ''}`}
                   alt={pokemon.name}
                 />
-                <p className="text-[10px] text-center text-white font-bold truncate">{pokemon.name}</p>
+                <p className="text-[10px] sm:text-xs text-center text-white font-bold truncate">{pokemon.name}</p>
                 <HpBar current={hp} max={pokemon.maxHp} />
-                <p className="text-[8px] text-center text-slate-400">{hp}/{pokemon.maxHp}</p>
+                <p className="text-[8px] sm:text-[10px] text-center text-slate-400">{hp}/{pokemon.maxHp}</p>
               </div>
             );
           })}
@@ -351,7 +401,7 @@ export const PvPBattleProc: React.FC = () => {
         </div>
 
         {/* My Team */}
-        <div className="flex justify-center gap-2 mt-4">
+        <div className="flex justify-center gap-2 sm:gap-3 mt-4">
           {myTeam.map((pokemon, idx) => {
             const hp = myTeamHp[idx];
             const isActive = idx === myActivePokemon;
@@ -359,23 +409,23 @@ export const PvPBattleProc: React.FC = () => {
             return (
               <div
                 key={idx}
-                className={`relative bg-slate-900/60 rounded-lg p-2 border ${
+                className={`relative bg-slate-900/60 rounded-lg p-2 sm:p-3 border ${
                   isActive ? 'border-cyan-500 scale-105' : 'border-slate-700 opacity-60'
-                } transition-all min-w-[70px]`}
+                } transition-all min-w-[80px] sm:min-w-[100px]`}
               >
                 {isActive && (
-                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 bg-cyan-600 text-white text-[8px] px-1.5 rounded-full">
+                  <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 bg-cyan-600 text-white text-[8px] sm:text-[10px] px-1.5 rounded-full">
                     ACTIF
                   </div>
                 )}
                 <img
                   src={pokemon.spriteUrl}
-                  className={`w-12 h-12 mx-auto ${hp <= 0 ? 'grayscale opacity-30' : ''}`}
+                  className={`w-16 h-16 sm:w-20 sm:h-20 lg:w-24 lg:h-24 mx-auto ${hp <= 0 ? 'grayscale opacity-30' : ''}`}
                   alt={pokemon.name}
                 />
-                <p className="text-[10px] text-center text-white font-bold truncate">{pokemon.name}</p>
+                <p className="text-[10px] sm:text-xs text-center text-white font-bold truncate">{pokemon.name}</p>
                 <HpBar current={hp} max={pokemon.maxHp} />
-                <p className="text-[8px] text-center text-slate-400">{hp}/{pokemon.maxHp}</p>
+                <p className="text-[8px] sm:text-[10px] text-center text-slate-400">{hp}/{pokemon.maxHp}</p>
               </div>
             );
           })}

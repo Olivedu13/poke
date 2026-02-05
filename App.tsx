@@ -59,10 +59,17 @@ const App: React.FC = () => {
           });
           playSfx('WIN');
         });
+
+        // Listen for match creation (when you're the challenger)
+        socketService.on('pvp:match_created', (data: { matchId: number }) => {
+          localStorage.setItem('pvp_match_id', String(data.matchId));
+        });
       }
     }
     
     return () => {
+      socketService.off('pvp:challenge_received');
+      socketService.off('pvp:match_created');
       socketService.disconnect();
     };
   }, [user, setPvpNotification]);
@@ -111,12 +118,12 @@ const App: React.FC = () => {
   // Auth screen - Mobile First
   if (!user || currentView === 'AUTH') {
     return (
-      <div className="min-h-screen min-h-[100dvh] bg-slate-950 flex flex-col">
+      <div className="h-screen h-[100dvh] bg-slate-950 flex flex-col overflow-hidden">
         {/* Background */}
         <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-slate-900 via-slate-950 to-slate-950 pointer-events-none" />
         <div className="fixed inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:3rem_3rem] opacity-20 pointer-events-none" />
         
-        <main className="relative z-10 flex-1 flex items-center justify-center p-4">
+        <main className="relative z-10 flex-1 flex items-center justify-center p-4 overflow-hidden">
           <AuthForm />
         </main>
       </div>
@@ -124,14 +131,14 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen min-h-[100dvh] bg-slate-950 flex flex-col">
+    <div className="h-screen h-[100dvh] bg-slate-950 flex flex-col overflow-hidden">
       {/* Background */}
       <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-cyan-950/20 via-slate-950 to-slate-950 pointer-events-none" />
       
       {/* === TOP HEADER WITH NAV === */}
       <header className="relative z-20 bg-slate-950/95 backdrop-blur-md border-b border-slate-800/50 shrink-0">
         {/* Row 1: Logo + Stats */}
-        <div className="px-3 py-2 flex items-center justify-between gap-2">
+        <div className="px-2 py-1 flex items-center justify-between gap-2">
           {/* Logo - tap 5 times for admin */}
           <button 
             onClick={handleLogoClick}
@@ -145,7 +152,7 @@ const App: React.FC = () => {
             </span>
           </button>
 
-          {/* User Stats */}
+          {/* User Stats + Admin */}
           <div className="flex items-center gap-2">
             {/* Gold */}
             <div className="flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded-full border border-slate-700/50">
@@ -157,18 +164,27 @@ const App: React.FC = () => {
               <img src={`${ASSETS_BASE_URL}/jetons.webp`} alt="Jetons" className="w-4 h-4" />
               <span className="text-xs text-cyan-400 font-mono font-bold">{user.tokens}</span>
             </div>
+            {/* Admin button - long press */}
+            <button
+              onClick={() => setShowAdmin(true)}
+              onContextMenu={(e) => { e.preventDefault(); setShowAdmin(true); }}
+              className="w-6 h-6 flex items-center justify-center rounded-full bg-slate-800 border border-slate-700 text-slate-500 hover:text-red-400 hover:border-red-500/50 active:scale-90 transition-all"
+              title="Admin"
+            >
+              <span className="text-[10px]">⚙</span>
+            </button>
           </div>
         </div>
         
         {/* Row 2: Navigation Icons */}
-        <div className="flex items-center justify-around px-2 py-1 border-t border-slate-800/30">
+        <div className="flex items-center justify-around px-0">
           {NAV_ITEMS.map((item) => {
             const isActive = currentView === item.id;
             return (
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
-                className={`relative flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl transition-all active:scale-95 min-w-[56px] ${
+                className={`relative flex flex-col items-center px-1 py-0.5 rounded transition-all active:scale-95 ${
                   isActive 
                     ? 'bg-cyan-600/20 text-cyan-400' 
                     : 'text-slate-500 hover:text-slate-300'
@@ -177,57 +193,53 @@ const App: React.FC = () => {
                 <img 
                   src={`${ASSETS_BASE_URL}/${item.icon}`} 
                   alt={item.label} 
-                  className={`w-6 h-6 object-contain transition-all ${isActive ? 'brightness-125' : 'brightness-75 opacity-70'}`}
+                  className={`w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 object-contain transition-all ${isActive ? 'brightness-125' : 'brightness-75 opacity-70'}`}
                 />
-                <span className={`text-[10px] font-bold uppercase tracking-wide ${isActive ? 'text-cyan-400' : ''}`}>
-                  {item.label}
-                </span>
               </button>
             );
           })}
           {/* Params */}
           <button
             onClick={() => setShowPinModal(true)}
-            className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-xl text-slate-500 hover:text-slate-300 active:scale-95 transition-all min-w-[56px]"
+            className="flex flex-col items-center px-1 py-0.5 rounded text-slate-500 hover:text-slate-300 active:scale-95 transition-all"
           >
             <img 
               src={`${ASSETS_BASE_URL}/params_icon.webp`} 
               alt="Paramètres" 
-              className="w-6 h-6 object-contain brightness-75 opacity-70"
+              className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 object-contain brightness-75 opacity-70"
             />
-            <span className="text-[10px] font-bold uppercase tracking-wide">Params</span>
           </button>
         </div>
       </header>
 
       {/* === MAIN CONTENT === */}
-      <main className="relative z-10 flex-1 overflow-y-auto overflow-x-hidden">
+      <main className="relative z-10 flex-1 overflow-x-hidden flex flex-col">
         {currentView === 'DASHBOARD' && (
-          <div className="p-4 max-w-4xl mx-auto">
+          <div className="p-4 max-w-4xl mx-auto flex-1 overflow-y-auto">
             <ParentDashboard />
           </div>
         )}
         
         {currentView === 'GAME' && (
-          <div className="h-full flex flex-col">
+          <div className="flex-1 flex flex-col overflow-hidden lg:max-w-none lg:mx-0">
             <BattleScene />
           </div>
         )}
         
         {currentView === 'WHEEL' && (
-          <div className="p-4 max-w-lg mx-auto">
+          <div className="p-2 max-w-lg lg:max-w-2xl mx-auto flex-1 overflow-y-auto">
             <Wheel />
           </div>
         )}
         
         {currentView === 'COLLECTION' && (
-          <div className="p-4 max-w-4xl mx-auto">
+          <div className="p-2 max-w-4xl lg:max-w-6xl mx-auto flex-1 overflow-y-auto">
             <Collection />
           </div>
         )}
         
         {currentView === 'SHOP' && (
-          <div className="p-4 max-w-4xl mx-auto">
+          <div className="p-2 max-w-4xl lg:max-w-6xl mx-auto flex-1 overflow-y-auto">
             <Shop />
           </div>
         )}
