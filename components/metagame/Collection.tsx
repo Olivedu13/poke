@@ -141,7 +141,7 @@ export const Collection: React.FC = () => {
 
   const correctedCollection = collection.map(p => ({
       ...p,
-      name: (p.name.includes('Pokemon #') && nameMap[p.tyradex_id]) ? nameMap[p.tyradex_id] : p.name
+      name: (p.name && p.name.includes('Pokemon #') && nameMap[p.tyradex_id]) ? nameMap[p.tyradex_id] : (p.name || `Pokémon #${p.tyradex_id}`)
   }));
 
   const handleAction = async (action: string, pokeId: string, itemId?: string) => {
@@ -170,7 +170,7 @@ export const Collection: React.FC = () => {
                   
                   const updatedCollection = useGameStore.getState().collection;
                   let updatedP = updatedCollection.find(p => p.id === pokeId);
-                  if (updatedP && updatedP.name.includes('Pokemon #') && nameMap[updatedP.tyradex_id]) {
+                  if (updatedP && updatedP.name && updatedP.name.includes('Pokemon #') && nameMap[updatedP.tyradex_id]) {
                       updatedP = { ...updatedP, name: nameMap[updatedP.tyradex_id] };
                   }
                   if (updatedP) setSelectedPokemon(updatedP);
