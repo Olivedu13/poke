@@ -109,14 +109,41 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
     );
 };
 
-const PokemonCard: React.FC<{ pokemon: Pokemon, onClick: () => void }> = ({ pokemon, onClick }) => (
-    <motion.div layoutId={`poke-${pokemon.id}`} onClick={onClick} className={`relative p-4 rounded-2xl cursor-pointer group transition-all hover:-translate-y-1 ${pokemon.is_team ? 'bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'bg-slate-900 border border-slate-700 hover:border-slate-500'}`}>
-        {pokemon.is_team && (<div className="absolute top-2 right-2 w-3 h-3 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.8)] animate-pulse"></div>)}
-        <div className="flex justify-between items-start mb-2 opacity-50 text-[10px] font-mono"><span>NV {pokemon.level}</span><span>#{pokemon.tyradex_id}</span></div>
-        <div className="flex justify-center my-2"><img src={pokemon.sprite_url} className="w-24 h-24 object-contain group-hover:scale-110 transition-transform drop-shadow-lg" /></div>
-        <div className="text-center"><h3 className={`font-display font-bold text-sm truncate ${pokemon.is_team ? 'text-cyan-400' : 'text-white'}`}>{pokemon.name}</h3><div className="w-full h-1 bg-slate-800 rounded-full mt-2 overflow-hidden"><div className="h-full bg-green-500" style={{ width: `${(pokemon.current_hp / pokemon.max_hp) * 100}%` }}></div></div></div>
-    </motion.div>
-);
+const PokemonCard: React.FC<{ pokemon: Pokemon, onClick: () => void, onToggleTeam?: (id: string) => void, teamCount?: number }> = ({ pokemon, onClick, onToggleTeam, teamCount = 0 }) => {
+    const canAddToTeam = !pokemon.is_team && teamCount < 3;
+    const canRemove = pokemon.is_team;
+    
+    const handleToggle = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (onToggleTeam && (canAddToTeam || canRemove)) {
+            onToggleTeam(pokemon.id);
+        }
+    };
+    
+    return (
+        <motion.div layoutId={`poke-${pokemon.id}`} className={`relative p-4 rounded-2xl cursor-pointer group transition-all hover:-translate-y-1 ${pokemon.is_team ? 'bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : 'bg-slate-900 border border-slate-700 hover:border-slate-500'}`}>
+            {pokemon.is_team && (<div className="absolute top-2 right-2 w-3 h-3 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.8)] animate-pulse"></div>)}
+            <div onClick={onClick} className="flex justify-between items-start mb-2 opacity-50 text-[10px] font-mono"><span>NV {pokemon.level}</span><span>#{pokemon.tyradex_id}</span></div>
+            <div onClick={onClick} className="flex justify-center my-2"><img src={pokemon.sprite_url} className="w-24 h-24 object-contain group-hover:scale-110 transition-transform drop-shadow-lg" /></div>
+            <div onClick={onClick} className="text-center"><h3 className={`font-display font-bold text-sm truncate ${pokemon.is_team ? 'text-cyan-400' : 'text-white'}`}>{pokemon.name}</h3><div className="w-full h-1 bg-slate-800 rounded-full mt-2 overflow-hidden"><div className="h-full bg-green-500" style={{ width: `${(pokemon.current_hp / pokemon.max_hp) * 100}%` }}></div></div></div>
+            {onToggleTeam && (
+                <button 
+                    onClick={handleToggle}
+                    disabled={!canAddToTeam && !canRemove}
+                    className={`w-full mt-3 py-2 rounded-lg font-bold text-xs transition-all ${
+                        pokemon.is_team 
+                            ? 'bg-red-900/50 border border-red-500/50 text-red-400 hover:bg-red-900/70' 
+                            : canAddToTeam 
+                                ? 'bg-green-900/50 border border-green-500/50 text-green-400 hover:bg-green-900/70'
+                                : 'bg-slate-800 border border-slate-700 text-slate-500 cursor-not-allowed'
+                    }`}
+                >
+                    {pokemon.is_team ? '− RETIRER' : canAddToTeam ? '+ ÉQUIPE' : 'ÉQUIPE PLEINE'}
+                </button>
+            )}
+        </motion.div>
+    );
+};
 
 export const Collection: React.FC = () => {
   const { user, collection, inventory, fetchCollection, fetchInventory } = useGameStore();
@@ -179,7 +206,7 @@ export const Collection: React.FC = () => {
               await fetchInventory();
               if (res.data.evolution && res.data.sequence) {
                   setSelectedPokemon(null); setEvolutionSeq(res.data.sequence); 
-              } else {
+              } else if (action !== 'toggle_team') {
                   if (itemId && (itemId.includes('heal') || itemId.includes('potion'))) playSfx('POTION');
                   else playSfx('CLICK');
                   
@@ -189,6 +216,8 @@ export const Collection: React.FC = () => {
                       updatedP = { ...updatedP, name: nameMap[updatedP.tyradex_id] };
                   }
                   if (updatedP) setSelectedPokemon(updatedP);
+              } else {
+                  playSfx('CLICK');
               }
               if(action === 'feed') useGameStore.setState(s => ({ user: s.user ? { ...s.user, global_xp: s.user.global_xp - 100 } : null }));
           } else {
@@ -215,12 +244,12 @@ export const Collection: React.FC = () => {
 
       <div className="mb-12">
           <h3 className="text-xl font-display font-bold text-cyan-400 mb-4 flex items-center gap-2"><span className="w-2 h-8 bg-cyan-500 rounded-full"></span> ÉQUIPE ACTIVE ({activeTeam.length}/3)</h3>
-          {activeTeam.length === 0 ? (<div className="border-2 border-dashed border-slate-800 rounded-2xl p-8 text-center text-slate-500">Votre équipe est vide. Sélectionnez des Pokémon dans la réserve ci-dessous.</div>) : (<div className="grid grid-cols-1 md:grid-cols-3 gap-6">{activeTeam.map(poke => (<PokemonCard key={poke.id} pokemon={poke} onClick={() => setSelectedPokemon(poke)} />))}{[...Array(3 - activeTeam.length)].map((_, i) => (<div key={i} className="bg-slate-900/30 border border-slate-800 rounded-2xl flex items-center justify-center opacity-30"><span className="font-display font-bold text-slate-600">EMPLACEMENT VIDE</span></div>))}</div>)}
+          {activeTeam.length === 0 ? (<div className="border-2 border-dashed border-slate-800 rounded-2xl p-8 text-center text-slate-500">Votre équipe est vide. Cliquez sur "+ ÉQUIPE" sur un Pokémon ci-dessous.</div>) : (<div className="grid grid-cols-1 md:grid-cols-3 gap-6">{activeTeam.map(poke => (<PokemonCard key={poke.id} pokemon={poke} onClick={() => setSelectedPokemon(poke)} onToggleTeam={(id) => handleAction('toggle_team', id)} teamCount={activeTeam.length} />))}{[...Array(3 - activeTeam.length)].map((_, i) => (<div key={i} className="bg-slate-900/30 border border-slate-800 rounded-2xl flex items-center justify-center opacity-30 min-h-[200px]"><span className="font-display font-bold text-slate-600">EMPLACEMENT VIDE</span></div>))}</div>)}
       </div>
 
       <div>
           <h3 className="text-xl font-display font-bold text-slate-400 mb-4 flex items-center gap-2"><span className="w-2 h-8 bg-slate-700 rounded-full"></span> RÉSERVE ({boxPokemon.length})</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">{boxPokemon.map(poke => (<PokemonCard key={poke.id} pokemon={poke} onClick={() => setSelectedPokemon(poke)} />))}<div className="border-2 border-dashed border-slate-800 bg-slate-900/20 rounded-2xl flex flex-col items-center justify-center p-4 text-slate-600 hover:border-cyan-500/30 hover:text-cyan-500 cursor-pointer transition-colors min-h-[180px]"><span className="text-4xl font-light mb-2">+</span><span className="text-xs font-bold text-center">CAPTURER PLUS</span></div></div>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">{boxPokemon.map(poke => (<PokemonCard key={poke.id} pokemon={poke} onClick={() => setSelectedPokemon(poke)} onToggleTeam={(id) => handleAction('toggle_team', id)} teamCount={activeTeam.length} />))}<div className="border-2 border-dashed border-slate-800 bg-slate-900/20 rounded-2xl flex flex-col items-center justify-center p-4 text-slate-600 hover:border-cyan-500/30 hover:text-cyan-500 cursor-pointer transition-colors min-h-[180px]"><span className="text-4xl font-light mb-2">+</span><span className="text-xs font-bold text-center">CAPTURER PLUS</span></div></div>
       </div>
     </div>
   );
