@@ -53,8 +53,8 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
 
       try {
         // TOKEN HANDLED BY INTERCEPTOR
-        const res = await api.get<ApiResponse<Question>>(`/get_question.php`, {
-            params: { exclude_ids: excludedIdsParam },
+        const res = await api.get<ApiResponse<Question>>(`/question`, {
+            params: { seen: excludedIdsParam },
             timeout: 8000 
         });
         
@@ -94,15 +94,9 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
     // MAIS, QuizOverlay ne sait pas si c'est PVP ou pas facilement. Soit on passe une prop, soit on check source.
     // Pour l'instant on garde battle_mode logic de l'appelant. useBattleLogic ignorera 'damage' ici si PVP.
     
-    try {
-        const combatRes = await api.post(`/combat_engine.php`, {
-            is_correct: isCorrect,
-            attacker_level: Math.floor(user.global_xp / 100) + 1,
-            attacker_type: 'FIRE', 
-            enemy_type: 'PLANTE'
-        });
-        if(combatRes.data && combatRes.data.damage) damage = combatRes.data.damage;
-    } catch (e) {}
+    // Calcul local des dégâts
+    const attackerLevel = Math.floor(user.global_xp / 100) + 1;
+    damage = isCorrect ? Math.floor((10 + attackerLevel * 2) * (0.9 + Math.random() * 0.2)) : 0;
 
     setResult({ correct: isCorrect, explanation: question.explanation });
 
@@ -118,10 +112,9 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
       submitting.current = true;
 
       try {
-          await api.post(`/collection.php`, {
-              action: 'use_item',
-              item_id: jokerItem.id,
-              pokemon_id: playerPokemon?.id || 0
+          await api.post(`/shop/use-item`, {
+              itemId: jokerItem.id,
+              pokemonId: playerPokemon?.id || 0
           });
           await fetchInventory();
           submitting.current = false;

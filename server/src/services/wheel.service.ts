@@ -1,27 +1,40 @@
 import { prisma } from '../config/database.js';
 import { logger } from '../config/logger.js';
+import { getPokemonName } from './pokemon.service.js';
 
 export interface WheelPrize {
-  type: 'tokens' | 'item' | 'pokemon' | 'nothing';
+  type: 'GOLD' | 'XP' | 'ITEM' | 'POKEMON';
   value: number | string;
+  id?: number | string;
   name: string;
+  label: string;
   rarity: 'common' | 'uncommon' | 'rare' | 'epic' | 'legendary';
+  color: string;
 }
 
-// Configuration des prix de la roue
-const WHEEL_PRIZES: WheelPrize[] = [
-  { type: 'tokens', value: 10, name: '10 Tokens', rarity: 'common' },
-  { type: 'tokens', value: 25, name: '25 Tokens', rarity: 'common' },
-  { type: 'tokens', value: 50, name: '50 Tokens', rarity: 'uncommon' },
-  { type: 'tokens', value: 100, name: '100 Tokens', rarity: 'rare' },
-  { type: 'tokens', value: 250, name: '250 Tokens', rarity: 'epic' },
-  { type: 'nothing', value: 0, name: 'Rien...', rarity: 'common' },
-  { type: 'item', value: 'potion', name: 'Potion', rarity: 'common' },
-  { type: 'item', value: 'super_potion', name: 'Super Potion', rarity: 'uncommon' },
-  { type: 'item', value: 'pokeball', name: 'Poké Ball', rarity: 'common' },
-  { type: 'item', value: 'super_ball', name: 'Super Ball', rarity: 'uncommon' },
-  { type: 'pokemon', value: 'random', name: 'Pokémon Mystère', rarity: 'rare' },
-];
+// Multiplicateurs par palier de mise
+const BET_MULTIPLIERS: Record<number, number> = {
+  1: 1,
+  5: 5,
+  10: 15
+};
+
+// Configuration des prix de la roue par palier
+function generateWheelPrizes(bet: number = 1): WheelPrize[] {
+  const mult = BET_MULTIPLIERS[bet] || 1;
+  
+  return [
+    { type: 'GOLD', value: 50 * mult, name: `${50 * mult} Or`, label: `${50 * mult} OR`, rarity: 'common', color: '#fbbf24' },
+    { type: 'GOLD', value: 100 * mult, name: `${100 * mult} Or`, label: `${100 * mult} OR`, rarity: 'common', color: '#fbbf24' },
+    { type: 'GOLD', value: 200 * mult, name: `${200 * mult} Or`, label: `${200 * mult} OR`, rarity: 'uncommon', color: '#fbbf24' },
+    { type: 'XP', value: 100 * mult, name: `${100 * mult} XP`, label: `${100 * mult} XP`, rarity: 'common', color: '#3b82f6' },
+    { type: 'XP', value: 250 * mult, name: `${250 * mult} XP`, label: `${250 * mult} XP`, rarity: 'uncommon', color: '#3b82f6' },
+    { type: 'ITEM', value: 'heal_r1', id: 'heal_r1', name: 'Potion', label: 'OBJET', rarity: 'common', color: '#a855f7' },
+    { type: 'ITEM', value: bet >= 5 ? 'heal_r2' : 'pokeball', id: bet >= 5 ? 'heal_r2' : 'pokeball', name: bet >= 5 ? 'Super Potion' : 'Poké Ball', label: 'OBJET', rarity: 'uncommon', color: '#a855f7' },
+    { type: 'POKEMON', value: 'random', name: 'Pokémon Mystère', label: 'POKEMON', rarity: bet >= 10 ? 'uncommon' : 'rare', color: '#ef4444' },
+    { type: 'GOLD', value: 10000 * (bet === 10 ? 3 : bet === 5 ? 1.5 : 1), name: 'JACKPOT', label: 'JACKPOT 💰', rarity: 'legendary', color: '#10b981' },
+  ];
+}
 
 // Probabilités basées sur la rareté
 const RARITY_WEIGHTS: Record<string, number> = {
@@ -67,7 +80,7 @@ export async function canSpin(userId: number): Promise<{ canSpin: boolean; nextS
   return { canSpin: false, nextSpinAt, freeSpins: 0 };
 }
 
-export async function spin(userId: number, usePaidSpin: boolean = false): Promise<{ prize: WheelPrize; reward: any }> {
+export async function spin(userId: number, bet: number = 1): Promise<{ prize: WheelPrize; reward: any; segments: WheelPrize[]; result_index: number; new_gold?: number; new_xp?: number; new_tokens?: number }> {
   const user = await prisma.user.findUnique({
     where: { id: userId }
   });
@@ -76,48 +89,71 @@ export async function spin(userId: number, usePaidSpin: boolean = false): Promis
     throw new Error('User not found');
   }
 
-  // Vérifier si le joueur peut spinner
-  const spinStatus = await canSpin(userId);
+  // Valider le bet (1, 5, ou 10)
+  const validBets = [1, 5, 10];
+  if (!validBets.includes(bet)) {
+    throw new Error('Invalid bet amount');
+  }
+
+  // Vérifier les tokens
+  const userTokens = user.tokens ?? 0;
+  if (userTokens < bet) {
+    throw new Error('Not enough tokens');
+  }
   
-  if (!spinStatus.canSpin && !usePaidSpin) {
-    throw new Error('No free spins available');
-  }
+  // Déduire les tokens
+  await prisma.user.update({
+    where: { id: userId },
+    data: { tokens: { decrement: bet } }
+  });
 
-  // Si spin payant (coûte 50 tokens)
-  if (usePaidSpin && !spinStatus.canSpin) {
-    const userTokens = user.tokens ?? 0;
-    if (userTokens < 50) {
-      throw new Error('Not enough tokens for paid spin');
-    }
-    
-    await prisma.user.update({
-      where: { id: userId },
-      data: { tokens: { decrement: 50 } }
-    });
-  }
-
+  // Générer les prix pour ce palier
+  const segments = generateWheelPrizes(bet);
+  
   // Sélectionner un prix basé sur les probabilités
-  const prize = selectPrize();
+  const resultIndex = selectPrizeIndex(segments);
+  const prize = segments[resultIndex];
   let reward: any = {};
 
   // Mettre à jour le temps du dernier spin
   lastSpinTimes.set(userId, new Date());
 
+  // Variables pour retourner l'état actuel
+  let newGold = user.gold ?? 0;
+  let newXp = user.globalXp ?? 0;
+  let newTokens = (user.tokens ?? 0) - bet;
+
   // Appliquer le prix
   switch (prize.type) {
-    case 'tokens':
+    case 'GOLD':
+      const goldAmount = typeof prize.value === 'number' ? prize.value : parseInt(String(prize.value)) || 0;
       await prisma.user.update({
         where: { id: userId },
-        data: { 
-          tokens: { increment: prize.value as number }
-        }
+        data: { gold: { increment: goldAmount } }
       });
-      reward = { tokens: prize.value };
+      newGold += goldAmount;
+      reward = { gold: goldAmount };
       break;
 
-    case 'item':
+    case 'XP':
+      const xpAmount = typeof prize.value === 'number' ? prize.value : parseInt(String(prize.value)) || 0;
+      await prisma.user.update({
+        where: { id: userId },
+        data: { globalXp: { increment: xpAmount } }
+      });
+      newXp += xpAmount;
+      reward = { xp: xpAmount };
+      break;
+
+    case 'ITEM':
+      const itemId = String(prize.id || prize.value);
       const item = await prisma.item.findFirst({
-        where: { name: { contains: prize.name, mode: 'insensitive' } }
+        where: { 
+          OR: [
+            { id: { contains: itemId, mode: 'insensitive' } },
+            { name: { contains: prize.name, mode: 'insensitive' } }
+          ]
+        }
       });
 
       if (item) {
@@ -137,25 +173,23 @@ export async function spin(userId: number, usePaidSpin: boolean = false): Promis
         }
         reward = { item: item.name };
       } else {
-        // Item non trouvé, donner des tokens à la place
+        // Item non trouvé, donner de l'or à la place
+        const fallbackGold = 50 * (BET_MULTIPLIERS[bet] || 1);
         await prisma.user.update({
           where: { id: userId },
-          data: { tokens: { increment: 25 } }
+          data: { gold: { increment: fallbackGold } }
         });
-        reward = { tokens: 25, fallback: true };
+        newGold += fallbackGold;
+        reward = { gold: fallbackGold, fallback: true };
       }
       break;
 
-    case 'pokemon':
-      // Donner un Pokémon aléatoire de niveau 5-15
+    case 'POKEMON':
+      // Donner un Pokémon aléatoire, niveau basé sur la mise
+      const baseLevel = bet === 10 ? 10 : bet === 5 ? 7 : 5;
       const tyradexId = Math.floor(Math.random() * 151) + 1;
-      const level = 5 + Math.floor(Math.random() * 11);
-      const pokemonNames: Record<number, string> = {
-        1: 'Bulbizarre', 2: 'Herbizarre', 3: 'Florizarre', 4: 'Salamèche', 5: 'Reptincel',
-        6: 'Dracaufeu', 7: 'Carapuce', 8: 'Carabaffe', 9: 'Tortank', 25: 'Pikachu',
-        26: 'Raichu', 133: 'Évoli', 134: 'Aquali', 135: 'Voltali', 136: 'Pyroli',
-      };
-      const pokemonName = pokemonNames[tyradexId] || `Pokémon #${tyradexId}`;
+      const level = baseLevel + Math.floor(Math.random() * 6);
+      const pokemonName = getPokemonName(tyradexId);
 
       const newPokemonId = `wheel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       const newPokemon = await prisma.userPokemon.create({
@@ -171,42 +205,50 @@ export async function spin(userId: number, usePaidSpin: boolean = false): Promis
         }
       });
       
-      reward = { pokemon: { id: newPokemon.id, name: pokemonName, level } };
+      // Update prize with actual Pokemon id for frontend
+      prize.id = tyradexId;
+      reward = { pokemon: { id: newPokemon.id, tyradexId, name: pokemonName, level } };
       break;
 
-    case 'nothing':
     default:
       reward = { nothing: true };
       break;
   }
 
-  logger.info(`User ${userId} spun the wheel and won: ${prize.name}`);
+  logger.info(`User ${userId} spun the wheel (bet: ${bet}) and won: ${prize.name}`);
   
-  return { prize, reward };
+  return { 
+    prize, 
+    reward, 
+    segments, 
+    result_index: resultIndex,
+    new_gold: newGold,
+    new_xp: newXp,
+    new_tokens: newTokens
+  };
 }
 
-function selectPrize(): WheelPrize {
+function selectPrizeIndex(segments: WheelPrize[]): number {
   // Calculer le poids total
-  const totalWeight = WHEEL_PRIZES.reduce((sum, prize) => sum + RARITY_WEIGHTS[prize.rarity], 0);
+  const totalWeight = segments.reduce((sum, prize) => sum + RARITY_WEIGHTS[prize.rarity], 0);
   
   // Sélection aléatoire pondérée
   let random = Math.random() * totalWeight;
   
-  for (const prize of WHEEL_PRIZES) {
-    random -= RARITY_WEIGHTS[prize.rarity];
+  for (let i = 0; i < segments.length; i++) {
+    random -= RARITY_WEIGHTS[segments[i].rarity];
     if (random <= 0) {
-      return prize;
+      return i;
     }
   }
   
   // Fallback
-  return WHEEL_PRIZES[0];
+  return 0;
 }
 
-export function getWheelConfig(): { prizes: WheelPrize[]; spinCost: number; cooldownHours: number } {
+export function getWheelConfig(bet: number = 1): { prizes: WheelPrize[]; spinCost: number } {
   return {
-    prizes: WHEEL_PRIZES,
-    spinCost: 50,
-    cooldownHours: 4
+    prizes: generateWheelPrizes(bet),
+    spinCost: bet
   };
 }

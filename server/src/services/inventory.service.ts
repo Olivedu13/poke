@@ -156,3 +156,39 @@ export async function addItemToInventory(userId: number, itemId: string, quantit
     create: { userId, itemId, quantity },
   });
 }
+
+/**
+ * Vend un item de l'inventaire
+ */
+export async function sellItem(
+  userId: number,
+  itemId: string,
+  quantity: number = 1,
+): Promise<{ success: boolean; message: string; newGold?: number }> {
+  const inventory = await prisma.inventory.findUnique({
+    where: { userId_itemId: { userId, itemId } },
+    include: { item: true },
+  });
+
+  if (!inventory || inventory.quantity < quantity) {
+    return { success: false, message: 'Quantité insuffisante' };
+  }
+
+  // Prix de vente = 50% du prix d'achat
+  const sellPrice = Math.floor(inventory.item.price * 0.5 * quantity);
+
+  // Transaction: réduire la quantité et ajouter l'or
+  await prisma.$transaction([
+    prisma.inventory.update({
+      where: { userId_itemId: { userId, itemId } },
+      data: { quantity: { decrement: quantity } },
+    }),
+    prisma.user.update({
+      where: { id: userId },
+      data: { gold: { increment: sellPrice } },
+    }),
+  ]);
+
+  const updatedUser = await prisma.user.findUnique({ where: { id: userId } });
+  return { success: true, message: `+${sellPrice} pièces`, newGold: updatedUser?.gold ?? 0 };
+}
