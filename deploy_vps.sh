@@ -127,9 +127,15 @@ if ! command -v pm2 &> /dev/null; then
     npm install -g pm2
 fi
 
+# Installer pnpm si non présent
+if ! command -v pnpm &> /dev/null; then
+    echo "Installation de pnpm..."
+    npm install -g pnpm
+fi
+
 # Installer les dépendances du backend
 echo "Installation des dépendances Node.js..."
-npm install
+pnpm install
 
 # Créer/Mettre à jour le fichier .env
 if [ ! -f ".env" ]; then
@@ -154,16 +160,21 @@ CORS_ORIGIN=https://jeu.sarlatc.com
 EOF
 fi
 
+# Build TypeScript
+echo "Compilation du backend TypeScript..."
+pnpm run build
+
+# Générer Prisma client
+echo "Génération du client Prisma..."
+npx prisma generate
+
 # Arrêter les anciens processus PM2
 pm2 delete poke-api 2>/dev/null || true
 pm2 delete poke-socket 2>/dev/null || true
 
 # Démarrer les services avec PM2
 echo "Démarrage de l'API Node.js..."
-pm2 start src/server.js --name poke-api --env production
-
-echo "Démarrage du serveur Socket.io..."
-pm2 start src/socket-server.js --name poke-socket --env production
+pm2 start dist/index.js --name poke-api --env production
 
 # Sauvegarder la configuration PM2
 pm2 save
