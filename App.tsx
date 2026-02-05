@@ -23,11 +23,28 @@ const NAV_ITEMS = [
 ];
 
 const App: React.FC = () => {
-  const { currentView, user, logout, setView, setPvpNotification, pvpNotification } = useGameStore();
+  const { currentView, user, logout, setView, setPvpNotification, pvpNotification, fetchUser, token } = useGameStore();
   const [showSettings, setShowSettings] = useState(false);
   const [showPinModal, setShowPinModal] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [logoClickCount, setLogoClickCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Try to restore session on app load
+  useEffect(() => {
+    const restoreSession = async () => {
+      if (token && !user) {
+        await fetchUser();
+        // After fetching, if user is now set, switch to GAME view
+        const currentUser = useGameStore.getState().user;
+        if (currentUser) {
+          useGameStore.setState({ currentView: 'GAME' });
+        }
+      }
+      setIsLoading(false);
+    };
+    restoreSession();
+  }, []);
 
   // Audio unlock on first interaction
   useEffect(() => {
@@ -114,6 +131,18 @@ const App: React.FC = () => {
     playSfx('CLICK');
     setView(view as any);
   };
+
+  // Loading screen
+  if (isLoading) {
+    return (
+      <div className="h-screen h-[100dvh] bg-slate-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-cyan-400 font-display">CHARGEMENT...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Auth screen - Mobile First
   if (!user || currentView === 'AUTH') {

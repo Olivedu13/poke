@@ -2,7 +2,7 @@ import { Router, type IRouter } from 'express';
 import bcrypt from 'bcryptjs';
 import { GradeLevelType, type Prisma } from '@prisma/client';
 import { prisma } from '../../config/database.js';
-import { generateToken } from '../middleware/auth.middleware.js';
+import { generateToken, authMiddleware, AuthRequest } from '../middleware/auth.middleware.js';
 
 export const authRouter: IRouter = Router();
 
@@ -32,7 +32,7 @@ authRouter.post('/register', async (req, res) => {
         passwordHash,
         gradeLevel: gradeLevel ?? GradeLevelType.CE1,
         activeSubjects: defaultSubjects,
-        gold: 1000, // 1000 pièces de départ
+        gold: 10000, // 1000 pièces de départ
         tokens: 15, // 15 tokens de départ
       }
     });
@@ -124,5 +124,30 @@ authRouter.post('/login', async (req, res) => {
   } catch (error) {
     console.error('Login error:', error);
     res.status(500).json({ success: false, message: 'Login failed' });
+  }
+});
+
+// Verify token and return user data
+authRouter.get('/verify', authMiddleware, async (req: AuthRequest, res) => {
+  try {
+    const user = await prisma.user.findUnique({ where: { id: req.userId } });
+    if (!user) {
+      return res.status(404).json({ success: false, message: 'User not found' });
+    }
+    
+    res.json({
+      success: true,
+      user: {
+        id: user.id,
+        username: user.username,
+        gradeLevel: user.gradeLevel,
+        gold: user.gold,
+        tokens: user.tokens,
+        globalXp: user.globalXp
+      }
+    });
+  } catch (error) {
+    console.error('Verify error:', error);
+    res.status(500).json({ success: false, message: 'Verification failed' });
   }
 });
