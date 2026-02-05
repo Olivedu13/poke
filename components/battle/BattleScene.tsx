@@ -38,18 +38,18 @@ const HpBar = ({ current, max, isEnemy = false }: { current: number; max: number
 
 // Pokemon Card - Mobile
 const PokemonCard = ({ pokemon, isEnemy = false, isActive = true }: { pokemon: Pokemon; isEnemy?: boolean; isActive?: boolean }) => (
-  <div className={`relative bg-slate-900/60 rounded-xl p-2 sm:p-3 border ${isActive ? (isEnemy ? 'border-red-500/50' : 'border-cyan-500/50') : 'border-slate-700/50 opacity-60'}`}>
-    <div className="flex items-center gap-2 sm:gap-3">
+  <div className={`relative bg-slate-900/60 rounded-xl p-3 border ${isActive ? (isEnemy ? 'border-red-500/50' : 'border-cyan-500/50') : 'border-slate-700/50 opacity-60'}`}>
+    <div className="flex flex-col items-center">
+      <div className="flex items-baseline gap-2 mb-2">
+        <span className="font-bold text-base sm:text-lg text-white">{pokemon.name}</span>
+        <span className={`text-xs font-mono ${isEnemy ? 'text-red-400' : 'text-cyan-400'}`}>Nv.{pokemon.level}</span>
+      </div>
       <img 
         src={pokemon.sprite_url} 
         alt={pokemon.name} 
-        className={`w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 object-contain ${pokemon.current_hp <= 0 ? 'grayscale opacity-30' : ''}`}
+        className={`w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48 object-contain ${pokemon.current_hp <= 0 ? 'grayscale opacity-30' : ''}`}
       />
-      <div className="flex-1 min-w-0">
-        <div className="flex items-baseline gap-1">
-          <span className="font-bold text-sm sm:text-base lg:text-lg text-white truncate">{pokemon.name}</span>
-          <span className={`text-[10px] font-mono ${isEnemy ? 'text-red-400' : 'text-cyan-400'}`}>Nv.{pokemon.level}</span>
-        </div>
+      <div className="w-full mt-2">
         <HpBar current={pokemon.current_hp} max={pokemon.max_hp} isEnemy={isEnemy} />
       </div>
     </div>
@@ -160,7 +160,7 @@ const TeamManager = ({ team, box, currentId, onSelect, onClose, onStartBattle }:
       </div>
 
       {/* Actions */}
-      <div className="p-3 border-t border-slate-800 space-y-2">
+      <div className="p-3 pb-24 border-t border-slate-800 space-y-2 bg-slate-950">
         {onStartBattle && team.length > 0 && (
           <button
             onClick={onStartBattle}
@@ -172,7 +172,7 @@ const TeamManager = ({ team, box, currentId, onSelect, onClose, onStartBattle }:
         <button
           onClick={handleConfirm}
           disabled={!selected}
-          className="w-full py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold rounded-xl border border-slate-600"
+          className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:opacity-50 text-white font-bold rounded-xl"
         >
           {selected ? (team.some((p: Pokemon) => p.id === selected.id) ? 'DÉFINIR LEADER' : 'ÉCHANGER') : 'SÉLECTIONNER'}
         </button>
