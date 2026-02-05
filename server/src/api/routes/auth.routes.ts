@@ -1,5 +1,5 @@
 import { Router, type IRouter } from 'express';
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import { GradeLevelType, type Prisma } from '@prisma/client';
 import { prisma } from '../../config/database.js';
 import { generateToken } from '../middleware/auth.middleware.js';
