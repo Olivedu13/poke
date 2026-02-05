@@ -102,9 +102,6 @@ export const PinCodeModal: React.FC<PinCodeModalProps> = ({ onSuccess, onCancel 
           </button>
         </div>
 
-        <p className="text-slate-600 text-center text-xs">
-          Code par défaut : 1234
-        </p>
       </motion.div>
     </div>
   );

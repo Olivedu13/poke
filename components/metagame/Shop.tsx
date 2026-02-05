@@ -45,6 +45,9 @@ export const Shop: React.FC = () => {
   const [pokemons, setPokemons] = useState<ShopPokemon[]>([]);
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState('');
+  const [sortBy, setSortBy] = useState<'id' | 'price' | 'name' | 'rarity'>('id');
+  const [filterRarity, setFilterRarity] = useState<string>('ALL');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     if (user) loadShopData();
@@ -120,6 +123,41 @@ export const Shop: React.FC = () => {
             <button onClick={() => setActiveTab('POKEMON')} className={`flex-1 md:flex-none px-4 md:px-8 py-2 md:py-3 rounded-t-xl font-display font-bold text-sm md:text-lg transition-all border-b-4 ${activeTab === 'POKEMON' ? 'bg-slate-800 text-white border-purple-500 shadow-[0_-5px_20px_rgba(168,85,247,0.1)]' : 'bg-slate-950 text-slate-500 border-transparent hover:text-slate-300'}`}>POKÉMON</button>
         </div>
 
+        {/* Filters for Pokemon tab */}
+        {activeTab === 'POKEMON' && (
+          <div className="mb-4 flex flex-wrap gap-2 items-center justify-between bg-slate-900/50 p-3 rounded-xl border border-slate-700">
+            <input
+              type="text"
+              placeholder="Rechercher..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="flex-1 min-w-[120px] bg-slate-800 border border-slate-600 text-white text-xs px-3 py-2 rounded-lg placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+            />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as any)}
+              className="bg-slate-800 border border-slate-600 text-white text-xs px-2 py-2 rounded-lg focus:outline-none focus:border-cyan-500"
+            >
+              <option value="id">N° Pokédex</option>
+              <option value="name">Nom A-Z</option>
+              <option value="price">Prix ↑</option>
+              <option value="rarity">Rareté</option>
+            </select>
+            <select
+              value={filterRarity}
+              onChange={(e) => setFilterRarity(e.target.value)}
+              className="bg-slate-800 border border-slate-600 text-white text-xs px-2 py-2 rounded-lg focus:outline-none focus:border-cyan-500"
+            >
+              <option value="ALL">Toutes raretés</option>
+              <option value="COMMUN">Commun</option>
+              <option value="PEU COMMUN">Peu commun</option>
+              <option value="RARE">Rare</option>
+              <option value="ÉPIQUE">Épique</option>
+              <option value="LÉGENDAIRE">Légendaire</option>
+            </select>
+          </div>
+        )}
+
         <AnimatePresence mode="wait">
             {activeTab === 'ITEMS' && (
                 <motion.div key="items" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
@@ -147,7 +185,18 @@ export const Shop: React.FC = () => {
                 <motion.div key="pokemon" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
                         {(!pokemons || pokemons.length === 0) && !loading && (<div className="col-span-full text-center text-slate-500 py-10 text-sm">Aucun Pokémon disponible.</div>)}
-                        {Array.isArray(pokemons) && pokemons.map(poke => (
+                        {Array.isArray(pokemons) && pokemons
+                          .filter(p => filterRarity === 'ALL' || p.rarityLabel === filterRarity)
+                          .filter(p => !searchTerm || p.name.fr.toLowerCase().includes(searchTerm.toLowerCase()))
+                          .sort((a, b) => {
+                            const rarityOrder: Record<string, number> = { 'COMMUN': 1, 'PEU COMMUN': 2, 'RARE': 3, 'ÉPIQUE': 4, 'LÉGENDAIRE': 5 };
+                            if (sortBy === 'id') return a.pokedexId - b.pokedexId;
+                            if (sortBy === 'name') return a.name.fr.localeCompare(b.name.fr);
+                            if (sortBy === 'price') return a.computedPrice - b.computedPrice;
+                            if (sortBy === 'rarity') return (rarityOrder[b.rarityLabel] || 0) - (rarityOrder[a.rarityLabel] || 0);
+                            return 0;
+                          })
+                          .map(poke => (
                             <div key={poke.id} className={`bg-slate-900/80 border-2 ${getRarityColor(poke.rarityLabel)} p-3 md:p-4 rounded-xl relative group`}>
                                 <div className="absolute top-2 left-2 z-10">
                                     <span className="text-[8px] md:text-[10px] font-bold px-1.5 md:px-2 py-0.5 rounded bg-slate-950 text-white border border-slate-700">{poke.types && poke.types[0] ? poke.types[0].name : '???'}</span>

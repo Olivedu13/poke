@@ -38,16 +38,16 @@ const HpBar = ({ current, max, isEnemy = false }: { current: number; max: number
 
 // Pokemon Card - Mobile
 const PokemonCard = ({ pokemon, isEnemy = false, isActive = true }: { pokemon: Pokemon; isEnemy?: boolean; isActive?: boolean }) => (
-  <div className={`relative bg-slate-900/60 rounded-xl p-2 border ${isActive ? (isEnemy ? 'border-red-500/50' : 'border-cyan-500/50') : 'border-slate-700/50 opacity-60'}`}>
-    <div className="flex items-center gap-2">
+  <div className={`relative bg-slate-900/60 rounded-xl p-2 sm:p-3 border ${isActive ? (isEnemy ? 'border-red-500/50' : 'border-cyan-500/50') : 'border-slate-700/50 opacity-60'}`}>
+    <div className="flex items-center gap-2 sm:gap-3">
       <img 
         src={pokemon.sprite_url} 
         alt={pokemon.name} 
-        className={`w-14 h-14 object-contain ${pokemon.current_hp <= 0 ? 'grayscale opacity-30' : ''}`}
+        className={`w-20 h-20 sm:w-24 sm:h-24 lg:w-32 lg:h-32 object-contain ${pokemon.current_hp <= 0 ? 'grayscale opacity-30' : ''}`}
       />
       <div className="flex-1 min-w-0">
         <div className="flex items-baseline gap-1">
-          <span className="font-bold text-sm text-white truncate">{pokemon.name}</span>
+          <span className="font-bold text-sm sm:text-base lg:text-lg text-white truncate">{pokemon.name}</span>
           <span className={`text-[10px] font-mono ${isEnemy ? 'text-red-400' : 'text-cyan-400'}`}>Nv.{pokemon.level}</span>
         </div>
         <HpBar current={pokemon.current_hp} max={pokemon.max_hp} isEnemy={isEnemy} />
@@ -182,15 +182,23 @@ const TeamManager = ({ team, box, currentId, onSelect, onClose, onStartBattle }:
 };
 
 // Preview Screen - Mobile Optimized
-const PreviewScreen = ({ enemy, enemyTeam, player, onStart, onManageTeam }: any) => {
+const PreviewScreen = ({ enemy, enemyTeam, player, onStart, onManageTeam, onBack }: any) => {
   if (!enemy || !player) return null;
   const team = enemyTeam?.length > 0 ? enemyTeam : [enemy];
 
   return (
     <div className="flex-1 flex flex-col p-4 overflow-y-auto">
+      {/* Back button */}
+      <button 
+        onClick={onBack}
+        className="mb-3 text-slate-400 hover:text-white flex items-center gap-1 text-xs self-start"
+      >
+        <span>←</span> RETOUR
+      </button>
+      
       {/* Enemy Section */}
       <div className="mb-4">
-        <h3 className="text-sm font-display font-bold text-red-400 mb-2 text-center">ADVERSAIRE</h3>
+        <h3 className="text-sm font-display font-bold text-red-400 mb-2 text-center">ADVERSAIRE{team.length > 1 ? `S (${team.length})` : ''}</h3>
         <div className="flex justify-center gap-2 flex-wrap">
           {team.map((poke: Pokemon, idx: number) => (
             <div
@@ -280,6 +288,7 @@ export const BattleScene: React.FC = () => {
     startBattle,
     handleQuizComplete,
     handleUltimate,
+    handleFlee,
     handleUseItem,
     handleSwitchPokemon,
     handleExitBattle,
@@ -332,6 +341,7 @@ export const BattleScene: React.FC = () => {
           player={selectedPlayer}
           onStart={startBattle}
           onManageTeam={() => setShowTeam(true)}
+          onBack={handleExitBattle}
         />
         {showTeam && (
           <TeamManager
@@ -356,6 +366,12 @@ export const BattleScene: React.FC = () => {
     <div className={`flex-1 flex flex-col bg-slate-950 overflow-hidden ${shake ? 'animate-shake' : ''}`}>
       {/* Top Bar */}
       <div className="flex items-center justify-between p-2 bg-slate-900/80">
+        <button 
+          onClick={handleExitBattle}
+          className="text-slate-400 hover:text-red-400 text-xs flex items-center gap-1"
+        >
+          ← Fuir
+        </button>
         {user && <GradeGauge current={gradeGauge} grade={user.grade_level} />}
         {combo > 1 && (
           <motion.div
@@ -444,18 +460,18 @@ export const BattleScene: React.FC = () => {
             icon="👥"
           />
           <ActionButton
-            onClick={handleUltimate}
-            disabled={actionsDisabled || battleOver || specialGauge < 100}
-            label="Ultime"
+            onClick={handleFlee}
+            disabled={actionsDisabled || battleOver}
+            label="Fuite"
             color="purple"
-            icon="⚡"
+            icon="🏃"
           />
         </div>
       </div>
 
       {/* Overlays */}
-      {showQuiz && (
-        <QuizOverlay onComplete={handleQuizComplete} onClose={() => setShowQuiz(false)} />
+      {showQuiz && user && (
+        <QuizOverlay user={user} onComplete={handleQuizComplete} onClose={() => setShowQuiz(false)} />
       )}
 
       {showInventory && (

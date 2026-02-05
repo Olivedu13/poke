@@ -24,7 +24,7 @@ interface AdminPanelProps {
   onClose: () => void;
 }
 
-const ADMIN_CODE = 'poke_admin_2024';
+const ADMIN_CODE = '7452';
 
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const [authenticated, setAuthenticated] = useState(false);
@@ -135,6 +135,42 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     }
   };
 
+  const handleDeleteUser = async (userId: number) => {
+    if (!confirm('SUPPRIMER ce compte et TOUS ses Pokémon/items ? Cette action est irréversible !')) return;
+    setLoading(true);
+    try {
+      const res = await api.delete(`/admin/user/${userId}`, {
+        headers: { 'x-admin-code': ADMIN_CODE },
+      });
+      if (res.data.success) {
+        setMessage('Compte supprimé');
+        setSelectedUser(null);
+        fetchUsers();
+      }
+    } catch (e) {
+      setMessage('Erreur suppression');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (userId: number) => {
+    const newPassword = prompt('Nouveau mot de passe :');
+    if (!newPassword) return;
+    setLoading(true);
+    try {
+      const res = await api.put(`/admin/user/${userId}/reset-password`, {
+        password: newPassword,
+        admin_code: ADMIN_CODE,
+      }, { headers: { 'x-admin-code': ADMIN_CODE } });
+      if (res.data.success) setMessage('Mot de passe changé');
+    } catch (e) {
+      setMessage('Erreur');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (!authenticated) {
     return (
       <div className="fixed inset-0 z-[100] bg-slate-950/98 backdrop-blur-xl flex items-center justify-center p-4">
@@ -208,14 +244,26 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-2xl font-display font-bold text-white">{selectedUser.username}</h3>
-                <button
-                  onClick={() => setEditMode(!editMode)}
-                  className={`px-4 py-2 rounded-lg font-bold text-sm ${
-                    editMode ? 'bg-green-600 text-white' : 'bg-slate-800 text-slate-300'
-                  }`}
-                >
-                  {editMode ? 'MODE ÉDITION' : 'MODIFIER'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setEditMode(!editMode)}
+                    className={`px-3 py-1 rounded-lg font-bold text-xs ${editMode ? 'bg-green-600 text-white' : 'bg-slate-800 text-slate-300'}`}
+                  >
+                    {editMode ? '✓ ÉDITION' : 'MODIFIER'}
+                  </button>
+                  <button
+                    onClick={() => handleResetPassword(selectedUser.id)}
+                    className="px-3 py-1 rounded-lg font-bold text-xs bg-yellow-600 text-white"
+                  >
+                    🔐 MDP
+                  </button>
+                  <button
+                    onClick={() => handleDeleteUser(selectedUser.id)}
+                    className="px-3 py-1 rounded-lg font-bold text-xs bg-red-600 text-white"
+                  >
+                    🗑 SUPPRIMER
+                  </button>
+                </div>
               </div>
 
               {/* Stats modifiables */}

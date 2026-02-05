@@ -42,22 +42,17 @@ function getBaseStats(id: number): { hp: number; atk: number; def: number; spe: 
   return { hp: base + 20, atk: base + 10, def: base + 5, spe: base, vit: base + 15 };
 }
 
-// Génère une liste de 8 Pokémon aléatoires à vendre
+// Génère la liste complète des 151 Pokémon à vendre
 export function getShopPokemons(): ShopPokemon[] {
   const pokemons: ShopPokemon[] = [];
-  const usedIds = new Set<number>();
   
-  while (pokemons.length < 8) {
-    const id = Math.floor(Math.random() * 151) + 1;
-    if (usedIds.has(id)) continue;
-    usedIds.add(id);
-    
+  for (let id = 1; id <= 151; id++) {
     const rarity = getRarity(id);
     const basePrice = 300 + (id * 3);
     const types = POKEMON_TYPES[id] || ['Normal'];
     
     pokemons.push({
-      id: `shop-${id}-${Date.now()}`,
+      id: `shop-${id}`,
       pokedexId: id,
       name: { fr: getPokemonName(id) },
       types: types.map(t => ({ name: t })),

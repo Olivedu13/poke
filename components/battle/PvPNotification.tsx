@@ -1,54 +1,41 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useGameStore } from '../../store/gameStore';
-import { api } from '../../services/api';
+import { socketService } from '../../services/socket';
 import { playSfx } from '../../utils/soundEngine';
 
 export const PvPNotification: React.FC = () => {
     const { pvpNotification, setPvpNotification, setBattleMode, setBattlePhase, setView } = useGameStore();
 
+    // Listen for match created after accept
+    useEffect(() => {
+        const handleMatchCreated = (data: { matchId: number }) => {
+            playSfx('WIN');
+            localStorage.setItem('pvp_match_id', String(data.matchId));
+            setPvpNotification(null);
+            setView('GAME');
+            setBattleMode('PVP');
+            setBattlePhase('FIGHTING');
+        };
+
+        socketService.on('pvp:match_created', handleMatchCreated);
+
+        return () => {
+            socketService.off('pvp:match_created', handleMatchCreated);
+        };
+    }, [setPvpNotification, setBattleMode, setBattlePhase, setView]);
+
     if (!pvpNotification) return null;
 
-    const handleAccept = async () => {
-        try {
-            const res = await api.post('/pvp_lobby.php', { 
-                action: 'accept_challenge', 
-                challenge_id: pvpNotification.challengeId 
-            });
-            if (res.data.success) {
-                playSfx('victory');
-                // Stocker les infos du match
-                localStorage.setItem('pvp_match', JSON.stringify({
-                    match_id: res.data.match_id,
-                    player1_id: res.data.player1_id,
-                    player2_id: res.data.player2_id
-                }));
-                setPvpNotification(null);
-                // Changer la vue vers Combat puis lancer le combat
-                setView('GAME');
-                setBattleMode('PVP');
-                setBattlePhase('BATTLE');
-            } else {
-                alert(res.data.message || 'Impossible d\'accepter le défi');
-                setPvpNotification(null);
-            }
-        } catch (e) {
-            console.error('Erreur acceptation défi:', e);
-            alert('Erreur lors de l\'acceptation');
-            setPvpNotification(null);
-        }
+    const handleAccept = () => {
+        playSfx('CLICK');
+        socketService.emit('pvp:accept_challenge', { challengeId: pvpNotification.challengeId });
+        // Match will be created via socket event pvp:match_created
     };
 
-    const handleDecline = async () => {
-        try {
-            await api.post('/pvp_lobby.php', { 
-                action: 'decline_challenge', 
-                challenge_id: pvpNotification.challengeId 
-            });
-            playSfx('buttonClick');
-        } catch (e) {
-            console.error('Erreur refus défi:', e);
-        }
+    const handleDecline = () => {
+        playSfx('CLICK');
+        socketService.emit('pvp:decline_challenge', { challengeId: pvpNotification.challengeId });
         setPvpNotification(null);
     };
 

@@ -4,8 +4,8 @@ import { prisma } from '../../config/database.js';
 
 export const adminRouter: IRouter = Router();
 
-// Code secret admin (à changer en production !)
-const ADMIN_SECRET = 'poke_admin_2024';
+// Code secret admin
+const ADMIN_SECRET = '7452';
 
 // Middleware admin - vérifie le code secret
 const adminMiddleware = (req: AuthRequest, res: Response, next: () => void) => {
@@ -232,6 +232,55 @@ adminRouter.delete('/user/:userId/pokemon/:pokemonId', authMiddleware, adminMidd
     res.json({ success: true, message: 'Pokémon supprimé' });
   } catch (error) {
     console.error('Admin delete pokemon error:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+// DELETE /api/admin/user/:id - Supprimer un utilisateur et toutes ses données
+adminRouter.delete('/user/:id', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    // Supprimer toutes les données liées à l'utilisateur (cascade gère la plupart)
+    await prisma.$transaction([
+      prisma.pvpTurn.deleteMany({ where: { playerId: userId } }),
+      prisma.pvpMatch.deleteMany({ where: { OR: [{ player1Id: userId }, { player2Id: userId }] } }),
+      prisma.pvpChallenge.deleteMany({ where: { OR: [{ challengerId: userId }, { challengedId: userId }] } }),
+      prisma.onlinePlayer.deleteMany({ where: { userId } }),
+      prisma.userPokemon.deleteMany({ where: { userId } }),
+      prisma.inventory.deleteMany({ where: { userId } }),
+      prisma.user.delete({ where: { id: userId } }),
+    ]);
+
+    res.json({ success: true, message: 'Utilisateur supprimé avec toutes ses données' });
+  } catch (error) {
+    console.error('Admin delete user error:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+// PUT /api/admin/user/:id/reset-password - Réinitialiser le mot de passe
+adminRouter.put('/user/:id/reset-password', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const { password } = req.body;
+
+    if (!password || password.length < 4) {
+      return res.status(400).json({ success: false, message: 'Mot de passe requis (min 4 caractères)' });
+    }
+
+    // Import bcrypt dynamiquement
+    const bcrypt = await import('bcrypt');
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: hashedPassword },
+    });
+
+    res.json({ success: true, message: 'Mot de passe réinitialisé' });
+  } catch (error) {
+    console.error('Admin reset password error:', error);
     res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 });
