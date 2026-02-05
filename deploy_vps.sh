@@ -87,9 +87,9 @@ rsync -avz --delete \
     --exclude '.git' \
     dist/ ${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}/frontend/
 
-# Sync des assets (images, sons, etc.)
+# Sync des assets (images, sons, etc.) - sans --delete pour ne pas supprimer les fichiers build
 log_info "Upload des assets..."
-rsync -avz --delete \
+rsync -avz \
     --exclude '.htaccess' \
     --exclude '*.html' \
     --exclude 'README.md' \
