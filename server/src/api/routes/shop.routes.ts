@@ -90,3 +90,23 @@ shopRouter.post('/use', authMiddleware, async (req: AuthRequest, res: Response) 
     res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 });
+
+// POST /api/shop/use-item - Utiliser un item (en combat)
+shopRouter.post('/use-item', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { itemId, pokemonId } = req.body;
+    if (!itemId) {
+      return res.status(400).json({ success: false, message: 'itemId requis' });
+    }
+    
+    const result = await inventoryService.useItem(req.userId!, itemId, pokemonId);
+    res.json({
+      success: result.success,
+      effect: result.effect,
+      message: result.message,
+    });
+  } catch (error) {
+    console.error('Error using item:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});

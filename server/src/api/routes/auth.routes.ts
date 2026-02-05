@@ -31,9 +31,44 @@ authRouter.post('/register', async (req, res) => {
         username,
         passwordHash,
         gradeLevel: gradeLevel ?? GradeLevelType.CE1,
-        activeSubjects: defaultSubjects
+        activeSubjects: defaultSubjects,
+        gold: 1000, // 1000 pièces de départ
+        tokens: 15, // 15 tokens de départ
       }
     });
+    
+    // Créer 3 Pokémon starters (Bulbizarre, Salamèche, Carapuce)
+    const starters = [
+      { id: 1, name: 'Bulbizarre' },
+      { id: 4, name: 'Salamèche' },
+      { id: 7, name: 'Carapuce' },
+    ];
+    
+    for (let i = 0; i < starters.length; i++) {
+      const starter = starters[i];
+      await prisma.userPokemon.create({
+        data: {
+          id: `starter-${user.id}-${Date.now()}-${i}`,
+          userId: user.id,
+          tyradexId: starter.id,
+          level: 5,
+          nickname: starter.name,
+          currentHp: 50,
+          currentXp: 0,
+          isTeam: true, // Les 3 dans l'équipe
+        },
+      });
+    }
+    
+    // Donner des items de départ
+    const starterItems = ['heal_r1', 'pokeball'];
+    for (const itemId of starterItems) {
+      await prisma.inventory.upsert({
+        where: { userId_itemId: { userId: user.id, itemId } },
+        update: { quantity: { increment: 5 } },
+        create: { userId: user.id, itemId, quantity: 5 },
+      });
+    }
     
     const token = generateToken(user.id, user.username);
     
