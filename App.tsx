@@ -81,12 +81,26 @@ const App: React.FC = () => {
         socketService.on('pvp:match_created', (data: { matchId: number }) => {
           localStorage.setItem('pvp_match_id', String(data.matchId));
         });
+
+        // Listen for user updates from admin (tokens, gold, etc.)
+        socketService.on('user:updated', (data: any) => {
+          // Directly update user state with new values
+          useGameStore.setState((state) => ({
+            user: state.user ? {
+              ...state.user,
+              gold: data.gold ?? state.user.gold,
+              tokens: data.tokens ?? state.user.tokens,
+              global_xp: data.global_xp ?? state.user.global_xp,
+            } : null
+          }));
+        });
       }
     }
     
     return () => {
       socketService.off('pvp:challenge_received');
       socketService.off('pvp:match_created');
+      socketService.off('user:updated');
       socketService.disconnect();
     };
   }, [user, setPvpNotification]);

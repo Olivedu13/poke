@@ -67,6 +67,7 @@ export const PvPBattleProc: React.FC = () => {
   const [coinFlipWinner, setCoinFlipWinner] = useState<string | null>(null);
   const [battleReady, setBattleReady] = useState(false);
   const coinFlipShownRef = useRef(false);
+  const [lastOpponentTurn, setLastOpponentTurn] = useState<TurnHistory | null>(null);
 
   const matchId = localStorage.getItem('pvp_match_id');
 
@@ -93,6 +94,13 @@ export const PvPBattleProc: React.FC = () => {
       setCurrentQuestion(data.currentQuestion);
       setLoading(false);
       setError(null);
+      
+      // Find last opponent turn to display
+      const historyList = data.history || [];
+      const lastOppTurn = historyList.filter((t: TurnHistory) => t.playerId !== user?.id).slice(-1)[0];
+      if (lastOppTurn && (!lastOpponentTurn || lastOppTurn.id !== lastOpponentTurn.id)) {
+        setLastOpponentTurn(lastOppTurn);
+      }
       
       // Show coin flip animation on first state (only once)
       if (isFirstState && !battleReady && !coinFlipShownRef.current) {
@@ -340,6 +348,32 @@ export const PvPBattleProc: React.FC = () => {
             );
           })}
         </div>
+
+        {/* Last Opponent Answer */}
+        {lastOpponentTurn && (
+          <div className="w-full max-w-md mx-auto mb-3">
+            <div className={`bg-slate-900/80 rounded-xl p-3 border ${lastOpponentTurn.isCorrect ? 'border-green-500/50' : 'border-red-500/50'}`}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className={`text-xs font-bold ${lastOpponentTurn.isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                  {lastOpponentTurn.isCorrect ? '✓' : '✗'} {opponentName}
+                </span>
+                <span className="text-[10px] text-slate-500">
+                  {lastOpponentTurn.isCorrect ? 'Bonne réponse' : 'Mauvaise réponse'} ({lastOpponentTurn.damageDealt} dégâts)
+                </span>
+              </div>
+              <p className="text-xs text-slate-300 mb-1">{lastOpponentTurn.questionText}</p>
+              <p className="text-[10px] text-slate-400">
+                <span className="text-slate-500">Réponse: </span>
+                <span className={lastOpponentTurn.isCorrect ? 'text-green-400' : 'text-red-400'}>
+                  {lastOpponentTurn.questionOptions[lastOpponentTurn.answerIndex]}
+                </span>
+                {!lastOpponentTurn.isCorrect && (
+                  <span className="text-green-400 ml-2">(Bonne: {lastOpponentTurn.questionOptions[lastOpponentTurn.correctIndex]})</span>
+                )}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Question Area */}
         <div className="flex-1 flex items-center justify-center">

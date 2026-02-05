@@ -91,7 +91,7 @@ const TeamManager = ({ team, box, currentId, onSelect, onClose, onStartBattle }:
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/98 backdrop-blur-xl flex flex-col">
       {/* Header */}
-      <div className="flex items-center justify-between p-3 border-b border-slate-800">
+      <div className="flex items-center justify-between pt-12 pb-3 px-3 border-b border-slate-800">
         <h3 className="font-display font-bold text-white flex items-center gap-2">
           <img src={`${ASSETS_BASE_URL}/pokeball.webp`} className="w-5 h-5" /> GESTION
         </h3>
