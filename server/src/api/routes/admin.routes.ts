@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Response } from 'express';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.middleware.js';
 import { prisma } from '../../config/database.js';
+import { getIO } from '../../socket/server.js';
 
 export const adminRouter: IRouter = Router();
 
@@ -123,6 +124,17 @@ adminRouter.put('/user/:id', authMiddleware, adminMiddleware, async (req: AuthRe
       where: { id: userId },
       data: updateData,
     });
+
+    // Emit real-time update to user
+    const io = getIO();
+    if (io) {
+      io.to(`user_${userId}`).emit('user:updated', {
+        gold: user.gold,
+        tokens: user.tokens,
+        global_xp: user.globalXp,
+        grade_level: user.gradeLevel,
+      });
+    }
 
     res.json({
       success: true,

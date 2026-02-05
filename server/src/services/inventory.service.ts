@@ -94,7 +94,7 @@ export async function useItem(
   userId: number,
   itemId: string,
   pokemonId?: string,
-): Promise<{ success: boolean; effect?: ItemEffect; message: string }> {
+): Promise<{ success: boolean; effect?: ItemEffect; message: string; evolution?: boolean; sequence?: number[] }> {
   const inventory = await prisma.inventory.findUnique({
     where: { userId_itemId: { userId, itemId } },
     include: { item: true },
@@ -104,14 +104,135 @@ export async function useItem(
     return { success: false, message: 'Item non disponible' };
   }
 
-  // Décrémente la quantité
+  const item = inventory.item;
+  const effect = getItemEffect(item);
+
+  // Apply HEAL effect to Pokemon
+  if (item.effectType === 'HEAL' && pokemonId) {
+    const pokemon = await prisma.userPokemon.findFirst({
+      where: { id: pokemonId, userId },
+    });
+    if (!pokemon) {
+      return { success: false, message: 'Pokémon non trouvé' };
+    }
+    // Calculate max HP based on level (same formula as elsewhere)
+    const maxHp = 30 + (pokemon.tyradexId % 30) + pokemon.level * 5;
+    // Heal based on percentage (value is percentage)
+    const healAmount = Math.floor(maxHp * (item.value / 100));
+    const newHp = Math.min(maxHp, pokemon.currentHp + healAmount);
+    
+    await prisma.$transaction([
+      prisma.inventory.update({
+        where: { userId_itemId: { userId, itemId } },
+        data: { quantity: { decrement: 1 } },
+      }),
+      prisma.userPokemon.update({
+        where: { id: pokemonId },
+        data: { currentHp: newHp },
+      }),
+    ]);
+    
+    return { 
+      success: true, 
+      effect: { ...effect, message: `+${healAmount} PV` }, 
+      message: `${item.name} utilisé! +${healAmount} PV` 
+    };
+  }
+
+  // Apply HEAL_TEAM effect to all team Pokemon
+  if (item.effectType === 'HEAL_TEAM') {
+    const teamPokemon = await prisma.userPokemon.findMany({
+      where: { userId, isTeam: true },
+    });
+    
+    if (teamPokemon.length === 0) {
+      return { success: false, message: 'Aucun Pokémon dans l\'équipe' };
+    }
+
+    const updates = teamPokemon.map(pokemon => {
+      const maxHp = 30 + (pokemon.tyradexId % 30) + pokemon.level * 5;
+      const healAmount = Math.floor(maxHp * (item.value / 100));
+      const newHp = Math.min(maxHp, pokemon.currentHp + healAmount);
+      return prisma.userPokemon.update({
+        where: { id: pokemon.id },
+        data: { currentHp: newHp },
+      });
+    });
+
+    await prisma.$transaction([
+      prisma.inventory.update({
+        where: { userId_itemId: { userId, itemId } },
+        data: { quantity: { decrement: 1 } },
+      }),
+      ...updates,
+    ]);
+
+    return { 
+      success: true, 
+      effect, 
+      message: `${item.name} utilisé! Équipe soignée (${item.value}%)` 
+    };
+  }
+
+  // Apply EVOLUTION effect
+  if ((item.effectType === 'EVOLUTION' || item.effectType === 'EVOLUTION_MAX') && pokemonId) {
+    const pokemon = await prisma.userPokemon.findFirst({
+      where: { id: pokemonId, userId },
+    });
+    if (!pokemon) {
+      return { success: false, message: 'Pokémon non trouvé' };
+    }
+
+    // Get evolution chain from Tyradex
+    try {
+      const response = await fetch(`https://tyradex.app/api/v1/pokemon/${pokemon.tyradexId}`);
+      const pokeData = await response.json() as { evolution?: { next?: Array<{ pokedexId: number }> } };
+      
+      if (!pokeData.evolution?.next || pokeData.evolution.next.length === 0) {
+        return { success: false, message: 'Ce Pokémon ne peut pas évoluer' };
+      }
+
+      const nextEvo = pokeData.evolution.next[0];
+      const newTyradexId = nextEvo.pokedexId;
+      const sequence = [pokemon.tyradexId, newTyradexId];
+
+      // Recalculate HP for new evolution
+      const newMaxHp = 30 + (newTyradexId % 30) + pokemon.level * 5;
+      const oldMaxHp = 30 + (pokemon.tyradexId % 30) + pokemon.level * 5;
+      const hpRatio = pokemon.currentHp / oldMaxHp;
+      const newHp = Math.floor(newMaxHp * hpRatio);
+
+      await prisma.$transaction([
+        prisma.inventory.update({
+          where: { userId_itemId: { userId, itemId } },
+          data: { quantity: { decrement: 1 } },
+        }),
+        prisma.userPokemon.update({
+          where: { id: pokemonId },
+          data: { tyradexId: newTyradexId, currentHp: newHp },
+        }),
+      ]);
+
+      return { 
+        success: true, 
+        effect, 
+        message: `${item.name} utilisé! Évolution réussie!`,
+        evolution: true,
+        sequence,
+      };
+    } catch (error) {
+      console.error('Evolution error:', error);
+      return { success: false, message: 'Erreur lors de l\'évolution' };
+    }
+  }
+
+  // Default: just decrement item (for battle-only items like buffs)
   await prisma.inventory.update({
     where: { userId_itemId: { userId, itemId } },
     data: { quantity: { decrement: 1 } },
   });
 
-  const effect = getItemEffect(inventory.item);
-  return { success: true, effect, message: `${inventory.item.name} utilisé!` };
+  return { success: true, effect, message: `${item.name} utilisé!` };
 }
 
 /**

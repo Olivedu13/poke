@@ -48,6 +48,9 @@ export function createSocketServer() {
     const typedSocket = socket as Socket<any, any, any, SocketData>;
     logger.info(`User connected: ${typedSocket.data.username} (ID: ${typedSocket.data.userId})`);
     
+    // Join user-specific room for targeted notifications
+    typedSocket.join(`user_${typedSocket.data.userId}`);
+    
     // Register all handlers
     registerUserSocketHandlers(typedSocket);
     registerPvpSocketHandlers(io as any, typedSocket as any);
@@ -61,5 +64,13 @@ export function createSocketServer() {
     logger.info(`WebSocket Server listening on port ${PORT}`);
   });
   
+  // Export io for use in other modules
+  (global as any).__io = io;
+  
   return httpServer;
+}
+
+// Helper to get io instance from other modules
+export function getIO(): Server | undefined {
+  return (global as any).__io;
 }

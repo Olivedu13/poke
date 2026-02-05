@@ -43,14 +43,14 @@ const EvolutionOverlay = ({ sequence, onClose }: { sequence: number[], onClose: 
 
 const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onToggleTeam, collectionSize }: any) => {
     const [tab, setTab] = useState<'STATS' | 'ITEMS'>('STATS');
-    const usableItems = inventory.filter((i: Item) => ['HEAL', 'EVOLUTION', 'EVOLUTION_MAX'].includes(i.effect_type) && i.quantity > 0);
+    const usableItems = inventory.filter((i: Item) => ['HEAL', 'HEAL_TEAM', 'TEAM_HEAL', 'EVOLUTION', 'EVOLUTION_MAX'].includes(i.effect_type) && i.quantity > 0);
     const xpPercent = Math.min(100, (pokemon.current_xp / (pokemon.next_level_xp || 100)) * 100);
     const statLabels: Record<string, string> = { HP: 'SANTÉ', ATK: 'ATTAQUE', DEF: 'DÉFENSE', SPE: 'VITESSE' };
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200" onClick={onClose}>
             <div className="bg-slate-900 border border-cyan-500/50 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <div className="p-4 border-b border-slate-700 bg-slate-950 flex justify-between items-center">
+                <div className="pt-12 pb-4 px-4 border-b border-slate-700 bg-slate-950 flex justify-between items-center">
                     <button onClick={onClose} className="text-slate-400 hover:text-white px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded flex items-center gap-2 transition-colors">← RETOUR</button>
                     <div className="text-center flex-1"><h2 className="text-2xl font-display font-bold text-white uppercase">{pokemon.name}</h2><div className="flex justify-center gap-2 text-xs font-mono mt-1"><span className="text-cyan-400">NIV {pokemon.level}</span><span className="text-slate-500">|</span><span className="text-slate-400">ID #{pokemon.tyradex_id}</span></div></div>
                     <div className="w-20"></div>
@@ -188,6 +188,17 @@ export const Collection: React.FC = () => {
 
   const handleAction = async (action: string, pokeId: string, itemId?: string) => {
       setLoading(true);
+      
+      // Optimistic update for toggle_team
+      if (action === 'toggle_team') {
+          useGameStore.setState(state => ({
+              collection: state.collection.map(p => 
+                  p.id === pokeId ? { ...p, is_team: !p.is_team } : p
+              )
+          }));
+          playSfx('CLICK');
+      }
+      
       try {
           // Router vers le bon endpoint selon l'action
           let res;
@@ -221,9 +232,15 @@ export const Collection: React.FC = () => {
               }
               if(action === 'feed') useGameStore.setState(s => ({ user: s.user ? { ...s.user, global_xp: s.user.global_xp - 100 } : null }));
           } else {
+              // Revert optimistic update on failure
+              if (action === 'toggle_team') await fetchCollection();
               alert(res.data.message);
           }
-      } catch (e) { console.error(e); } finally { setLoading(false); }
+      } catch (e) { 
+          console.error(e); 
+          // Revert optimistic update on error
+          if (action === 'toggle_team') await fetchCollection();
+      } finally { setLoading(false); }
   };
 
   const activeTeam = correctedCollection.filter(p => p.is_team);
