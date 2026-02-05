@@ -32,20 +32,18 @@ const getItemIcon = (id: string | number | undefined) => {
 const generatePreviewSegments = (bet: number): WheelSegment[] => {
   const genericPoke = `${ASSETS_BASE_URL}/pokeball.webp`;
   const genericItem = `${ASSETS_BASE_URL}/jetons.webp`;
-  let goldMin = 50, goldMax = 200, xp = 100;
-  
-  if (bet === 5) { goldMin = 250; goldMax = 600; xp = 500; }
-  else if (bet === 10) { goldMin = 1000; goldMax = 5000; xp = 2000; }
+  const mult = bet === 10 ? 15 : bet === 5 ? 5 : 1;
 
+  // Ordre identique au serveur, sans doublons adjacents
   return [
+    { type: 'GOLD', value: 50 * mult, label: `${50 * mult} OR`, color: '#fbbf24' },
+    { type: 'XP', value: 100 * mult, label: `${100 * mult} XP`, color: '#3b82f6' },
+    { type: 'ITEM', label: 'POTION', img: genericItem, color: '#a855f7', isMystery: true },
+    { type: 'GOLD', value: 200 * mult, label: `${200 * mult} OR`, color: '#fbbf24' },
     { type: 'POKEMON', label: 'POKEMON', img: genericPoke, color: '#ef4444', isMystery: true },
-    { type: 'GOLD', value: goldMin, label: `${goldMin} OR`, color: '#fbbf24' },
-    { type: 'ITEM', label: 'OBJET', img: genericItem, color: '#a855f7', isMystery: true },
-    { type: 'XP', value: xp, label: `${xp} XP`, color: '#3b82f6' },
-    { type: 'POKEMON', label: 'POKEMON', img: genericPoke, color: '#ef4444', isMystery: true },
-    { type: 'GOLD', value: Math.floor((goldMin + goldMax) / 2), label: 'OR', color: '#fbbf24' },
-    { type: 'ITEM', label: 'OBJET', img: genericItem, color: '#a855f7', isMystery: true },
-    { type: 'GOLD', value: 10000, label: 'JACKPOT 💰', color: '#10b981' },
+    { type: 'XP', value: 250 * mult, label: `${250 * mult} XP`, color: '#3b82f6' },
+    { type: 'ITEM', label: bet >= 5 ? 'SUPER POTION' : 'POKEBALL', img: genericItem, color: '#a855f7', isMystery: true },
+    { type: 'GOLD', value: 10000 * (bet === 10 ? 3 : bet === 5 ? 1.5 : 1), label: 'JACKPOT 💰', color: '#10b981' },
   ];
 };
 
