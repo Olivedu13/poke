@@ -96,6 +96,73 @@ collectionRouter.post('/toggle-team', async (req: AuthRequest, res: Response) =>
   }
 });
 
+// POST /api/collection/feed - Donner de l'XP à un Pokémon
+collectionRouter.post('/feed', async (req: AuthRequest, res: Response) => {
+  try {
+    const { pokemonId, xpAmount = 100 } = req.body;
+    if (!pokemonId) {
+      return res.status(400).json({ success: false, message: 'pokemonId requis' });
+    }
+    
+    // Vérifier que l'utilisateur a assez de XP
+    const user = await prisma.user.findUnique({ where: { id: req.userId! } });
+    if (!user || (user.globalXp || 0) < xpAmount) {
+      return res.status(400).json({ success: false, message: 'XP insuffisante' });
+    }
+    
+    // Transférer l'XP
+    const result = await pokemonService.addPokemonXp(pokemonId, xpAmount);
+    await prisma.user.update({
+      where: { id: req.userId! },
+      data: { globalXp: { decrement: xpAmount } },
+    });
+    
+    res.json({ 
+      success: true, 
+      message: result.leveledUp ? `Level up ! Niveau ${result.newLevel}` : 'XP ajoutée',
+      leveledUp: result.leveledUp,
+      newLevel: result.newLevel,
+    });
+  } catch (error) {
+    console.error('Error feeding pokemon:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+// POST /api/collection/capture - Capturer un Pokémon sauvage
+collectionRouter.post('/capture', async (req: AuthRequest, res: Response) => {
+  try {
+    const { tyradexId, level, name } = req.body;
+    if (!tyradexId) {
+      return res.status(400).json({ success: false, message: 'tyradexId requis' });
+    }
+    
+    const calculatedHp = 20 + (tyradexId % 30) + (level || 5) * 5;
+    
+    const newPokemon = await prisma.userPokemon.create({
+      data: {
+        id: `pokemon-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        userId: req.userId!,
+        tyradexId: tyradexId,
+        level: level || 5,
+        nickname: name || null,
+        currentHp: calculatedHp,
+        currentXp: 0,
+        isTeam: false,
+      },
+    });
+    
+    res.json({ 
+      success: true, 
+      message: `${name || 'Pokémon'} capturé !`,
+      pokemon: newPokemon,
+    });
+  } catch (error) {
+    console.error('Error capturing pokemon:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
 // POST /api/collection/heal-all - Soigner tous les Pokémon
 collectionRouter.post('/heal-all', async (req: AuthRequest, res: Response) => {
   try {

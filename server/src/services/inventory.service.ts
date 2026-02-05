@@ -93,6 +93,7 @@ export async function buyItem(
 export async function useItem(
   userId: number,
   itemId: string,
+  pokemonId?: string,
 ): Promise<{ success: boolean; effect?: ItemEffect; message: string }> {
   const inventory = await prisma.inventory.findUnique({
     where: { userId_itemId: { userId, itemId } },
