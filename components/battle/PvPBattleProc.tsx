@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { socketService } from '../../services/socket';
 import { motion, AnimatePresence } from 'framer-motion';
 import { playSfx } from '../../utils/soundEngine';
@@ -66,6 +66,7 @@ export const PvPBattleProc: React.FC = () => {
   const [showCoinFlip, setShowCoinFlip] = useState(false);
   const [coinFlipWinner, setCoinFlipWinner] = useState<string | null>(null);
   const [battleReady, setBattleReady] = useState(false);
+  const coinFlipShownRef = useRef(false);
 
   const matchId = localStorage.getItem('pvp_match_id');
 
@@ -93,8 +94,9 @@ export const PvPBattleProc: React.FC = () => {
       setLoading(false);
       setError(null);
       
-      // Show coin flip animation on first state
-      if (isFirstState && !battleReady) {
+      // Show coin flip animation on first state (only once)
+      if (isFirstState && !battleReady && !coinFlipShownRef.current) {
+        coinFlipShownRef.current = true;
         const starterName = data.isMyTurn ? 'TOI' : (data.match?.player1Id === user?.id ? data.match?.player2Name : data.match?.player1Name);
         setShowCoinFlip(true);
         setCoinFlipWinner(starterName);
@@ -103,7 +105,7 @@ export const PvPBattleProc: React.FC = () => {
           setShowCoinFlip(false);
           setBattleReady(true);
         }, 3000);
-      } else if (data.match?.turnNumber > 1) {
+      } else if (data.match?.turnNumber > 1 || coinFlipShownRef.current) {
         setBattleReady(true);
       }
     });

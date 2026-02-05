@@ -168,26 +168,12 @@ export const useBattleLogic = () => {
     }, [battleMode, battlePhase]);
 
     // --- GAME LOOP & IA ---
-    const MIN_QUESTIONS = 5; // Minimum de questions avant fin de combat
+    // MIN_QUESTIONS désactivé - victoire dès que l'ennemi est KO
     
     useEffect(() => {
         if (battleMode === 'PVP') return;
-        // Vérifier victoire: ennemi KO ET minimum de questions atteint
+        // Vérifier victoire: ennemi KO
         if (battleOver && enemyPokemon?.current_hp === 0 && battlePhase === 'FIGHTING') {
-            // Si pas assez de questions, empêcher la victoire temporairement
-            if (questionsAnswered < MIN_QUESTIONS) {
-                // Remettre un peu de HP à l'ennemi pour continuer le combat
-                useGameStore.setState((state) => ({
-                    enemyPokemon: state.enemyPokemon ? { 
-                        ...state.enemyPokemon, 
-                        current_hp: Math.floor(state.enemyPokemon.max_hp * 0.2) 
-                    } : null,
-                    battleOver: false,
-                    isPlayerTurn: true
-                }));
-                addLog({ message: `L'adversaire tient bon ! (${MIN_QUESTIONS - questionsAnswered} questions restantes)`, type: 'INFO' });
-                return;
-            }
             
             // Mode TRAINER : vérifier s'il reste des Pokemon
             if (battleMode === 'TRAINER' && trainerOpponent) {
