@@ -159,12 +159,12 @@ const TeamManager = ({ team, box, currentId, onSelect, onClose, onStartBattle }:
         )}
       </div>
 
-      {/* Actions */}
-      <div className="p-3 pb-24 border-t border-slate-800 space-y-2 bg-slate-950">
+      {/* Actions - Fixed at bottom */}
+      <div className="p-4 border-t border-slate-800 bg-slate-950 pb-8 space-y-2">
         {onStartBattle && team.length > 0 && (
           <button
             onClick={onStartBattle}
-            className="w-full py-3 bg-green-600 hover:bg-green-500 text-white font-display font-bold rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.3)]"
+            className="w-full py-4 bg-green-600 hover:bg-green-500 text-white font-display font-bold rounded-xl shadow-[0_0_20px_rgba(34,197,94,0.3)]"
           >
             ⚔️ LANCER LE COMBAT
           </button>
@@ -172,7 +172,7 @@ const TeamManager = ({ team, box, currentId, onSelect, onClose, onStartBattle }:
         <button
           onClick={handleConfirm}
           disabled={!selected}
-          className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:opacity-50 text-white font-bold rounded-xl"
+          className="w-full py-4 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-700 disabled:opacity-50 text-white font-bold rounded-xl"
         >
           {selected ? (team.some((p: Pokemon) => p.id === selected.id) ? 'DÉFINIR LEADER' : 'ÉCHANGER') : 'SÉLECTIONNER'}
         </button>
@@ -385,7 +385,7 @@ export const BattleScene: React.FC = () => {
       </div>
 
       {/* Battle Arena */}
-      <div className="flex-1 flex flex-col justify-between p-3 relative overflow-hidden">
+      <div className="flex-1 flex flex-col p-3 relative overflow-hidden">
         {/* Background */}
         <div className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 pointer-events-none" />
         
@@ -422,12 +422,12 @@ export const BattleScene: React.FC = () => {
         )}
 
         {/* Enemy */}
-        <div className="relative z-10 mb-4">
+        <div className="relative z-10 flex-1 flex items-center justify-center">
           <PokemonCard pokemon={activeEnemy} isEnemy />
         </div>
 
         {/* Battle Log */}
-        <div className="relative z-10 flex-1 flex items-center justify-center">
+        <div className="relative z-10 py-2">
           <div className="text-center">
             {battleLogs.slice(-1).map((log, i) => (
               <motion.p
@@ -462,7 +462,7 @@ export const BattleScene: React.FC = () => {
         </AnimatePresence>
 
         {/* Player */}
-        <div className="relative z-10 mt-4">
+        <div className="relative z-10 flex-1 flex items-center justify-center">
           <PokemonCard pokemon={activePla} />
         </div>
       </div>

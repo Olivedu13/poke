@@ -48,28 +48,28 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
     const statLabels: Record<string, string> = { HP: 'SANTÉ', ATK: 'ATTAQUE', DEF: 'DÉFENSE', SPE: 'VITESSE' };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in zoom-in-95 duration-200" onClick={onClose}>
-            <div className="bg-slate-900 border border-cyan-500/50 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <div className="pt-12 pb-4 px-4 border-b border-slate-700 bg-slate-950 flex justify-between items-center">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200" onClick={onClose}>
+            <div className="bg-slate-900 border border-cyan-500/50 rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                <div className="pt-4 pb-3 px-4 border-b border-slate-700 bg-slate-950 flex justify-between items-center">
                     <button onClick={onClose} className="text-slate-400 hover:text-white px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded flex items-center gap-2 transition-colors">← RETOUR</button>
-                    <div className="text-center flex-1"><h2 className="text-2xl font-display font-bold text-white uppercase">{pokemon.name}</h2><div className="flex justify-center gap-2 text-xs font-mono mt-1"><span className="text-cyan-400">NIV {pokemon.level}</span><span className="text-slate-500">|</span><span className="text-slate-400">ID #{pokemon.tyradex_id}</span></div></div>
+                    <div className="text-center flex-1"><h2 className="text-xl font-display font-bold text-white uppercase">{pokemon.name}</h2><div className="flex justify-center gap-2 text-xs font-mono mt-1"><span className="text-cyan-400">NIV {pokemon.level}</span><span className="text-slate-500">|</span><span className="text-slate-400">ID #{pokemon.tyradex_id}</span></div></div>
                     <div className="w-20"></div>
                 </div>
-                <div className="flex-1 overflow-y-auto p-0 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="flex flex-col items-center p-6 bg-slate-950/50 md:rounded-xl">
-                         <img src={pokemon.sprite_url} className="w-48 h-48 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] mb-4" />
+                <div className="flex-1 overflow-y-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex flex-col items-center p-4 bg-slate-950/50 rounded-xl">
+                         <img src={pokemon.sprite_url} className="w-32 h-32 sm:w-48 sm:h-48 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] mb-4" />
                          <div className="w-full mb-4"><div className="flex justify-between text-[10px] text-slate-400 mb-1 font-bold"><span>EXPÉRIENCE</span><span>{pokemon.current_xp} / {pokemon.next_level_xp || 100}</span></div><div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700"><motion.div className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 relative" initial={{ width: 0 }} animate={{ width: `${xpPercent}%` }} transition={{ duration: 0.8, ease: "easeOut" }}><div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[size:1rem_1rem] opacity-30"></div></motion.div></div></div>
                          <button onClick={() => onAction('feed', pokemon.id)} disabled={(user?.global_xp || 0) < 100} className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white py-3 rounded-lg font-bold shadow-lg disabled:opacity-50 disabled:grayscale transition-all flex items-center justify-center gap-2 group active:scale-[0.98]">
                             <img src={`${ASSETS_BASE_URL}/xp.webp`} className="w-5 h-5 group-hover:scale-110 transition-transform"/> DONNER 100 XP
                          </button>
                     </div>
-                    <div className="p-4">
+                    <div className="p-2">
                         <div className="flex gap-2 mb-4 bg-slate-800 p-1 rounded-lg">
                             <button onClick={()=>setTab('STATS')} className={`flex-1 py-1 rounded text-xs font-bold ${tab === 'STATS' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'}`}>CARACTÉRISTIQUES</button>
                             <button onClick={()=>setTab('ITEMS')} className={`flex-1 py-1 rounded text-xs font-bold ${tab === 'ITEMS' ? 'bg-cyan-600 text-white' : 'text-slate-400 hover:text-white'}`}>OBJETS</button>
                         </div>
                         {tab === 'STATS' && (
-                            <div className="space-y-4">
+                            <div className="space-y-3">
                                 {['HP', 'ATK', 'DEF', 'SPE'].map(stat => {
                                     let val = 0; let max = 150;
                                     if(stat === 'HP') { val = pokemon.current_hp; max = pokemon.max_hp; }
@@ -80,16 +80,10 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
                                         <div key={stat}><div className="flex justify-between text-xs font-bold text-slate-300 mb-1"><span>{statLabels[stat]}</span><span>{val} {stat === 'HP' ? `/ ${max}` : ''}</span></div><div className="h-2 bg-slate-800 rounded-full overflow-hidden"><motion.div className={`h-full ${stat==='HP'?'bg-green-500':'bg-yellow-500'}`} initial={{ width: 0 }} animate={{ width: `${Math.min(100, (val/max)*100)}%` }} transition={{ duration: 0.5 }}></motion.div></div></div>
                                     );
                                 })}
-                                <div className="mt-6 pt-6 border-t border-slate-800 space-y-2">
-                                    {collectionSize > 3 && (<button onClick={() => onToggleTeam(pokemon.id)} className={`w-full py-2 rounded border font-bold text-xs uppercase tracking-wider ${pokemon.is_team ? 'border-red-500 text-red-400 hover:bg-red-900/20' : 'border-green-500 text-green-400 hover:bg-green-900/20'}`}>
-                                        {pokemon.is_team ? 'RETIRER DE L\'ÉQUIPE' : 'AJOUTER À L\'ÉQUIPE'}
-                                    </button>)}
-                                    {collectionSize <= 3 && (<div className="text-center text-slate-500 text-xs py-2">Tous tes Pokémon sont automatiquement dans l'équipe</div>)}
-                                </div>
                             </div>
                         )}
                         {tab === 'ITEMS' && (
-                            <div className="space-y-2 max-h-[300px] overflow-y-auto">
+                            <div className="space-y-2 max-h-[200px] overflow-y-auto">
                                 {usableItems.length === 0 && <div className="text-slate-500 text-center py-4 text-xs">Aucun objet compatible.</div>}
                                 {usableItems.map((item: Item) => (
                                     <div key={item.id} className="flex justify-between items-center bg-slate-800 p-2 rounded border border-slate-700">
@@ -103,6 +97,23 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
                             </div>
                         )}
                     </div>
+                </div>
+                {/* Fixed bottom action bar for team toggle */}
+                <div className="p-4 border-t border-slate-700 bg-slate-950 pb-8">
+                    {collectionSize > 3 ? (
+                        <button 
+                            onClick={() => onToggleTeam(pokemon.id)} 
+                            className={`w-full py-4 rounded-xl font-bold text-sm uppercase tracking-wider transition-all active:scale-[0.98] ${
+                                pokemon.is_team 
+                                    ? 'bg-red-900/50 border-2 border-red-500 text-red-400 hover:bg-red-900/70' 
+                                    : 'bg-green-900/50 border-2 border-green-500 text-green-400 hover:bg-green-900/70'
+                            }`}
+                        >
+                            {pokemon.is_team ? '− RETIRER DE L\'ÉQUIPE' : '+ AJOUTER À L\'ÉQUIPE'}
+                        </button>
+                    ) : (
+                        <div className="text-center text-slate-500 text-xs py-2">Tous tes Pokémon sont automatiquement dans l'équipe</div>
+                    )}
                 </div>
             </div>
         </div>

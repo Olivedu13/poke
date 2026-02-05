@@ -390,7 +390,8 @@ export const useBattleLogic = () => {
     };
 
     const handleSwitchPokemon = (newPoke: Pokemon, isFromTeam: boolean) => {
-        if (isFromTeam) {
+        // Allow switching whether from team or box - the Pokemon just needs to be valid
+        if (newPoke && newPoke.current_hp > 0) {
             useGameStore.setState({ playerPokemon: newPoke, isPlayerTurn: false });
             setShowTeam(false);
             addLog({ message: `Go ${newPoke.name} !`, type: 'PLAYER' });
