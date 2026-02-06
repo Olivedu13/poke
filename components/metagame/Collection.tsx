@@ -49,34 +49,33 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
     const xpPercent = Math.min(100, (pokemon.current_xp / (pokemon.next_level_xp || 100)) * 100);
     const statLabels: Record<string, string> = { HP: 'SANTÉ', ATK: 'ATTAQUE', DEF: 'DÉFENSE', SPE: 'VITESSE' };
 
-    // Hold-to-repeat XP logic with acceleration
-    const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-    const holdInterval = useRef<ReturnType<typeof setInterval> | null>(null);
-    const holdDelay = useRef(500); // starts slow, accelerates
+    // Hold-to-repeat XP: fires action, then repeats with acceleration
+    const holdRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; active: boolean }>({ timer: null, active: false });
 
     const stopHold = useCallback(() => {
-        if (holdTimer.current) { clearTimeout(holdTimer.current); holdTimer.current = null; }
-        if (holdInterval.current) { clearInterval(holdInterval.current); holdInterval.current = null; }
-        holdDelay.current = 500;
+        holdRef.current.active = false;
+        if (holdRef.current.timer) { clearTimeout(holdRef.current.timer); holdRef.current.timer = null; }
     }, []);
 
     const startHold = useCallback((action: string, pokemonId: string) => {
-        // Fire once immediately
-        onAction(action, pokemonId);
-        let currentDelay = 500;
-        const scheduleNext = () => {
-            holdTimer.current = setTimeout(() => {
-                onAction(action, pokemonId);
-                // Accelerate: reduce delay down to 80ms minimum
-                currentDelay = Math.max(80, currentDelay * 0.75);
-                scheduleNext();
-            }, currentDelay);
+        stopHold();
+        holdRef.current.active = true;
+        let delay = 400;
+
+        const fire = async () => {
+            if (!holdRef.current.active) return;
+            try {
+                await onAction(action, pokemonId);
+            } catch {}
+            if (!holdRef.current.active) return;
+            delay = Math.max(100, delay * 0.7);
+            holdRef.current.timer = setTimeout(fire, delay);
         };
-        scheduleNext();
-    }, [onAction]);
+        fire();
+    }, [onAction, stopHold]);
 
     // Cleanup on unmount
-    useEffect(() => stopHold, [stopHold]);
+    useEffect(() => () => stopHold(), [stopHold]);
 
     // Détecte le gain de niveau
     useEffect(() => {
@@ -91,14 +90,20 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
     return (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200" onClick={onClose}>
             <div className="bg-slate-900 border border-cyan-500/50 rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                {/* Mobile: full-width back button bar */}
-                <button onClick={onClose} className="sm:hidden w-full py-3.5 bg-cyan-700 active:bg-cyan-600 text-white font-bold text-base flex items-center justify-center gap-2 rounded-t-2xl">
-                    ← RETOUR
-                </button>
-                <div className="py-3 px-3 sm:px-4 border-b border-slate-700 bg-slate-950 flex justify-between items-center gap-2">
-                    <button onClick={onClose} className="hidden sm:flex shrink-0 text-white font-bold px-4 py-2.5 bg-cyan-700 hover:bg-cyan-600 active:scale-95 rounded-lg items-center gap-1.5 transition-all text-sm shadow-lg">← RETOUR</button>
-                    <div className="text-center flex-1 min-w-0"><h2 className="text-lg sm:text-xl font-display font-bold text-white uppercase truncate">{pokemon.name}</h2><div className="flex justify-center gap-2 text-xs font-mono mt-1"><span className="text-cyan-400">NIV {pokemon.level}</span><span className="text-slate-500">|</span><span className="text-slate-400">#{pokemon.tyradex_id}</span></div></div>
-                    <div className="hidden sm:block w-20 shrink-0"></div>
+                <div className="border-b border-slate-700 bg-slate-950 rounded-t-2xl sm:rounded-t-2xl">
+                    {/* Mobile: prominent back bar */}
+                    <div className="sm:hidden flex items-center gap-3 px-3 pt-3 pb-2">
+                        <button onClick={onClose} className="shrink-0 bg-cyan-600 active:bg-cyan-500 text-white font-bold text-sm px-5 py-3 rounded-xl flex items-center gap-2 shadow-lg">
+                            ← RETOUR
+                        </button>
+                        <div className="flex-1 min-w-0 text-center"><h2 className="text-base font-display font-bold text-white uppercase truncate">{pokemon.name}</h2><div className="text-[10px] font-mono text-cyan-400">NIV {pokemon.level} | #{pokemon.tyradex_id}</div></div>
+                    </div>
+                    {/* Desktop: inline header */}
+                    <div className="hidden sm:flex py-3 px-4 justify-between items-center gap-2">
+                        <button onClick={onClose} className="shrink-0 text-white font-bold px-4 py-2.5 bg-cyan-700 hover:bg-cyan-600 active:scale-95 rounded-lg flex items-center gap-1.5 transition-all text-sm shadow-lg">← RETOUR</button>
+                        <div className="text-center flex-1 min-w-0"><h2 className="text-xl font-display font-bold text-white uppercase truncate">{pokemon.name}</h2><div className="flex justify-center gap-2 text-xs font-mono mt-1"><span className="text-cyan-400">NIV {pokemon.level}</span><span className="text-slate-500">|</span><span className="text-slate-400">#{pokemon.tyradex_id}</span></div></div>
+                        <div className="w-20 shrink-0"></div>
+                    </div>
                 </div>
                 {/* Animation/message de gain de niveau */}
                                 <AnimatePresence>
@@ -119,25 +124,29 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
                          <img src={pokemon.sprite_url} className="w-32 h-32 sm:w-48 sm:h-48 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] mb-4" />
                          <div className="w-full mb-4"><div className="flex justify-between text-[10px] text-slate-400 mb-1 font-bold"><span>EXPÉRIENCE</span><span>{pokemon.current_xp} / {pokemon.next_level_xp || 100}</span></div><div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700"><motion.div className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 relative" initial={{ width: 0 }} animate={{ width: `${xpPercent}%` }} transition={{ duration: 0.8, ease: "easeOut" }}><div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[size:1rem_1rem] opacity-30"></div></motion.div></div></div>
                          <button
-                            onPointerDown={() => { if ((user?.global_xp || 0) >= 100) startHold('feed', pokemon.id); }}
-                            onPointerUp={stopHold}
-                            onPointerLeave={stopHold}
-                            onPointerCancel={stopHold}
+                            onMouseDown={() => startHold('feed', pokemon.id)}
+                            onMouseUp={stopHold}
+                            onMouseLeave={stopHold}
+                            onTouchStart={() => startHold('feed', pokemon.id)}
+                            onTouchEnd={stopHold}
+                            onTouchCancel={stopHold}
                             onContextMenu={(e) => e.preventDefault()}
                             disabled={(user?.global_xp || 0) < 100}
-                            className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white py-3 rounded-lg font-bold shadow-lg disabled:opacity-50 disabled:grayscale transition-all flex items-center justify-center gap-2 group active:scale-[0.98] select-none touch-none"
+                            className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white py-3 rounded-lg font-bold shadow-lg disabled:opacity-50 disabled:grayscale transition-all flex items-center justify-center gap-2 group active:scale-[0.98] select-none"
                          >
                             <img src={`${ASSETS_BASE_URL}/xp.webp`} className="w-5 h-5 group-hover:scale-110 transition-transform" draggable={false}/> DONNER 100 XP
                             <span className="text-[10px] opacity-60 ml-1">(maintenir)</span>
                          </button>
                          <button
-                            onPointerDown={() => { if (!(pokemon.level <= 1 && pokemon.current_xp < 100)) startHold('unfeed', pokemon.id); }}
-                            onPointerUp={stopHold}
-                            onPointerLeave={stopHold}
-                            onPointerCancel={stopHold}
+                            onMouseDown={() => startHold('unfeed', pokemon.id)}
+                            onMouseUp={stopHold}
+                            onMouseLeave={stopHold}
+                            onTouchStart={() => startHold('unfeed', pokemon.id)}
+                            onTouchEnd={stopHold}
+                            onTouchCancel={stopHold}
                             onContextMenu={(e) => e.preventDefault()}
                             disabled={pokemon.level <= 1 && pokemon.current_xp < 100}
-                            className="w-full mt-2 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded-lg font-bold text-sm disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 active:scale-[0.98] border border-slate-700 select-none touch-none"
+                            className="w-full mt-2 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded-lg font-bold text-sm disabled:opacity-30 transition-all flex items-center justify-center gap-2 active:scale-[0.98] border border-slate-700 select-none"
                          >
                             ↩ REPRENDRE 100 XP <span className="text-[10px] opacity-60 ml-1">(maintenir)</span>
                          </button>
