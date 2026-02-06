@@ -259,18 +259,7 @@ export const Collection: React.FC = () => {
 
   return (
     <div className="w-full max-w-6xl mx-auto pb-20">
-            {/* HEADER XP (no title) */}
-            <div className="flex justify-between items-center px-4 py-3 mb-6 bg-slate-900/90 rounded-2xl border border-slate-700 shadow-lg">
-                <div className="flex items-center gap-3">
-                    <img src="/pokeball.png" className="w-8 h-8" />
-                </div>
-                <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1 bg-slate-800 px-3 py-1 rounded-full text-cyan-300 font-mono text-sm">
-                        <img src="/assets/xp.webp" className="w-5 h-5 mr-1" />
-                        {user?.global_xp ?? 0} XP
-                    </div>
-                </div>
-            </div>
+            {/* removed top XP bar per UX request */}
       <AnimatePresence>{evolutionSeq && (<EvolutionOverlay sequence={evolutionSeq} onClose={() => setEvolutionSeq(null)} />)}</AnimatePresence>
       <AnimatePresence>{selectedPokemon && (<PokemonDetailModal pokemon={selectedPokemon} user={user} inventory={inventory} onClose={() => setSelectedPokemon(null)} onAction={handleAction} onToggleTeam={(id: string) => handleAction('toggle_team', id)} collectionSize={correctedCollection.length} />)}</AnimatePresence>
 

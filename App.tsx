@@ -195,7 +195,7 @@ const App: React.FC = () => {
             </span>
           </button>
 
-          {/* User Stats + Admin */}
+          {/* User Stats + Admin + XP + Logout */}
           <div className="flex items-center gap-2">
             {/* Gold */}
             <div className="flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded-full border border-slate-700/50">
@@ -207,6 +207,11 @@ const App: React.FC = () => {
               <img src={`${ASSETS_BASE_URL}/jetons.webp`} alt="Jetons" className="w-4 h-4" />
               <span className="text-xs text-cyan-400 font-mono font-bold">{user.tokens}</span>
             </div>
+            {/* XP */}
+            <div className="flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded-full border border-slate-700/50">
+              <img src={`${ASSETS_BASE_URL}/xp.webp`} alt="XP" className="w-4 h-4" />
+              <span className="text-xs text-cyan-300 font-mono font-bold">{user.global_xp ?? 0} XP</span>
+            </div>
             {/* Admin button - long press */}
             <button
               onClick={() => setShowAdmin(true)}
@@ -216,6 +221,8 @@ const App: React.FC = () => {
             >
               <span className="text-[10px]">⚙</span>
             </button>
+            {/* Logout button */}
+            <button onClick={handleLogout} className="ml-1 px-3 py-1 rounded-full bg-red-700 hover:bg-red-800 text-white text-xs font-bold">Déconnexion</button>
           </div>
         </div>
         
@@ -251,16 +258,6 @@ const App: React.FC = () => {
               alt="Paramètres" 
               className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 object-contain brightness-75 opacity-70"
             />
-          </button>
-          {/* Logout */}
-          <button
-            onClick={handleLogout}
-            title="Déconnexion"
-            className="flex flex-col items-center px-1 py-0.5 rounded text-slate-500 hover:text-red-400 active:scale-95 transition-all"
-          >
-            <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 flex items-center justify-center rounded-full bg-slate-800/50 border border-slate-700">
-              <span className="text-lg">⏻</span>
-            </div>
           </button>
         </div>
       </header>
