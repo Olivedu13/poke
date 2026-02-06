@@ -88,6 +88,12 @@ rsync -avz --delete \
     --exclude 'assets/' \
     dist/ ${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}/frontend/
 
+# Upload des bundles Vite (fichiers hachés dans dist/assets) vers le dossier assets distant
+# On n'utilise pas --delete ici pour ne pas supprimer les assets persistants (ex: images/tyradex/...)
+log_info "Upload des bundles frontend (dist/assets)..."
+rsync -avz \
+    dist/assets/ ${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}/frontend/assets/
+
 # Sync des assets (images, sons, etc.) - sans --delete pour ne pas supprimer les fichiers build
 log_info "Upload des assets..."
 rsync -avz \

@@ -165,8 +165,21 @@ export const Shop: React.FC = () => {
                     {Array.isArray(items) && items.map(item => (
                         <div key={item.id} className={`bg-slate-900 border-2 ${getRarityColor(item.rarity)} p-3 md:p-4 rounded-xl flex flex-col justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform`}>
                             <div className="absolute top-2 right-2 text-[8px] md:text-[10px] font-bold px-1.5 md:px-2 py-0.5 bg-slate-950 rounded border border-slate-700 text-slate-400">x{item.stock}</div>
-                            <div className="flex justify-center my-2 md:my-4">
-                                <img src={item.image ? `${ASSETS_BASE_URL}/${item.image}` : `${ASSETS_BASE_URL}/pokeball.webp`} alt={item.name} className="w-16 h-16 md:w-24 md:h-24 object-contain drop-shadow-lg" />
+                                <div className="flex justify-center my-2 md:my-4">
+                                <img
+                                    src={item.image ? `${ASSETS_BASE_URL}/${item.image}` : `${ASSETS_BASE_URL}/pokeball.webp`}
+                                    alt={item.name}
+                                    className="w-16 h-16 md:w-24 md:h-24 object-contain drop-shadow-lg"
+                                    onError={(e) => {
+                                        const img = e.currentTarget as HTMLImageElement;
+                                        // fallback: try removing 'poudre_' prefix or use dodo.webp
+                                        if (img.src.includes('poudre_')) {
+                                            img.src = img.src.replace('poudre_', '');
+                                        } else {
+                                            img.src = `${ASSETS_BASE_URL}/pokeball.webp`;
+                                        }
+                                    }}
+                                />
                             </div>
                             <div className="mb-3 md:mb-4 text-center">
                                 <h3 className="font-bold text-sm md:text-lg text-white font-display uppercase truncate">{item.name}</h3>
