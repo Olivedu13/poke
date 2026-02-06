@@ -2,20 +2,34 @@ import { Router, type IRouter, type Response } from 'express';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.middleware.js';
 import { prisma } from '../../config/database.js';
 import { getIO } from '../../socket/server.js';
+import { getAdminCode, getSettings, updateSettings } from '../../config/settings.js';
 
 export const adminRouter: IRouter = Router();
 
-// Code secret admin
-const ADMIN_SECRET = '7452';
-
-// Middleware admin - vérifie le code secret
+// Middleware admin - vérifie le code secret (dynamique depuis settings.json)
 const adminMiddleware = (req: AuthRequest, res: Response, next: () => void) => {
   const adminCode = req.headers['x-admin-code'] || req.body?.admin_code;
-  if (adminCode !== ADMIN_SECRET) {
+  if (adminCode !== getAdminCode()) {
     return res.status(403).json({ success: false, message: 'Accès non autorisé' });
   }
   next();
 };
+
+// POST /api/admin/verify-parental - Vérifier le code parental (accessible à tout utilisateur connecté)
+adminRouter.post('/verify-parental', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { code } = req.body;
+    const settings = getSettings();
+    if (code === settings.parentalCode) {
+      res.json({ success: true, message: 'Code parental vérifié' });
+    } else {
+      res.json({ success: false, message: 'Code incorrect' });
+    }
+  } catch (error) {
+    console.error('Verify parental error:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
 
 // GET /api/admin/users - Liste tous les utilisateurs
 adminRouter.get('/users', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response) => {
@@ -293,6 +307,58 @@ adminRouter.put('/user/:id/reset-password', authMiddleware, adminMiddleware, asy
     res.json({ success: true, message: 'Mot de passe réinitialisé' });
   } catch (error) {
     console.error('Admin reset password error:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+// GET /api/admin/settings - Récupérer les paramètres (codes)
+adminRouter.get('/settings', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const settings = getSettings();
+    res.json({
+      success: true,
+      data: {
+        admin_code: settings.adminCode,
+        parental_code: settings.parentalCode,
+      },
+    });
+  } catch (error) {
+    console.error('Admin get settings error:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+// PUT /api/admin/settings - Modifier les paramètres (codes)
+adminRouter.put('/settings', authMiddleware, adminMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const { admin_code, parental_code } = req.body;
+    const updates: Record<string, string> = {};
+
+    if (admin_code !== undefined) {
+      if (typeof admin_code !== 'string' || admin_code.length !== 4 || !/^\d{4}$/.test(admin_code)) {
+        return res.status(400).json({ success: false, message: 'Le code admin doit être un code à 4 chiffres' });
+      }
+      updates.adminCode = admin_code;
+    }
+
+    if (parental_code !== undefined) {
+      if (typeof parental_code !== 'string' || parental_code.length !== 4 || !/^\d{4}$/.test(parental_code)) {
+        return res.status(400).json({ success: false, message: 'Le code parental doit être un code à 4 chiffres' });
+      }
+      updates.parentalCode = parental_code;
+    }
+
+    const updated = updateSettings(updates);
+    res.json({
+      success: true,
+      message: 'Paramètres mis à jour',
+      data: {
+        admin_code: updated.adminCode,
+        parental_code: updated.parentalCode,
+      },
+    });
+  } catch (error) {
+    console.error('Admin update settings error:', error);
     res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 });

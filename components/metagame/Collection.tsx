@@ -46,7 +46,8 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
     const [showLevelUp, setShowLevelUp] = useState(false);
     const prevLevel = useRef(pokemon.level);
     const usableItems = inventory.filter((i: Item) => ['HEAL', 'HEAL_TEAM', 'TEAM_HEAL', 'EVOLUTION', 'EVOLUTION_MAX'].includes(i.effect_type) && i.quantity > 0);
-    const xpPercent = Math.min(100, (pokemon.current_xp / (pokemon.next_level_xp || 100)) * 100);
+    const isMaxLevel = pokemon.level >= 100;
+    const xpPercent = isMaxLevel ? 100 : Math.min(100, (pokemon.current_xp / (pokemon.next_level_xp || 100)) * 100);
     const statLabels: Record<string, string> = { HP: 'SANTÉ', ATK: 'ATTAQUE', DEF: 'DÉFENSE', SPE: 'VITESSE' };
 
     // Hold-to-repeat XP: fires action, then repeats with acceleration
@@ -89,7 +90,7 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
 
     return (
         <div className="fixed inset-0 z-50 bg-slate-950 sm:bg-black/80 sm:backdrop-blur-sm sm:flex sm:items-center sm:justify-center" onClick={onClose}>
-            <div className="h-[100dvh] w-full sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:rounded-2xl bg-slate-900 sm:border sm:border-cyan-500/50 overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="absolute inset-0 sm:relative sm:inset-auto sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:rounded-2xl bg-slate-900 sm:border sm:border-cyan-500/50 flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
                 {/* ── HEADER (sticky, never scrolls away) ── */}
                 <div className="shrink-0 flex items-center gap-3 px-3 pb-3 sm:px-4 sm:py-3 bg-slate-950 border-b border-slate-700" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
                     <button onClick={onClose} className="shrink-0 bg-cyan-600 active:bg-cyan-500 text-white font-bold text-sm px-4 py-2.5 sm:px-5 sm:py-2.5 rounded-xl flex items-center gap-2 shadow-lg z-10">
@@ -115,10 +116,10 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
-                <div className="flex-1 overflow-y-auto px-3 py-3 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 sm:p-6 flex flex-col md:grid md:grid-cols-2 gap-3 sm:gap-4">
                     <div className="flex flex-col items-center p-3 sm:p-4 bg-slate-950/50 rounded-xl">
                          <img src={pokemon.sprite_url} className="w-24 h-24 sm:w-48 sm:h-48 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] mb-3 sm:mb-4" />
-                         <div className="w-full mb-4"><div className="flex justify-between text-[10px] text-slate-400 mb-1 font-bold"><span>EXPÉRIENCE</span><span>{pokemon.current_xp} / {pokemon.next_level_xp || 100}</span></div><div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700"><motion.div className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 relative" initial={{ width: 0 }} animate={{ width: `${xpPercent}%` }} transition={{ duration: 0.8, ease: "easeOut" }}><div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[size:1rem_1rem] opacity-30"></div></motion.div></div></div>
+                         <div className="w-full mb-4"><div className="flex justify-between text-[10px] text-slate-400 mb-1 font-bold"><span>EXPÉRIENCE</span><span>{isMaxLevel ? 'MAX' : `${pokemon.current_xp} / ${pokemon.next_level_xp || 100}`}</span></div><div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700"><motion.div className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 relative" initial={{ width: 0 }} animate={{ width: `${xpPercent}%` }} transition={{ duration: 0.8, ease: "easeOut" }}><div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[size:1rem_1rem] opacity-30"></div></motion.div></div></div>
                          <button
                             onMouseDown={() => startHold('feed', pokemon.id)}
                             onMouseUp={stopHold}

@@ -24,10 +24,9 @@ interface AdminPanelProps {
   onClose: () => void;
 }
 
-const ADMIN_CODE = '7452';
-
 export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const [authenticated, setAuthenticated] = useState(false);
+  const [adminCode, setAdminCode] = useState('');
   const [codeInput, setCodeInput] = useState('');
   const [codeError, setCodeError] = useState(false);
   const [users, setUsers] = useState<AdminUser[]>([]);
@@ -37,6 +36,9 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const [editMode, setEditMode] = useState(false);
   const [editData, setEditData] = useState({ gold: 0, tokens: 0, global_xp: 0, grade_level: 'CE1' });
   const [addPokemonData, setAddPokemonData] = useState({ tyradex_id: 25, level: 5 });
+  const [showSettings, setShowSettings] = useState(false);
+  const [settingsData, setSettingsData] = useState({ admin_code: '', parental_code: '' });
+  const [settingsLoading, setSettingsLoading] = useState(false);
 
   const handleDigit = (digit: string) => {
     if (codeInput.length < 4) {
@@ -45,16 +47,34 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       setCodeError(false);
 
       if (newCode.length === 4) {
-        if (newCode === ADMIN_CODE) {
-          setTimeout(() => {
-            setAuthenticated(true);
-            fetchUsers();
-          }, 200);
-        } else {
-          setCodeError(true);
-          setMessage('Code incorrect');
-          setTimeout(() => setCodeInput(''), 500);
-        }
+        // Try to authenticate with entered code
+        tryAuth(newCode);
+      }
+    }
+  };
+
+  const tryAuth = async (code: string) => {
+    try {
+      // Test the code by calling the users endpoint
+      const res = await api.get('/admin/users', { headers: { 'x-admin-code': code } });
+      if (res.data.success) {
+        setAdminCode(code);
+        setAuthenticated(true);
+        setUsers(res.data.data);
+      } else {
+        setCodeError(true);
+        setMessage('Code incorrect');
+        setTimeout(() => setCodeInput(''), 500);
+      }
+    } catch (e: any) {
+      if (e?.response?.status === 403) {
+        setCodeError(true);
+        setMessage('Code incorrect');
+        setTimeout(() => setCodeInput(''), 500);
+      } else {
+        setCodeError(true);
+        setMessage('Erreur de connexion');
+        setTimeout(() => setCodeInput(''), 500);
       }
     }
   };
@@ -64,21 +84,10 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     setCodeError(false);
   };
 
-  const handleAuth = () => {
-    if (codeInput === ADMIN_CODE) {
-      setAuthenticated(true);
-      fetchUsers();
-    } else {
-      setCodeError(true);
-      setMessage('Code incorrect');
-      setTimeout(() => setCodeInput(''), 500);
-    }
-  };
-
   const fetchUsers = async () => {
     setLoading(true);
     try {
-      const res = await api.get('/admin/users', { headers: { 'x-admin-code': ADMIN_CODE } });
+      const res = await api.get('/admin/users', { headers: { 'x-admin-code': adminCode } });
       if (res.data.success) setUsers(res.data.data);
     } catch (e) {
       setMessage('Erreur de chargement');
@@ -90,7 +99,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
   const fetchUserDetails = async (userId: number) => {
     setLoading(true);
     try {
-      const res = await api.get(`/admin/user/${userId}`, { headers: { 'x-admin-code': ADMIN_CODE } });
+      const res = await api.get(`/admin/user/${userId}`, { headers: { 'x-admin-code': adminCode } });
       if (res.data.success) {
         setSelectedUser(res.data.data);
         setEditData({
@@ -113,8 +122,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     try {
       const res = await api.put(`/admin/user/${selectedUser.id}`, {
         ...editData,
-        admin_code: ADMIN_CODE,
-      }, { headers: { 'x-admin-code': ADMIN_CODE } });
+        admin_code: adminCode,
+      }, { headers: { 'x-admin-code': adminCode } });
       if (res.data.success) {
         setMessage('Modifications enregistrées');
         fetchUserDetails(selectedUser.id);
@@ -133,8 +142,8 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     try {
       const res = await api.post(`/admin/user/${selectedUser.id}/add-pokemon`, {
         ...addPokemonData,
-        admin_code: ADMIN_CODE,
-      }, { headers: { 'x-admin-code': ADMIN_CODE } });
+        admin_code: adminCode,
+      }, { headers: { 'x-admin-code': adminCode } });
       if (res.data.success) {
         setMessage('Pokémon ajouté');
         fetchUserDetails(selectedUser.id);
@@ -151,7 +160,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     setLoading(true);
     try {
       const res = await api.delete(`/admin/user/${selectedUser.id}/pokemon/${pokemonId}`, {
-        headers: { 'x-admin-code': ADMIN_CODE },
+        headers: { 'x-admin-code': adminCode },
       });
       if (res.data.success) {
         setMessage('Pokémon supprimé');
@@ -169,7 +178,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     setLoading(true);
     try {
       const res = await api.delete(`/admin/user/${userId}`, {
-        headers: { 'x-admin-code': ADMIN_CODE },
+        headers: { 'x-admin-code': adminCode },
       });
       if (res.data.success) {
         setMessage('Compte supprimé');
@@ -190,13 +199,50 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
     try {
       const res = await api.put(`/admin/user/${userId}/reset-password`, {
         password: newPassword,
-        admin_code: ADMIN_CODE,
-      }, { headers: { 'x-admin-code': ADMIN_CODE } });
+        admin_code: adminCode,
+      }, { headers: { 'x-admin-code': adminCode } });
       if (res.data.success) setMessage('Mot de passe changé');
     } catch (e) {
       setMessage('Erreur');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchSettings = async () => {
+    setSettingsLoading(true);
+    try {
+      const res = await api.get('/admin/settings', { headers: { 'x-admin-code': adminCode } });
+      if (res.data.success) {
+        setSettingsData(res.data.data);
+      }
+    } catch (e) {
+      setMessage('Erreur chargement paramètres');
+    } finally {
+      setSettingsLoading(false);
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    if (!/^\d{4}$/.test(settingsData.admin_code) || !/^\d{4}$/.test(settingsData.parental_code)) {
+      setMessage('Les codes doivent être des codes à 4 chiffres');
+      return;
+    }
+    setSettingsLoading(true);
+    try {
+      const res = await api.put('/admin/settings', settingsData, { headers: { 'x-admin-code': adminCode } });
+      if (res.data.success) {
+        setMessage('Codes mis à jour ✓');
+        // If admin code changed, update our local copy
+        if (res.data.data.admin_code !== adminCode) {
+          setAdminCode(res.data.data.admin_code);
+        }
+        setSettingsData(res.data.data);
+      }
+    } catch (e) {
+      setMessage('Erreur sauvegarde');
+    } finally {
+      setSettingsLoading(false);
     }
   };
 
@@ -273,13 +319,85 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       {/* Header */}
       <div className="bg-gradient-to-r from-red-600 to-orange-600 p-4 flex items-center justify-between shrink-0">
         <h2 className="text-xl font-display font-bold text-white">👑 PANNEAU ADMIN</h2>
-        <button onClick={onClose} className="text-white hover:text-slate-200 text-2xl">✕</button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => { setShowSettings(!showSettings); if (!showSettings) fetchSettings(); setSelectedUser(null); }}
+            className={`px-3 py-1.5 rounded-lg font-bold text-xs transition ${showSettings ? 'bg-white text-red-600' : 'bg-white/20 text-white hover:bg-white/30'}`}
+          >
+            ⚙ CODES
+          </button>
+          <button onClick={onClose} className="text-white hover:text-slate-200 text-2xl">✕</button>
+        </div>
       </div>
 
       {message && (
         <div className="bg-yellow-600/20 text-yellow-400 text-sm p-2 text-center">{message}</div>
       )}
 
+      {showSettings ? (
+        <div className="flex-1 overflow-y-auto p-6 flex items-start justify-center">
+          <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-md w-full space-y-6">
+            <h3 className="text-xl font-display font-bold text-white text-center">⚙ GESTION DES CODES</h3>
+            <p className="text-slate-400 text-center text-sm">Modifiez les codes d'accès (4 chiffres)</p>
+
+            {settingsLoading ? (
+              <div className="text-center text-slate-400 py-8">Chargement...</div>
+            ) : (
+              <>
+                <div className="space-y-4">
+                  <div className="bg-slate-800 border border-slate-600 rounded-xl p-4">
+                    <label className="text-xs font-bold text-red-400 block mb-2">🔐 CODE ADMINISTRATEUR</label>
+                    <p className="text-[10px] text-slate-500 mb-2">Utilisé pour accéder à ce panneau admin</p>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={4}
+                      value={settingsData.admin_code}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                        setSettingsData({ ...settingsData, admin_code: val });
+                      }}
+                      className="w-full bg-slate-900 text-red-400 font-mono text-2xl text-center tracking-[0.5em] px-4 py-3 rounded-lg border border-slate-600 focus:border-red-500 focus:outline-none"
+                      placeholder="____"
+                    />
+                  </div>
+
+                  <div className="bg-slate-800 border border-slate-600 rounded-xl p-4">
+                    <label className="text-xs font-bold text-cyan-400 block mb-2">🔒 CODE PARENTAL</label>
+                    <p className="text-[10px] text-slate-500 mb-2">Utilisé pour accéder aux paramètres du compte</p>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      pattern="[0-9]*"
+                      maxLength={4}
+                      value={settingsData.parental_code}
+                      onChange={(e) => {
+                        const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                        setSettingsData({ ...settingsData, parental_code: val });
+                      }}
+                      className="w-full bg-slate-900 text-cyan-400 font-mono text-2xl text-center tracking-[0.5em] px-4 py-3 rounded-lg border border-slate-600 focus:border-cyan-500 focus:outline-none"
+                      placeholder="____"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  onClick={handleSaveSettings}
+                  disabled={settingsLoading || settingsData.admin_code.length !== 4 || settingsData.parental_code.length !== 4}
+                  className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-bold py-3 rounded-xl disabled:opacity-50 disabled:grayscale transition-all"
+                >
+                  💾 SAUVEGARDER LES CODES
+                </button>
+
+                <div className="text-[10px] text-slate-600 text-center">
+                  ⚠ Si vous changez le code admin, notez-le bien !
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : (
       <div className="flex flex-1 overflow-hidden">
         {/* Liste utilisateurs */}
         <div className="w-1/3 border-r border-slate-800 overflow-y-auto p-3 space-y-2">
@@ -462,6 +580,7 @@ export const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 };
