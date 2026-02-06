@@ -170,7 +170,8 @@ export const Wheel: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen px-4 py-6 pb-28 relative overflow-hidden">
+    <div className="wheel-container flex flex-col items-center justify-start min-h-screen px-4 py-6 pb-28 relative overflow-hidden">
+      <style>{`.wheel-container::-webkit-scrollbar{display:none;} .wheel-container{scrollbar-width:none;}`}</style>
       {/* Background glow */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-cyan-900/20 via-slate-950 to-slate-950 pointer-events-none" />
 

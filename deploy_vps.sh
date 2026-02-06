@@ -109,13 +109,7 @@ if [ "$TYRADEX_FORCE_SYNC" = "1" ]; then
     log_info "Force upload des assets Tyradex..."
     rsync -avz assets/tyradex/ ${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}/frontend/assets/tyradex/
 else
-    log_info "Vérification de la présence de Tyradex sur le VPS..."
-    if ssh ${VPS_USER}@${VPS_HOST} "[ ! -f ${REMOTE_DIR}/frontend/assets/tyradex/pokemon.json ]"; then
-        log_info "Tyradex absent sur le VPS — upload en cours..."
-        rsync -avz assets/tyradex/ ${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}/frontend/assets/tyradex/
-    else
-        log_info "Tyradex déjà présent sur le VPS — upload ignoré. Pour forcer : TYRADEX_FORCE_SYNC=1 bash deploy_vps.sh"
-    fi
+    log_info "Tyradex upload SKIPPED (not forced). To force upload set TYRADEX_FORCE_SYNC=1"
 fi
 
 # Sync du backend (Node.js)

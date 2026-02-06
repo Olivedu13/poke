@@ -23,6 +23,7 @@ collectionRouter.get('/', async (req: AuthRequest, res: Response) => {
         current_hp: p.currentHp,
         max_hp: p.maxHp,
         nickname: p.nickname,
+        is_team: p.isTeam || false,
       })),
     });
   } catch (error) {
@@ -44,8 +45,10 @@ collectionRouter.get('/team', async (req: AuthRequest, res: Response) => {
         name: p.name,
         sprite_url: p.spriteUrl,
         current_hp: p.currentHp,
+        max_mp: p.maxHp,
         max_hp: p.maxHp,
         nickname: p.nickname,
+        is_team: p.isTeam || false,
       })),
     });
   } catch (error) {

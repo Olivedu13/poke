@@ -9,6 +9,7 @@ export interface PokemonData {
   currentHp: number;
   maxHp: number;
   nickname: string | null;
+  isTeam?: boolean;
 }
 
 // Noms français des 151 premiers Pokémon (Génération 1)
@@ -81,6 +82,7 @@ export async function getUserTeam(userId: number): Promise<PokemonData[]> {
       currentHp: Math.min(p.currentHp, maxHp),
       maxHp,
       nickname: p.nickname,
+      isTeam: p.isTeam,
     };
   });
 }
@@ -105,6 +107,7 @@ export async function getUserCollection(userId: number): Promise<PokemonData[]> 
       currentHp: Math.min(p.currentHp, maxHp),
       maxHp,
       nickname: p.nickname,
+      isTeam: p.isTeam,
     };
   });
 }
