@@ -116,12 +116,13 @@ collectionRouter.post('/feed', async (req: AuthRequest, res: Response) => {
       where: { id: req.userId! },
       data: { globalXp: { decrement: xpAmount } },
     });
-    
     res.json({ 
       success: true, 
       message: result.leveledUp ? `Level up ! Niveau ${result.newLevel}` : 'XP ajoutée',
       leveledUp: result.leveledUp,
       newLevel: result.newLevel,
+      evolution: result.evolution,
+      sequence: result.sequence,
     });
   } catch (error) {
     console.error('Error feeding pokemon:', error);
