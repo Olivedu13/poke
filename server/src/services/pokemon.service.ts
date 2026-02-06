@@ -49,8 +49,10 @@ export function getPokemonName(tyradexId: number): string {
   return POKEMON_NAMES[tyradexId] || `Pokémon #${tyradexId}`;
 }
 
+import { TYRADEX_ASSETS_BASE } from '../config/assets.js';
+
 function getSpriteUrl(tyradexId: number): string {
-  return `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${tyradexId}.png`;
+  return `${TYRADEX_ASSETS_BASE}/images/${tyradexId}/regular.png`;
 }
 
 function calculateMaxHp(level: number, tyradexId: number): number {

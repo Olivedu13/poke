@@ -85,6 +85,7 @@ log_info "Upload du frontend..."
 rsync -avz --delete \
     --exclude 'node_modules' \
     --exclude '.git' \
+    --exclude 'assets/' \
     dist/ ${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}/frontend/
 
 # Sync des assets (images, sons, etc.) - sans --delete pour ne pas supprimer les fichiers build
