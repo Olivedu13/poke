@@ -6,6 +6,23 @@ import { playSfx } from '../utils/soundEngine';
 
 export const GRADES_ORDER: GradeLevel[] = ['CP', 'CE1', 'CE2', 'CM1', 'CM2', '6EME', '5EME', '4EME', '3EME'];
 
+// Normalize user object coming from backend to frontend `User` shape
+function normalizeUser(u: any): User {
+  return {
+    id: u.id,
+    username: u.username,
+    grade_level: (u.gradeLevel ?? u.grade_level) as GradeLevel,
+    active_subjects: u.activeSubjects ?? u.active_subjects ?? [],
+    focus_categories: u.focusCategories ?? u.focus_categories ?? {},
+    custom_prompt_active: u.customPromptActive ?? u.custom_prompt_active ?? false,
+    custom_prompt_text: u.customPromptText ?? u.custom_prompt_text ?? null,
+    gold: u.gold ?? 0,
+    tokens: u.tokens ?? 0,
+    streak: u.streak ?? 0,
+    global_xp: u.globalXp ?? u.global_xp ?? 0,
+  } as User;
+}
+
 const MOCK_INV: Item[] = [
     { id: 'heal_r1', name: 'Potion (R1)', description: '+20 PV', price: 50, effect_type: 'HEAL', value: 20, quantity: 0, rarity: 'COMMON' } as any
 ];
@@ -92,7 +109,9 @@ export const useGameStore = create<GameState>((set, get) => ({
   login: (user, token) => {
       playSfx('CLICK');
       localStorage.setItem('poke_edu_token', token);
-      set({ user, token, currentView: 'GAME' });
+      // Normalize server user shape (globalXp -> global_xp, gradeLevel -> grade_level, etc.)
+      const norm = normalizeUser(user as any);
+      set({ user: norm, token, currentView: 'GAME' });
   },
   
   logout: () => {
@@ -255,7 +274,7 @@ export const useGameStore = create<GameState>((set, get) => ({
     try {
       const res = await api.get('/auth/verify');
       if (res.data.success && res.data.user) {
-        set({ user: res.data.user });
+        set({ user: normalizeUser(res.data.user) });
       }
     } catch (e) {
       console.error('Erreur refresh user:', e);
