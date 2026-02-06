@@ -88,11 +88,11 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
     }, [pokemon.level]);
 
     return (
-        <div className="fixed inset-0 z-50 bg-black/80 sm:backdrop-blur-sm sm:flex sm:items-center sm:justify-center" onClick={onClose}>
-            <div className="h-full w-full sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:rounded-2xl bg-slate-900 sm:border sm:border-cyan-500/50 overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                {/* ── HEADER ── */}
-                <div className="shrink-0 flex items-center gap-3 px-3 py-3 sm:px-4 bg-slate-950 border-b border-slate-700 safe-area-top">
-                    <button onClick={onClose} className="shrink-0 bg-cyan-600 active:bg-cyan-500 text-white font-bold text-sm px-4 py-2.5 sm:px-5 sm:py-2.5 rounded-xl flex items-center gap-2 shadow-lg">
+        <div className="fixed inset-0 z-50 bg-slate-950 sm:bg-black/80 sm:backdrop-blur-sm sm:flex sm:items-center sm:justify-center" onClick={onClose}>
+            <div className="h-[100dvh] w-full sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:rounded-2xl bg-slate-900 sm:border sm:border-cyan-500/50 overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                {/* ── HEADER (sticky, never scrolls away) ── */}
+                <div className="shrink-0 flex items-center gap-3 px-3 pb-3 sm:px-4 sm:py-3 bg-slate-950 border-b border-slate-700" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
+                    <button onClick={onClose} className="shrink-0 bg-cyan-600 active:bg-cyan-500 text-white font-bold text-sm px-4 py-2.5 sm:px-5 sm:py-2.5 rounded-xl flex items-center gap-2 shadow-lg z-10">
                         ← RETOUR
                     </button>
                     <div className="flex-1 min-w-0 text-center">
@@ -340,7 +340,7 @@ export const Collection: React.FC = () => {
   const boxPokemon = correctedCollection.filter(p => !p.is_team);
 
     return (
-        <div className="w-full max-w-6xl mx-auto pb-20 px-1 sm:px-0">
+        <div className="w-full sm:max-w-6xl sm:mx-auto pb-20 px-2 sm:px-0">
             <AnimatePresence>{evolutionSeq && (<EvolutionOverlay sequence={evolutionSeq} onClose={() => setEvolutionSeq(null)} />)}</AnimatePresence>
             <AnimatePresence>{selectedPokemon && (<PokemonDetailModal pokemon={selectedPokemon} user={user} inventory={inventory} onClose={() => setSelectedPokemon(null)} onAction={handleAction} onToggleTeam={(id: string) => handleAction('toggle_team', id)} collectionSize={correctedCollection.length} />)}</AnimatePresence>
 
@@ -365,11 +365,9 @@ export const Collection: React.FC = () => {
 
             <div>
                 <h3 className="text-xl font-display font-bold text-slate-400 mb-4 flex items-center gap-2"><span className="w-2 h-8 bg-slate-700 rounded-full"></span> RÉSERVE ({boxPokemon.length})</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4" style={{flexWrap:'wrap'}}>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4">
                     {boxPokemon.map(poke => (
-                        <div style={{minWidth:0}} key={poke.id}>
-                            <PokemonCard pokemon={poke} onClick={() => setSelectedPokemon(poke)} onToggleTeam={(id) => handleAction('toggle_team', id)} teamCount={activeTeam.length} />
-                        </div>
+                        <PokemonCard key={poke.id} pokemon={poke} onClick={() => setSelectedPokemon(poke)} onToggleTeam={(id) => handleAction('toggle_team', id)} teamCount={activeTeam.length} />
                     ))}
                     <div className="border-2 border-dashed border-slate-800 bg-slate-900/20 rounded-2xl flex flex-col items-center justify-center p-4 text-slate-600 hover:border-cyan-500/30 hover:text-cyan-500 cursor-pointer transition-colors min-h-[120px] sm:min-h-[180px]">
                         <span className="text-4xl font-light mb-2">+</span>

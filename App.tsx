@@ -283,7 +283,7 @@ const App: React.FC = () => {
         )}
         
         {currentView === 'COLLECTION' && (
-          <div className="p-2 max-w-4xl lg:max-w-6xl mx-auto flex-1 overflow-y-auto">
+          <div className="px-0 sm:px-2 sm:max-w-4xl lg:max-w-6xl sm:mx-auto flex-1 overflow-y-auto">
             <Collection />
           </div>
         )}
