@@ -92,15 +92,11 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
         <div className="fixed inset-0 z-50 bg-slate-950 sm:bg-black/80 sm:backdrop-blur-sm sm:flex sm:items-center sm:justify-center" onClick={onClose}>
             <div className="absolute inset-0 sm:relative sm:inset-auto sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:rounded-2xl bg-slate-900 sm:border sm:border-cyan-500/50 flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
                 {/* ── HEADER (sticky, never scrolls away) ── */}
-                <div className="shrink-0 flex items-center gap-3 px-3 pb-3 sm:px-4 sm:py-3 bg-slate-950 border-b border-slate-700" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
-                    <button onClick={onClose} className="shrink-0 bg-cyan-600 active:bg-cyan-500 text-white font-bold text-sm px-4 py-2.5 sm:px-5 sm:py-2.5 rounded-xl flex items-center gap-2 shadow-lg z-10">
-                        ← RETOUR
-                    </button>
-                    <div className="flex-1 min-w-0 text-center">
+                <div className="shrink-0 flex items-center justify-center px-3 pb-3 sm:px-4 sm:py-3 bg-slate-950 border-b border-slate-700" style={{ paddingTop: 'max(0.75rem, env(safe-area-inset-top))' }}>
+                    <div className="text-center">
                         <h2 className="text-base sm:text-xl font-display font-bold text-white uppercase truncate">{pokemon.name}</h2>
                         <div className="text-[10px] sm:text-xs font-mono text-cyan-400">NIV {pokemon.level} | #{pokemon.tyradex_id}</div>
                     </div>
-                    <div className="w-16 sm:w-20 shrink-0"></div>
                 </div>
                 {/* Animation/message de gain de niveau */}
                                 <AnimatePresence>
@@ -199,6 +195,9 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
                     ) : (
                         <div className="text-center text-slate-500 text-xs py-2">Tous tes Pokémon sont automatiquement dans l'équipe</div>
                     )}
+                    <button onClick={onClose} className="w-full mt-2 bg-cyan-600 active:bg-cyan-500 text-white font-bold text-sm py-3 rounded-xl flex items-center justify-center gap-2 shadow-lg">
+                        ← RETOUR
+                    </button>
                 </div>
             </div>
         </div>
