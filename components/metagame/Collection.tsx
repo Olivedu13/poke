@@ -199,7 +199,6 @@ export const Collection: React.FC = () => {
 
   const handleAction = async (action: string, pokeId: string, itemId?: string) => {
       setLoading(true);
-      
       try {
           // Router vers le bon endpoint selon l'action
           let res;
@@ -216,12 +215,15 @@ export const Collection: React.FC = () => {
           if (res.data.success) {
               await fetchCollection();
               await fetchInventory();
+              // Rafraîchir l'utilisateur pour mettre à jour l'XP globale
+              if (action === 'feed' || (res.data.evolution && res.data.sequence)) {
+                  if (useGameStore.getState().fetchUser) await useGameStore.getState().fetchUser();
+              }
               if (res.data.evolution && res.data.sequence) {
                   setSelectedPokemon(null); setEvolutionSeq(res.data.sequence); 
               } else if (action !== 'toggle_team') {
                   if (itemId && (itemId.includes('heal') || itemId.includes('potion'))) playSfx('POTION');
                   else playSfx('CLICK');
-                  
                   const updatedCollection = useGameStore.getState().collection;
                   let updatedP = updatedCollection.find(p => p.id === pokeId);
                   if (updatedP && updatedP.name && updatedP.name.includes('Pokemon #') && nameMap[updatedP.tyradex_id]) {
@@ -231,7 +233,6 @@ export const Collection: React.FC = () => {
               } else {
                   playSfx('CLICK');
               }
-              if(action === 'feed') useGameStore.setState(s => ({ user: s.user ? { ...s.user, global_xp: s.user.global_xp - 100 } : null }));
           } else {
               // Revert optimistic update on failure
               if (action === 'toggle_team') await fetchCollection();

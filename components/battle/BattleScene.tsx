@@ -47,7 +47,7 @@ const PokemonCard = ({ pokemon, isEnemy = false, isActive = true }: { pokemon: P
       <img 
         src={pokemon.sprite_url} 
         alt={pokemon.name} 
-        className={`w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48 object-contain ${pokemon.current_hp <= 0 ? 'grayscale opacity-30' : ''}`}
+        className={`object-contain ${isEnemy ? 'w-32 h-32 sm:w-40 sm:h-40 lg:w-48 lg:h-48' : 'w-40 h-40 sm:w-56 sm:h-56 lg:w-64 lg:h-64'} ${pokemon.current_hp <= 0 ? 'grayscale opacity-30' : ''}`}
       />
       <div className="w-full mt-2">
         <HpBar current={pokemon.current_hp} max={pokemon.max_hp} isEnemy={isEnemy} />
@@ -262,7 +262,7 @@ const ActionButton = ({ onClick, disabled, label, color, icon }: any) => {
       disabled={disabled}
       className={`flex-1 py-3 rounded-xl border-t-2 border-b-4 bg-gradient-to-b ${colors[color]} shadow-lg active:border-b-2 active:translate-y-0.5 transition-all disabled:opacity-40 disabled:grayscale flex flex-col items-center justify-center gap-0.5`}
     >
-      {icon && <span className="text-lg">{icon}</span>}
+      {icon && <span className="text-4xl md:text-5xl">{icon}</span>}
       <span className="text-[10px] font-display font-bold text-white uppercase">{label}</span>
     </button>
   );

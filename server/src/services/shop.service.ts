@@ -69,22 +69,30 @@ export function getShopPokemons(): ShopPokemon[] {
 // Génère des Pokémon pour un utilisateur (avec count owned)
 export async function getShopPokemonsForUser(userId: number): Promise<ShopPokemon[]> {
   const pokemons = getShopPokemons();
-  
+
   // Récupérer les Pokémon que l'utilisateur possède déjà
   const userPokemons = await prisma.userPokemon.findMany({
     where: { userId },
-    select: { tyradexId: true },
+    select: { tyradexId: true, nickname: true },
   });
-  
+
   const ownedMap = new Map<number, number>();
   userPokemons.forEach(p => {
     ownedMap.set(p.tyradexId, (ownedMap.get(p.tyradexId) || 0) + 1);
   });
-  
-  return pokemons.map(p => ({
-    ...p,
-    ownedCount: ownedMap.get(p.pokedexId) || 0,
-  }));
+
+  // Enrichir le mapping pour garantir nom FR, sprite, rareté, stats corrects
+  return pokemons.map(p => {
+    const ownedCount = ownedMap.get(p.pokedexId) || 0;
+    return {
+      ...p,
+      name: { fr: p.name.fr },
+      sprites: { regular: p.sprites.regular },
+      rarityLabel: p.rarityLabel,
+      stats: p.stats,
+      ownedCount,
+    };
+  });
 }
 
 // Acheter un Pokémon

@@ -186,18 +186,36 @@ export async function useItem(
     // Get evolution chain from Tyradex
     try {
       const response = await fetch(`https://tyradex.app/api/v1/pokemon/${pokemon.tyradexId}`);
-      const pokeData = await response.json() as { evolution?: { next?: Array<{ pokedexId: number }> } };
-      
+      const pokeData = await response.json() as { evolution?: { next?: Array<{ pokedex_id: number }> }, level_100?: number };
       if (!pokeData.evolution?.next || pokeData.evolution.next.length === 0) {
         return { success: false, message: 'Ce Pokémon ne peut pas évoluer' };
       }
 
-      const nextEvo = pokeData.evolution.next[0];
-      const newTyradexId = nextEvo.pokedexId;
-      const sequence = [pokemon.tyradexId, newTyradexId];
+      let newTyradexId: number;
+      let sequence: number[];
+      let newLevel = pokemon.level;
+
+      if (item.effectType === 'EVOLUTION_MAX') {
+        // Prendre la dernière évolution
+        const lastEvo = pokeData.evolution.next[pokeData.evolution.next.length - 1];
+        newTyradexId = lastEvo.pokedex_id;
+        sequence = [pokemon.tyradexId, ...pokeData.evolution.next.map(e => e.pokedex_id)];
+        newLevel = 100;
+        // Mettre l'XP au max (valeur Tyradex ou 1250000 par défaut)
+        const maxXp = pokeData.level_100 || 1250000;
+        await prisma.userPokemon.update({
+          where: { id: pokemonId },
+          data: { currentXp: maxXp },
+        });
+      } else {
+        // Prendre la première évolution
+        const nextEvo = pokeData.evolution.next[0];
+        newTyradexId = nextEvo.pokedex_id;
+        sequence = [pokemon.tyradexId, newTyradexId];
+      }
 
       // Recalculate HP for new evolution
-      const newMaxHp = 30 + (newTyradexId % 30) + pokemon.level * 5;
+      const newMaxHp = 30 + (newTyradexId % 30) + newLevel * 5;
       const oldMaxHp = 30 + (pokemon.tyradexId % 30) + pokemon.level * 5;
       const hpRatio = pokemon.currentHp / oldMaxHp;
       const newHp = Math.floor(newMaxHp * hpRatio);
@@ -209,13 +227,13 @@ export async function useItem(
         }),
         prisma.userPokemon.update({
           where: { id: pokemonId },
-          data: { tyradexId: newTyradexId, currentHp: newHp },
+          data: { tyradexId: newTyradexId, currentHp: newHp, level: newLevel },
         }),
       ]);
 
-      return { 
-        success: true, 
-        effect, 
+      return {
+        success: true,
+        effect,
         message: `${item.name} utilisé! Évolution réussie!`,
         evolution: true,
         sequence,

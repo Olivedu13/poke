@@ -120,27 +120,52 @@ export async function updatePokemonHp(pokemonId: string, newHp: number): Promise
 /**
  * Ajoute de l'XP à un Pokémon et gère le level up
  */
-export async function addPokemonXp(pokemonId: string, xpAmount: number): Promise<{ leveledUp: boolean; newLevel: number }> {
+export async function addPokemonXp(pokemonId: string, xpAmount: number): Promise<{ leveledUp: boolean; newLevel: number; evolution?: boolean; sequence?: number[] }> {
   const pokemon = await prisma.userPokemon.findUnique({ where: { id: pokemonId } });
   if (!pokemon) return { leveledUp: false, newLevel: 0 };
 
-  const xpForNextLevel = pokemon.level * 100;
   let newXp = pokemon.currentXp + xpAmount;
   let newLevel = pokemon.level;
   let leveledUp = false;
+  let tyradexId = pokemon.tyradexId;
+  let sequence: number[] = [tyradexId];
+  let evolutionHappened = false;
 
-  while (newXp >= xpForNextLevel && newLevel < 100) {
+  while (newLevel < 100) {
+    const xpForNextLevel = newLevel * 100;
+    if (newXp < xpForNextLevel) break;
     newXp -= xpForNextLevel;
     newLevel++;
     leveledUp = true;
+
+    // Vérifier l'évolution à ce niveau
+    const { getEvolutionChain } = await import('./evolution.service.js');
+    const evoChain = await getEvolutionChain(tyradexId);
+    if (evoChain && evoChain.next && evoChain.next.length > 0) {
+      // Cherche une évolution qui correspond à la condition de niveau
+      const nextEvo = evoChain.next.find(e => {
+        if (!e.condition) return false;
+        const match = e.condition.match(/Niveau (\d+)/);
+        if (match) {
+          const evoLevel = parseInt(match[1], 10);
+          return newLevel >= evoLevel;
+        }
+        return false;
+      });
+      if (nextEvo) {
+        tyradexId = nextEvo.pokedex_id;
+        sequence.push(tyradexId);
+        evolutionHappened = true;
+      }
+    }
   }
 
   await prisma.userPokemon.update({
     where: { id: pokemonId },
-    data: { currentXp: newXp, level: newLevel },
+    data: { currentXp: newXp, level: newLevel, tyradexId },
   });
 
-  return { leveledUp, newLevel };
+  return { leveledUp, newLevel, evolution: evolutionHappened, sequence: evolutionHappened ? sequence : undefined };
 }
 
 /**
