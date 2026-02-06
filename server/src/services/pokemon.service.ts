@@ -93,11 +93,12 @@ export async function getUserTeam(userId: number): Promise<PokemonData[]> {
 
   return pokemons.map((p) => {
     const maxHp = calculateMaxHp(p.level, p.tyradexId);
+    const correctName = getPokemonName(p.tyradexId);
     return {
       id: p.id,
       tyradexId: p.tyradexId,
       level: p.level,
-      name: p.nickname || getPokemonName(p.tyradexId),
+      name: correctName,
       spriteUrl: getSpriteUrl(p.tyradexId),
       currentHp: Math.min(p.currentHp, maxHp),
       maxHp,
@@ -121,11 +122,12 @@ export async function getUserCollection(userId: number): Promise<PokemonData[]> 
 
   return pokemons.map((p) => {
     const maxHp = calculateMaxHp(p.level, p.tyradexId);
+    const correctName = getPokemonName(p.tyradexId);
     return {
       id: p.id,
       tyradexId: p.tyradexId,
       level: p.level,
-      name: p.nickname || getPokemonName(p.tyradexId),
+      name: correctName,
       spriteUrl: getSpriteUrl(p.tyradexId),
       currentHp: Math.min(p.currentHp, maxHp),
       maxHp,

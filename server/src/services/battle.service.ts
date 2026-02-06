@@ -67,8 +67,7 @@ export async function startBattle(
   const level = wildPokemonLevel || Math.max(1, userPokemon.level - 2 + Math.floor(Math.random() * 5));
   const wildPokemonId = Math.floor(Math.random() * 151) + 1; // Pokémon 1-151
   
-  const wildNames = ['Pikachu', 'Salamèche', 'Bulbizarre', 'Carapuce', 'Roucool', 'Rattata', 'Chenipan', 'Papilusion'];
-  const wildName = wildNames[Math.floor(Math.random() * wildNames.length)];
+  const wildName = PokemonService.getPokemonName(wildPokemonId);
 
   const baseHp = 30 + level * 5;
   const baseAtk = 10 + level * 2;
