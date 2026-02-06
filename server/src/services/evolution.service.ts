@@ -10,8 +10,8 @@ async function loadTyradexJson(): Promise<any[]> {
   try {
     const res = await fetch(`${TYRADEX_ASSETS_BASE}/pokemon.json`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const json = await res.json();
-    cachedTyradex = Array.isArray(json) ? json : (json.pokemon || []);
+    const json: any = await res.json();
+    cachedTyradex = Array.isArray(json) ? json : (json?.pokemon || []);
     cacheAt = now;
     return cachedTyradex;
   } catch (e) {
