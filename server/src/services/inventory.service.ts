@@ -122,8 +122,8 @@ export async function useItem(
     const newHp = Math.min(maxHp, pokemon.currentHp + healAmount);
     
     await prisma.$transaction([
-      prisma.inventory.update({
-        where: { userId_itemId: { userId, itemId } },
+      prisma.inventory.updateMany({
+        where: { userId, itemId },
         data: { quantity: { decrement: 1 } },
       }),
       prisma.userPokemon.update({
@@ -160,8 +160,8 @@ export async function useItem(
     });
 
     await prisma.$transaction([
-      prisma.inventory.update({
-        where: { userId_itemId: { userId, itemId } },
+      prisma.inventory.updateMany({
+        where: { userId, itemId },
         data: { quantity: { decrement: 1 } },
       }),
       ...updates,
@@ -218,8 +218,8 @@ export async function useItem(
       const newHp = Math.floor(newMaxHp * hpRatio);
 
       await prisma.$transaction([
-        prisma.inventory.update({
-          where: { userId_itemId: { userId, itemId } },
+        prisma.inventory.updateMany({
+          where: { userId, itemId },
           data: { quantity: { decrement: 1 } },
         }),
         prisma.userPokemon.update({
@@ -242,8 +242,8 @@ export async function useItem(
   }
 
   // Default: just decrement item (for battle-only items like buffs)
-  await prisma.inventory.update({
-    where: { userId_itemId: { userId, itemId } },
+  await prisma.inventory.updateMany({
+    where: { userId, itemId },
     data: { quantity: { decrement: 1 } },
   });
 

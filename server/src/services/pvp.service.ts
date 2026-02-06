@@ -75,7 +75,7 @@ export async function goOnline(userId: number): Promise<void> {
  * Marque un utilisateur comme hors ligne
  */
 export async function goOffline(userId: number): Promise<void> {
-  await prisma.onlinePlayer.delete({ where: { userId } }).catch(() => {});
+  await prisma.onlinePlayer.deleteMany({ where: { userId } }).catch(() => {});
 }
 
 /**
