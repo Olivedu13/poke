@@ -8,6 +8,7 @@ import confetti from 'canvas-confetti';
 import { Pokemon, Item } from '../../types';
 import { playSfx } from '../../utils/soundEngine';
 import { getPokemonNameFr } from '../../utils/pokemonNames';
+import { ASSETS_BASE_URL } from '../../config';
 
 export const useBattleLogic = () => {
     const { 
@@ -61,13 +62,15 @@ export const useBattleLogic = () => {
 
     // --- DATA FETCHING (TYRADEX) ---
     const fetchTyradexData = async (id: number, level: number = 5): Promise<Pokemon> => {
-        const spriteUrl = `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${id}.png`;
+        const spriteUrl = `${ASSETS_BASE_URL}/tyradex/images/${id}/regular.png`;
         const streak = user?.streak || 0;
         const isBoss = (streak + 1) % 3 === 0;
 
         try {
-            const response = await axios.get(`https://tyradex.app/api/v1/pokemon/${id}`, { timeout: 5000 });
-            const data = response.data;
+            // Try to read local cached Tyradex JSON
+            const response = await axios.get(`${ASSETS_BASE_URL}/tyradex/pokemon.json`, { timeout: 5000 });
+            const list = response.data;
+            const data = Array.isArray(list) ? list.find((p: any) => Number(p.pokedex_id) === Number(id) || Number(p.id) === Number(id)) : null;
             const scale = (base: number) => Math.floor(base * (1 + level / 50));
             const hpMult = isBoss ? 2.0 : 0.7;
             const hp = Math.floor(scale(data.stats.hp) * hpMult);
@@ -84,7 +87,7 @@ export const useBattleLogic = () => {
             };
         } catch (e) {
              const hpMult = isBoss ? 2.0 : 0.7;
-             return { 
+             return {
                 id: `wild-fb-${id}`, name: getPokemonNameFr(id), sprite_url: spriteUrl, level: level, max_hp: Math.floor(70 * hpMult), current_hp: Math.floor(70 * hpMult), type: 'Normal',
                 stats: { atk: 50, def: 50, spe: 50 }, current_xp: 0, tyradex_id: id, next_level_xp: 100, isBoss: isBoss
             };

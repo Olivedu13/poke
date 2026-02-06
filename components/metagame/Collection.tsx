@@ -168,10 +168,11 @@ export const Collection: React.FC = () => {
     fetchInventory(); 
     const fetchNames = async () => {
         try {
-            const res = await axios.get('https://tyradex.app/api/v1/pokemon');
-            if(Array.isArray(res.data)) {
+            const res = await axios.get(`${ASSETS_BASE_URL}/tyradex/pokemon.json`);
+            const list = res.data;
+            if (Array.isArray(list)) {
                 const map: Record<number, string> = {};
-                res.data.forEach((p: any) => { map[p.pokedexId] = p.name.fr; });
+                list.forEach((p: any) => { map[p.pokedex_id || p.pokedexId] = p.name?.fr; });
                 setNameMap(map);
             }
         } catch (e) {}
