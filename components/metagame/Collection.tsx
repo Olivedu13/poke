@@ -258,11 +258,7 @@ export const Collection: React.FC = () => {
                     <h1 className="text-2xl font-display font-bold text-white">MA COLLECTION</h1>
                 </div>
                 <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1 bg-slate-800 px-3 py-1 rounded-full text-cyan-300 font-mono text-sm">
-                        <img src="/assets/xp.webp" className="w-5 h-5 mr-1" />
-                        {user?.global_xp ?? 0} XP
-                    </div>
-                    <button onClick={() => { useGameStore.getState().logout(); }} className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-full font-bold text-xs ml-2">Déconnexion</button>
+                    {/* XP and logout moved to global header */}
                 </div>
             </div>
       <AnimatePresence>{evolutionSeq && (<EvolutionOverlay sequence={evolutionSeq} onClose={() => setEvolutionSeq(null)} />)}</AnimatePresence>

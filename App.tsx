@@ -207,6 +207,13 @@ const App: React.FC = () => {
               <img src={`${ASSETS_BASE_URL}/jetons.webp`} alt="Jetons" className="w-4 h-4" />
               <span className="text-xs text-cyan-400 font-mono font-bold">{user.tokens}</span>
             </div>
+            {/* XP */}
+            <div className="flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded-full border border-slate-700/50">
+              <img src={`${ASSETS_BASE_URL}/xp.webp`} alt="XP" className="w-4 h-4" />
+              <span className="text-xs text-cyan-400 font-mono font-bold">{user.global_xp}</span>
+            </div>
+            {/* Déconnexion */}
+            <button onClick={handleLogout} className="ml-2 bg-red-700 hover:bg-red-800 text-white px-3 py-1 rounded-full text-xs">Déconnexion</button>
             {/* Admin button - long press */}
             <button
               onClick={() => setShowAdmin(true)}
