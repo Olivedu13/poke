@@ -208,6 +208,7 @@ export const Collection: React.FC = () => {
 
   const handleAction = async (action: string, pokeId: string, itemId?: string) => {
       setLoading(true);
+      console.log('[Collection] handleAction', action, pokeId, itemId);
       try {
           // Router vers le bon endpoint selon l'action
           let res;
@@ -221,7 +222,7 @@ export const Collection: React.FC = () => {
               res = { data: { success: false, message: 'Action inconnue' } };
           }
 
-          if (res.data.success) {
+          if (res.data && res.data.success) {
               await fetchCollection();
               await fetchInventory();
               // Rafraîchir l'utilisateur pour mettre à jour l'XP globale
@@ -245,12 +246,16 @@ export const Collection: React.FC = () => {
           } else {
               // Revert optimistic update on failure
               if (action === 'toggle_team') await fetchCollection();
-              alert(res.data.message);
+              const msg = res.data?.message || 'Action échouée';
+              console.warn('[Collection] action failed:', msg, res.data);
+              alert(msg);
           }
       } catch (e) { 
-          console.error(e); 
+          console.error('[Collection] action error:', e);
           // Revert optimistic update on error
           if (action === 'toggle_team') await fetchCollection();
+          const msg = e?.response?.data?.message || e?.message || 'Erreur de communication';
+          alert(msg);
       } finally { setLoading(false); }
   };
 
