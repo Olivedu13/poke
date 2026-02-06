@@ -128,15 +128,35 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
     );
 };
 
+// Swap overlay shown when trying to add a pokemon while team is full
+const SwapOverlay = ({ toAddId, activeTeam, onClose, onSwap }: { toAddId: string | null, activeTeam: any[], onClose: () => void, onSwap: (outId: string) => void }) => {
+    if (!toAddId) return null;
+    return (
+        <div className="fixed inset-0 z-[120] bg-black/70 flex items-center justify-center">
+            <div className="bg-slate-900 rounded-xl border border-slate-700 p-6 w-full max-w-lg">
+                <h3 className="text-lg font-display font-bold text-white mb-4">Équipe pleine — choisir un Pokémon à remplacer</h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    {activeTeam.map(p => (
+                        <div key={p.id} className="bg-slate-800 p-3 rounded-lg flex flex-col items-center">
+                            <img src={p.sprite_url} className="w-20 h-20 object-contain mb-2" />
+                            <div className="text-white font-bold text-sm">{p.name}</div>
+                            <button onClick={() => onSwap(p.id)} className="mt-2 px-3 py-2 bg-red-700 text-white rounded">Remplacer</button>
+                        </div>
+                    ))}
+                </div>
+                <div className="text-right"><button onClick={onClose} className="px-4 py-2 bg-slate-700 text-white rounded">Annuler</button></div>
+            </div>
+        </div>
+    );
+};
+
 const PokemonCard: React.FC<{ pokemon: Pokemon, onClick: () => void, onToggleTeam?: (id: string) => void, teamCount?: number }> = ({ pokemon, onClick, onToggleTeam, teamCount = 0 }) => {
     const canAddToTeam = !pokemon.is_team && teamCount < 3;
     const canRemove = pokemon.is_team;
     
     const handleToggle = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (onToggleTeam && (canAddToTeam || canRemove)) {
-            onToggleTeam(pokemon.id);
-        }
+        if (onToggleTeam) onToggleTeam(pokemon.id);
     };
     
     return (
@@ -148,13 +168,12 @@ const PokemonCard: React.FC<{ pokemon: Pokemon, onClick: () => void, onToggleTea
             {onToggleTeam && (
                 <button 
                     onClick={handleToggle}
-                    disabled={!canAddToTeam && !canRemove}
                     className={`w-full mt-3 py-2 rounded-lg font-bold text-xs transition-all ${
                         pokemon.is_team 
                             ? 'bg-red-900/50 border border-red-500/50 text-red-400 hover:bg-red-900/70' 
                             : canAddToTeam 
                                 ? 'bg-green-900/50 border border-green-500/50 text-green-400 hover:bg-green-900/70'
-                                : 'bg-slate-800 border border-slate-700 text-slate-500 cursor-not-allowed'
+                                : 'bg-slate-800 border border-slate-700 text-slate-500'
                     }`}
                 >
                     {pokemon.is_team ? '− RETIRER' : canAddToTeam ? '+ ÉQUIPE' : 'ÉQUIPE PLEINE'}
@@ -170,6 +189,7 @@ export const Collection: React.FC = () => {
   const [evolutionSeq, setEvolutionSeq] = useState<number[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [nameMap, setNameMap] = useState<Record<number, string>>({});
+    const [swapTarget, setSwapTarget] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCollection();
@@ -207,17 +227,32 @@ export const Collection: React.FC = () => {
   }));
 
   const handleAction = async (action: string, pokeId: string, itemId?: string) => {
+      const rawPokeId = pokeId;
+      const rawItemId = itemId;
+      const pokeIdTrimmed = typeof pokeId === 'string' ? pokeId.trim() : pokeId;
+      const itemIdTrimmed = typeof itemId === 'string' ? itemId.trim() : itemId;
+      console.log('[Collection] handleAction', action, rawPokeId, rawItemId, '->', pokeIdTrimmed, itemIdTrimmed);
+
+      // Special-case: when trying to add to team but team is full, open swap overlay
+      if (action === 'toggle_team') {
+          const targetPoke = correctedCollection.find(p => p.id === pokeIdTrimmed || p.id === pokeId);
+          const activeTeamLocal = correctedCollection.filter(p => p.is_team);
+          if (targetPoke && !targetPoke.is_team && activeTeamLocal.length >= 3) {
+              setSwapTarget(pokeIdTrimmed);
+              return;
+          }
+      }
+
       setLoading(true);
-      console.log('[Collection] handleAction', action, pokeId, itemId);
       try {
           // Router vers le bon endpoint selon l'action
           let res;
           if (action === 'feed') {
-              res = await api.post(`/collection/feed`, { pokemonId: pokeId, xpAmount: 100 });
+              res = await api.post(`/collection/feed`, { pokemonId: pokeIdTrimmed, xpAmount: 100 });
           } else if (action === 'toggle_team') {
-              res = await api.post(`/collection/toggle-team`, { pokemonId: pokeId });
+              res = await api.post(`/collection/toggle-team`, { pokemonId: pokeIdTrimmed });
           } else if (action === 'use_item') {
-              res = await api.post(`/shop/use-item`, { itemId: itemId, pokemonId: pokeId });
+              res = await api.post(`/shop/use-item`, { itemId: itemIdTrimmed, pokemonId: pokeIdTrimmed });
           } else {
               res = { data: { success: false, message: 'Action inconnue' } };
           }
@@ -235,7 +270,7 @@ export const Collection: React.FC = () => {
                   if (itemId && (itemId.includes('heal') || itemId.includes('potion'))) playSfx('POTION');
                   else playSfx('CLICK');
                   const updatedCollection = useGameStore.getState().collection;
-                  let updatedP = updatedCollection.find(p => p.id === pokeId);
+                  let updatedP = updatedCollection.find(p => p.id === pokeIdTrimmed || p.id === pokeId);
                   if (updatedP && updatedP.name && updatedP.name.includes('Pokemon #') && nameMap[updatedP.tyradex_id]) {
                       updatedP = { ...updatedP, name: nameMap[updatedP.tyradex_id] };
                   }
@@ -259,14 +294,33 @@ export const Collection: React.FC = () => {
       } finally { setLoading(false); }
   };
 
+  const performSwap = async (outId: string) => {
+      if (!swapTarget) return;
+      setLoading(true);
+      try {
+          const success = await useGameStore.getState().swapTeamMember(outId, swapTarget);
+          if (success) {
+              setSwapTarget(null);
+              await fetchCollection();
+              await fetchInventory();
+              playSfx('CLICK');
+          } else {
+              alert('Échec de l\'échange');
+          }
+      } catch (e) {
+          console.error('Swap error', e); alert('Erreur pendant l\'échange');
+      } finally { setLoading(false); }
+  };
+
   const activeTeam = correctedCollection.filter(p => p.is_team);
   const boxPokemon = correctedCollection.filter(p => !p.is_team);
 
   return (
     <div className="w-full max-w-6xl mx-auto pb-20">
             {/* removed top XP bar per UX request */}
-      <AnimatePresence>{evolutionSeq && (<EvolutionOverlay sequence={evolutionSeq} onClose={() => setEvolutionSeq(null)} />)}</AnimatePresence>
-      <AnimatePresence>{selectedPokemon && (<PokemonDetailModal pokemon={selectedPokemon} user={user} inventory={inventory} onClose={() => setSelectedPokemon(null)} onAction={handleAction} onToggleTeam={(id: string) => handleAction('toggle_team', id)} collectionSize={correctedCollection.length} />)}</AnimatePresence>
+    <AnimatePresence>{evolutionSeq && (<EvolutionOverlay sequence={evolutionSeq} onClose={() => setEvolutionSeq(null)} />)}</AnimatePresence>
+    <AnimatePresence>{selectedPokemon && (<PokemonDetailModal pokemon={selectedPokemon} user={user} inventory={inventory} onClose={() => setSelectedPokemon(null)} onAction={handleAction} onToggleTeam={(id: string) => handleAction('toggle_team', id)} collectionSize={correctedCollection.length} />)}</AnimatePresence>
+    {swapTarget && (<SwapOverlay toAddId={swapTarget} activeTeam={activeTeam} onClose={() => setSwapTarget(null)} onSwap={(outId: string) => performSwap(outId)} />)}
 
       <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-slate-900/80 p-6 rounded-2xl border border-slate-700 shadow-xl backdrop-blur-sm">
         <div className="flex items-center gap-4">

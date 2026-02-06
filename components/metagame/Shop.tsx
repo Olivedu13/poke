@@ -182,7 +182,7 @@ export const Shop: React.FC = () => {
                                 />
                             </div>
                             <div className="mb-3 md:mb-4 text-center">
-                                <h3 className="font-bold text-sm md:text-lg text-white font-display uppercase truncate">{item.name}</h3>
+                                <h3 className="font-bold text-sm md:text-lg text-white font-display break-words leading-tight">{item.name}</h3>
                                 <p className="text-[10px] md:text-xs text-slate-400 h-6 md:h-8 leading-tight mt-1 line-clamp-2">{item.description}</p>
                             </div>
                             <div className="space-y-1.5 md:space-y-2">

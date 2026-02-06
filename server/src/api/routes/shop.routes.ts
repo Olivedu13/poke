@@ -1,7 +1,9 @@
 import { Router, type IRouter, type Response } from 'express';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.middleware.js';
 import * as inventoryService from '../../services/inventory.service.js';
+import { displayNameForItem, categoryForItem } from '../../services/itemDisplay.service.js';
 import { getShopPokemons, getShopPokemonsForUser, buyPokemon, sellPokemon } from '../../services/shop.service.js';
+import { prisma } from '../../config/database.js';
 
 export const shopRouter: IRouter = Router();
 
@@ -52,21 +54,33 @@ shopRouter.post('/sell-pokemon', authMiddleware, async (req: AuthRequest, res: R
   }
 });
 
-// GET /api/shop/items - Liste des items en vente
-shopRouter.get('/items', async (req, res) => {
+// GET /api/shop/items - Liste des items en vente (requires auth to show stock)
+shopRouter.get('/items', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const items = await inventoryService.getShopItems();
+    // compute user's stock for each item
+    const userId = req.userId as number | undefined;
+    let stockMap: Record<string, number> = {};
+    if (userId) {
+      const inv = await prisma.inventory.findMany({ where: { userId, quantity: { gt: 0 } } });
+      inv.forEach(i => { stockMap[i.itemId] = i.quantity; });
+    }
+
+    const displayName = (item: any) => displayNameForItem(item);
+
     res.json({ 
       success: true, 
       data: items.map(item => ({
         id: item.id,
-        name: item.name,
+        name: displayName(item),
         description: item.description,
         price: item.price,
         effect_type: item.effectType,
         value: item.value,
         rarity: item.rarity,
         image: item.image,
+        stock: stockMap[item.id] || 0,
+        category: categoryForItem(item),
       })),
     });
   } catch (error) {
@@ -192,6 +206,8 @@ shopRouter.post('/use-item', authMiddleware, async (req: AuthRequest, res: Respo
       success: result.success,
       effect: result.effect,
       message: result.message,
+      evolution: result.evolution || false,
+      sequence: result.sequence || undefined,
     });
   } catch (error) {
     console.error('Error using item:', error);
