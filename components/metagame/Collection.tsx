@@ -62,10 +62,10 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
     return (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200" onClick={onClose}>
             <div className="bg-slate-900 border border-cyan-500/50 rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[95vh] overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <div className="pt-4 pb-3 px-4 border-b border-slate-700 bg-slate-950 flex justify-between items-center">
-                    <button onClick={onClose} className="text-slate-400 hover:text-white px-3 py-2 bg-slate-800 hover:bg-slate-700 rounded flex items-center gap-2 transition-colors">← RETOUR</button>
-                    <div className="text-center flex-1"><h2 className="text-xl font-display font-bold text-white uppercase">{pokemon.name}</h2><div className="flex justify-center gap-2 text-xs font-mono mt-1"><span className="text-cyan-400">NIV {pokemon.level}</span><span className="text-slate-500">|</span><span className="text-slate-400">ID #{pokemon.tyradex_id}</span></div></div>
-                    <div className="w-20"></div>
+                <div className="pt-4 pb-3 px-3 sm:px-4 border-b border-slate-700 bg-slate-950 flex justify-between items-center gap-2">
+                    <button onClick={onClose} className="shrink-0 text-white font-bold px-4 py-2.5 bg-cyan-700 hover:bg-cyan-600 active:scale-95 rounded-lg flex items-center gap-1.5 transition-all text-sm shadow-lg">← RETOUR</button>
+                    <div className="text-center flex-1 min-w-0"><h2 className="text-lg sm:text-xl font-display font-bold text-white uppercase truncate">{pokemon.name}</h2><div className="flex justify-center gap-2 text-xs font-mono mt-1"><span className="text-cyan-400">NIV {pokemon.level}</span><span className="text-slate-500">|</span><span className="text-slate-400">#{pokemon.tyradex_id}</span></div></div>
+                    <div className="w-16 sm:w-20 shrink-0"></div>
                 </div>
                 {/* Animation/message de gain de niveau */}
                                 <AnimatePresence>
