@@ -252,6 +252,16 @@ const App: React.FC = () => {
               className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 object-contain brightness-75 opacity-70"
             />
           </button>
+          {/* Logout */}
+          <button
+            onClick={handleLogout}
+            title="Déconnexion"
+            className="flex flex-col items-center px-1 py-0.5 rounded text-slate-500 hover:text-red-400 active:scale-95 transition-all"
+          >
+            <div className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 flex items-center justify-center rounded-full bg-slate-800/50 border border-slate-700">
+              <span className="text-lg">⏻</span>
+            </div>
+          </button>
         </div>
       </header>
 
@@ -270,7 +280,7 @@ const App: React.FC = () => {
         )}
         
         {currentView === 'WHEEL' && (
-          <div className="p-2 max-w-lg lg:max-w-2xl mx-auto flex-1 overflow-y-auto">
+          <div className="p-2 max-w-lg lg:max-w-2xl mx-auto flex-1 overflow-hidden">
             <Wheel />
           </div>
         )}

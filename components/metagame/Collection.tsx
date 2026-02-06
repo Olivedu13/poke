@@ -88,7 +88,15 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
                                 {usableItems.map((item: Item) => (
                                     <div key={item.id} className="flex justify-between items-center bg-slate-800 p-2 rounded border border-slate-700">
                                         <div className="flex items-center gap-2">
-                                            <img src={`${ASSETS_BASE_URL}/${item.image || 'pokeball.webp'}`} className="w-8 h-8" />
+                                            <img
+                                                src={`${ASSETS_BASE_URL}/${item.image || 'pokeball.webp'}`}
+                                                className="w-8 h-8"
+                                                onError={(e) => {
+                                                    const img = e.currentTarget as HTMLImageElement;
+                                                    if (img.src.includes('poudre_')) img.src = img.src.replace('poudre_', '');
+                                                    else img.src = `${ASSETS_BASE_URL}/pokeball.webp`;
+                                                }}
+                                            />
                                             <div><div className="text-xs font-bold text-white">{item.name}</div><div className="text-[10px] text-slate-400">x{item.quantity}</div></div>
                                         </div>
                                         <button onClick={() => onAction('use_item', pokemon.id, item.id)} className="bg-slate-700 hover:bg-cyan-600 text-white text-[10px] font-bold px-3 py-1.5 rounded active:scale-95 transition-transform">UTILISER</button>
@@ -251,18 +259,16 @@ export const Collection: React.FC = () => {
 
   return (
     <div className="w-full max-w-6xl mx-auto pb-20">
-            {/* HEADER XP + LOGOUT */}
+            {/* HEADER XP (no title) */}
             <div className="flex justify-between items-center px-4 py-3 mb-6 bg-slate-900/90 rounded-2xl border border-slate-700 shadow-lg">
                 <div className="flex items-center gap-3">
                     <img src="/pokeball.png" className="w-8 h-8" />
-                    <h1 className="text-2xl font-display font-bold text-white">MA COLLECTION</h1>
                 </div>
                 <div className="flex items-center gap-4">
                     <div className="flex items-center gap-1 bg-slate-800 px-3 py-1 rounded-full text-cyan-300 font-mono text-sm">
                         <img src="/assets/xp.webp" className="w-5 h-5 mr-1" />
                         {user?.global_xp ?? 0} XP
                     </div>
-                    <button onClick={() => { useGameStore.getState().logout(); }} className="bg-red-700 hover:bg-red-800 text-white px-4 py-2 rounded-full font-bold text-xs ml-2">Déconnexion</button>
                 </div>
             </div>
       <AnimatePresence>{evolutionSeq && (<EvolutionOverlay sequence={evolutionSeq} onClose={() => setEvolutionSeq(null)} />)}</AnimatePresence>
