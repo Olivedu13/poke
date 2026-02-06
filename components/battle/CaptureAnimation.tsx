@@ -1,328 +1,449 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, useAnimation, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { ASSETS_BASE_URL } from '../../config';
 import confetti from 'canvas-confetti';
+import { playSfx } from '../../utils/soundEngine';
 
-/* ─── Animation phases ─── */
+/*
+ * Phases séquentielles de l'animation de capture Pokémon
+ * ──────────────────────────────────────────────────────
+ * idle      → Le Pokémon ennemi flotte, prêt pour la capture
+ * throw     → La Pokéball est lancée en arc depuis le bas-droit
+ * hit       → La Pokéball touche le Pokémon — flash blanc
+ * absorb    → Le Pokémon rétrécit et disparaît dans la ball
+ * fall      → La ball tombe au sol et rebondit
+ * shake1‥3  → La ball oscille gauche/droite (1 à 3 fois)
+ * click     → La ball se verrouille : "★ CLIC ! ★"
+ * success   → Halo lumineux, étoiles, CAPTURÉ !
+ * burst     → La ball éclate (échec)
+ * escape    → Le Pokémon ressort, la ball disparaît
+ */
 type Phase =
-  | 'idle'
-  | 'throw'
-  | 'hit'
-  | 'absorb'
-  | 'fall'
-  | 'shake1'
-  | 'shake2'
-  | 'shake3'
-  | 'click'
-  | 'success'
-  | 'burst'
-  | 'escape';
+  | 'idle' | 'throw' | 'hit' | 'absorb' | 'fall'
+  | 'shake1' | 'shake2' | 'shake3'
+  | 'click' | 'success'
+  | 'burst' | 'escape';
 
-interface CaptureAnimationProps {
+interface Props {
   enemySprite: string;
   enemyName: string;
   success: boolean;
   onComplete: () => void;
 }
 
-/**
- * Pokéball capture animation matching the real Pokémon games:
- *
- * 1. Ball is thrown (arcs from bottom right toward the pokemon)
- * 2. Ball hits – bright flash, pokemon gets absorbed (shrinks into ball)
- * 3. Ball falls to the ground and bounces
- * 4. Ball wobbles left / right 1-3 times (real Pokémon tilt animation)
- * 5a. SUCCESS: Ball stops, "click!" sparkle, stars, CAPTURÉ!
- * 5b. FAILURE: Ball bursts open, pokemon jumps out, ball fades
- */
-export const CaptureAnimation: React.FC<CaptureAnimationProps> = ({
+/* ─── Layout constants (% of container) ─── */
+const POKE_TOP = '18%';       // Enemy sprite vertical position
+const BALL_GROUND_TOP = '62%'; // Where ball rests on ground
+const BALL_START_TOP = '85%';  // Throw origin (bottom area)
+const BALL_START_LEFT = '75%'; // Throw origin (right side)
+
+export const CaptureAnimation: React.FC<Props> = ({
   enemySprite,
   enemyName,
   success,
   onComplete,
 }) => {
   const [phase, setPhase] = useState<Phase>('idle');
-  const ballControls = useAnimation();
-  const cancelled = useRef(false);
+  const dead = useRef(false);
+
+  /* Utility: cancellable delay */
+  const wait = (ms: number) =>
+    new Promise<void>((resolve) => {
+      const t = setTimeout(resolve, ms);
+      // cleanup on unmount handled by dead ref check after await
+      return t;
+    });
 
   useEffect(() => {
-    cancelled.current = false;
-    const wait = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+    dead.current = false;
 
-    const run = async () => {
-      await wait(300);
-      if (cancelled.current) return;
+    (async () => {
+      // Small initial pause to let the overlay fade in
+      await wait(400);
+      if (dead.current) return;
 
-      /* ── THROW: arc from bottom-right toward center ── */
+      // ── 1. THROW ──
       setPhase('throw');
-      await ballControls.start({
-        x: 0,
-        y: 0,
-        opacity: 1,
-        rotate: 360,
-        scale: 1,
-        transition: { duration: 0.6, ease: [0.2, 0.8, 0.3, 1] },
-      });
-      if (cancelled.current) return;
+      try { playSfx('SPIN'); } catch {}
+      await wait(700);  // ball arc animation duration
+      if (dead.current) return;
 
-      /* ── HIT: ball reaches the pokemon ── */
+      // ── 2. HIT ──
       setPhase('hit');
-      await wait(150);
-      if (cancelled.current) return;
+      await wait(200);
+      if (dead.current) return;
 
-      /* ── ABSORB: flash + pokemon disappears into ball ── */
+      // ── 3. ABSORB ──
       setPhase('absorb');
-      await ballControls.start({
-        scale: [1.3, 0.75, 1.1, 0.95, 1],
-        transition: { duration: 0.5, ease: 'easeOut' },
-      });
-      if (cancelled.current) return;
-
-      /* ── FALL: ball drops to ground and bounces ── */
-      setPhase('fall');
-      await ballControls.start({
-        y: 60,
-        rotate: 360,
-        transition: { duration: 0.35, ease: [0.55, 0, 1, 0.45] },
-      });
-      // Bounce
-      await ballControls.start({
-        y: [60, 35, 60, 48, 60],
-        transition: { duration: 0.5, ease: 'easeOut' },
-      });
-      if (cancelled.current) return;
-
-      /* ── WOBBLE SHAKES: tilt left/right like the real games ── */
-      const wobbleCount = success ? 3 : Math.floor(Math.random() * 2) + 1;
-
-      for (let i = 1; i <= wobbleCount; i++) {
-        await wait(500);
-        if (cancelled.current) return;
-        setPhase(`shake${Math.min(i, 3)}` as Phase);
-
-        // Real Pokémon wobble: tilt left, tilt right, center
-        await ballControls.start({
-          rotate: [360, 335, 385, 340, 380, 360],
-          x: [0, -8, 8, -6, 6, 0],
-          transition: { duration: 0.6, ease: 'easeInOut' },
-        });
-        if (cancelled.current) return;
-      }
-
       await wait(600);
-      if (cancelled.current) return;
+      if (dead.current) return;
 
-      /* ── RESULT ── */
-      if (success) {
-        /* ── CLICK: ball locks shut ── */
-        setPhase('click');
-        await ballControls.start({
-          scale: [1, 0.9, 1.05, 1],
-          transition: { duration: 0.25 },
-        });
-        await wait(400);
-        if (cancelled.current) return;
+      // ── 4. FALL ──
+      setPhase('fall');
+      await wait(800);
+      if (dead.current) return;
 
-        /* ── SUCCESS: glow + sparkles + confetti ── */
-        setPhase('success');
-        confetti({ particleCount: 250, spread: 160, origin: { y: 0.55 } });
-        await wait(2200);
-      } else {
-        /* ── BURST: ball pops open ── */
-        setPhase('burst');
-        await ballControls.start({
-          scale: [1, 1.5, 1.8],
-          opacity: [1, 0.5, 0],
-          rotate: [360, 380, 400],
-          transition: { duration: 0.4, ease: 'easeOut' },
-        });
-        await wait(300);
-        if (cancelled.current) return;
-
-        /* ── ESCAPE: pokemon jumps out ── */
-        setPhase('escape');
-        await wait(2200);
+      // ── 5. WOBBLES ──
+      const wobbles = success ? 3 : Math.floor(Math.random() * 2) + 1; // 1-2 shakes if fail
+      for (let i = 1; i <= wobbles; i++) {
+        setPhase(`shake${i}` as Phase);
+        await wait(900); // wobble + pause
+        if (dead.current) return;
       }
 
-      if (cancelled.current) return;
-      onComplete();
-    };
+      await wait(400);
+      if (dead.current) return;
 
-    run();
-    return () => { cancelled.current = true; };
+      if (success) {
+        // ── 6a. CLICK ──
+        setPhase('click');
+        try { playSfx('REWARD'); } catch {}
+        await wait(1000);
+        if (dead.current) return;
+
+        // ── 7a. SUCCESS ──
+        setPhase('success');
+        confetti({ particleCount: 200, spread: 140, origin: { y: 0.55 } });
+        await wait(2800);
+      } else {
+        // ── 6b. BURST ──
+        setPhase('burst');
+        try { playSfx('DAMAGE'); } catch {}
+        await wait(500);
+        if (dead.current) return;
+
+        // ── 7b. ESCAPE ──
+        setPhase('escape');
+        await wait(2400);
+      }
+
+      if (dead.current) return;
+      onComplete();
+    })();
+
+    return () => { dead.current = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /* ── Derived flags ── */
-  const showEnemy = phase === 'idle' || phase === 'throw' || phase === 'hit';
-  const showBall = !['idle', 'escape'].includes(phase) && phase !== 'burst';
-  const showBurstBall = phase === 'burst';
+  /* ── Derived state ── */
+  const showPokemon = phase === 'idle' || phase === 'throw' || phase === 'hit';
+  const ballVisible = !['idle', 'escape'].includes(phase);
+  const ballOnGround = ['fall', 'shake1', 'shake2', 'shake3', 'click', 'success'].includes(phase);
   const shaking = phase.startsWith('shake');
-  const shakeNum = shaking
-    ? Number(phase[5])
+  const shakeIdx = shaking ? Number(phase[5]) : 0;
+  const dotsCount = shaking
+    ? shakeIdx
     : phase === 'click' || phase === 'success'
       ? 3
       : 0;
-  const ballOnGround = ['fall', 'shake1', 'shake2', 'shake3', 'click', 'success'].includes(phase);
+
+  /* ── Ball position ── */
+  const getBallStyle = (): React.CSSProperties => {
+    if (phase === 'throw') {
+      // Start position (will be animated via CSS to pokemon)
+      return { top: BALL_START_TOP, left: BALL_START_LEFT };
+    }
+    if (phase === 'hit' || phase === 'absorb') {
+      return { top: POKE_TOP, left: '50%', transform: 'translate(-50%, 0)' };
+    }
+    if (ballOnGround || phase === 'burst') {
+      return { top: BALL_GROUND_TOP, left: '50%', transform: 'translate(-50%, 0)' };
+    }
+    return { top: BALL_START_TOP, left: BALL_START_LEFT };
+  };
+
+  /* ── Ball animation class based on phase ── */
+  const getBallAnimClass = () => {
+    if (phase === 'throw') return 'animate-pokeball-throw';
+    if (phase === 'fall') return 'animate-pokeball-fall';
+    if (shaking) return 'animate-pokeball-wobble';
+    if (phase === 'click') return 'animate-pokeball-click';
+    if (phase === 'success') return 'animate-pokeball-glow';
+    if (phase === 'burst') return 'animate-pokeball-burst';
+    return '';
+  };
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      transition={{ duration: 0.25 }}
-      className="absolute inset-0 z-50 bg-slate-950/95 flex flex-col items-center justify-center overflow-hidden"
+      transition={{ duration: 0.2 }}
+      className="absolute inset-0 z-50 bg-slate-950/95 overflow-hidden"
     >
-      {/* ── "Ground" line ── */}
+      {/* ═══════ CSS Animations (scoped via style tag) ═══════ */}
+      <style>{`
+        @keyframes pokeball-throw {
+          0%   { top: ${BALL_START_TOP}; left: ${BALL_START_LEFT}; opacity: 1; transform: rotate(0deg) scale(0.5); }
+          40%  { top: 5%; left: 40%; transform: rotate(360deg) scale(0.9); }
+          100% { top: ${POKE_TOP}; left: 50%; opacity: 1; transform: translate(-50%, 0) rotate(720deg) scale(1); }
+        }
+        .animate-pokeball-throw {
+          animation: pokeball-throw 0.65s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+        }
+
+        @keyframes pokeball-fall {
+          0%   { top: ${POKE_TOP}; transform: translate(-50%, 0) scale(0.9); }
+          50%  { top: ${BALL_GROUND_TOP}; transform: translate(-50%, 0) scale(1.1, 0.85); }
+          65%  { top: calc(${BALL_GROUND_TOP} - 25px); transform: translate(-50%, 0) scale(0.95, 1.05); }
+          80%  { top: ${BALL_GROUND_TOP}; transform: translate(-50%, 0) scale(1.05, 0.9); }
+          90%  { top: calc(${BALL_GROUND_TOP} - 8px); transform: translate(-50%, 0) scale(1); }
+          100% { top: ${BALL_GROUND_TOP}; transform: translate(-50%, 0) scale(1); }
+        }
+        .animate-pokeball-fall {
+          animation: pokeball-fall 0.7s cubic-bezier(0.4, 0, 1, 1) forwards;
+        }
+
+        @keyframes pokeball-wobble {
+          0%   { transform: translate(-50%, 0) rotate(0deg); }
+          15%  { transform: translate(calc(-50% - 6px), 0) rotate(-25deg); }
+          35%  { transform: translate(calc(-50% + 6px), 0) rotate(25deg); }
+          50%  { transform: translate(calc(-50% - 4px), 0) rotate(-18deg); }
+          70%  { transform: translate(calc(-50% + 4px), 0) rotate(18deg); }
+          85%  { transform: translate(calc(-50% - 2px), 0) rotate(-8deg); }
+          100% { transform: translate(-50%, 0) rotate(0deg); }
+        }
+        .animate-pokeball-wobble {
+          animation: pokeball-wobble 0.7s ease-in-out;
+        }
+
+        @keyframes pokeball-click {
+          0%   { transform: translate(-50%, 0) scale(1); }
+          30%  { transform: translate(-50%, 0) scale(0.88); }
+          60%  { transform: translate(-50%, 0) scale(1.06); }
+          100% { transform: translate(-50%, 0) scale(1); }
+        }
+        .animate-pokeball-click {
+          animation: pokeball-click 0.3s ease-out;
+        }
+
+        @keyframes pokeball-glow {
+          0%, 100% { filter: drop-shadow(0 0 8px rgba(6, 182, 212, 0.6)); }
+          50%      { filter: drop-shadow(0 0 25px rgba(6, 182, 212, 0.9)) drop-shadow(0 0 50px rgba(6, 182, 212, 0.4)); }
+        }
+        .animate-pokeball-glow {
+          animation: pokeball-glow 1.2s ease-in-out infinite;
+          transform: translate(-50%, 0);
+        }
+
+        @keyframes pokeball-burst {
+          0%   { transform: translate(-50%, 0) scale(1); opacity: 1; }
+          50%  { transform: translate(-50%, 0) scale(1.6); opacity: 0.5; }
+          100% { transform: translate(-50%, 0) scale(2.2); opacity: 0; }
+        }
+        .animate-pokeball-burst {
+          animation: pokeball-burst 0.4s ease-out forwards;
+        }
+
+        @keyframes float-idle {
+          0%, 100% { transform: translate(-50%, 0px); }
+          50%      { transform: translate(-50%, -8px); }
+        }
+
+        @keyframes pokemon-absorb {
+          0%   { transform: translate(-50%, 0) scale(1); opacity: 1; filter: brightness(1); }
+          30%  { transform: translate(-50%, 0) scale(1.1); opacity: 1; filter: brightness(3); }
+          100% { transform: translate(-50%, 0) scale(0); opacity: 0; filter: brightness(5); }
+        }
+
+        @keyframes pokemon-escape {
+          0%   { transform: translate(-50%, 0) scale(0); opacity: 0; }
+          50%  { transform: translate(-50%, -10px) scale(1.15); opacity: 1; }
+          100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+        }
+
+        @keyframes star-burst {
+          0%   { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+          100% { opacity: 0; }
+        }
+      `}</style>
+
+      {/* ═══════ GROUND ═══════ */}
       {ballOnGround && (
-        <div className="absolute left-1/2 -translate-x-1/2 top-[62%] w-32 h-[2px] bg-slate-700/50 rounded-full" />
-      )}
-
-      {/* ── Enemy sprite (visible until absorbed) ── */}
-      <AnimatePresence>
-        {showEnemy && (
-          <motion.img
-            key="enemy-sprite"
-            src={enemySprite}
-            alt={enemyName}
-            className="w-32 h-32 object-contain drop-shadow-[0_0_12px_rgba(100,100,255,0.3)]"
-            animate={{ y: [0, -6, 0] }}
-            exit={{
-              scale: 0,
-              opacity: 0,
-              filter: 'brightness(4)',
-              transition: { duration: 0.35, ease: 'easeIn' },
-            }}
-            transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* ── Spacer to keep ball centered vertically when enemy gone ── */}
-      {!showEnemy && phase !== 'escape' && <div className="h-20" />}
-
-      {/* ── Pokéball ── */}
-      <AnimatePresence>
-        {(showBall || showBurstBall) && (
-          <motion.img
-            key="pokeball"
-            src={`${ASSETS_BASE_URL}/pokeball.webp`}
-            alt="Pokéball"
-            className="w-14 h-14 sm:w-16 sm:h-16 drop-shadow-[0_4px_12px_rgba(0,0,0,0.5)]"
-            initial={{ x: 80, y: 200, opacity: 0, rotate: 0, scale: 0.6 }}
-            animate={ballControls}
-            exit={{ opacity: 0, scale: 0, transition: { duration: 0.2 } }}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* ── White flash on absorb ── */}
-      <AnimatePresence>
-        {phase === 'absorb' && (
-          <motion.div
-            className="absolute inset-0 bg-white pointer-events-none"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: [0, 0.7, 0] }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.4 }}
-          />
-        )}
-      </AnimatePresence>
-
-      {/* ── Ball shadow on ground ── */}
-      {ballOnGround && (
-        <motion.div
-          className="absolute left-1/2 -translate-x-1/2 top-[63%] w-10 h-2 bg-black/30 rounded-full blur-sm"
-          animate={{ scaleX: shaking ? [1, 0.7, 1.3, 0.7, 1.3, 1] : 1 }}
-          transition={{ duration: 0.6 }}
+        <div
+          className="absolute left-1/2 -translate-x-1/2 h-[2px] bg-slate-700/40 rounded-full transition-all duration-300"
+          style={{ top: `calc(${BALL_GROUND_TOP} + 34px)`, width: '120px' }}
         />
       )}
 
-      {/* ── Wobble progress dots ── */}
+      {/* ═══════ BALL SHADOW ═══════ */}
+      {ballOnGround && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 rounded-full bg-black/20 blur-sm transition-all duration-200"
+          style={{
+            top: `calc(${BALL_GROUND_TOP} + 30px)`,
+            width: shaking ? '50px' : '36px',
+            height: '6px',
+          }}
+        />
+      )}
+
+      {/* ═══════ ENEMY POKÉMON ═══════ */}
       <AnimatePresence>
-        {(shaking || phase === 'click' || phase === 'success') && (
+        {showPokemon && (
+          <div
+            key="pokemon-container"
+            className="absolute left-1/2"
+            style={{
+              top: POKE_TOP,
+              animation:
+                phase === 'idle' || phase === 'throw'
+                  ? 'float-idle 2s ease-in-out infinite'
+                  : undefined,
+            }}
+          >
+            <img
+              src={enemySprite}
+              alt={enemyName}
+              className="w-28 h-28 sm:w-36 sm:h-36 object-contain"
+              style={{
+                filter: 'drop-shadow(0 0 15px rgba(100,100,255,0.3))',
+                transform: 'translate(-50%, 0)',
+              }}
+            />
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Pokémon absorb animation (overlays sprite location) */}
+      {phase === 'absorb' && (
+        <div
+          className="absolute left-1/2"
+          style={{ top: POKE_TOP }}
+        >
+          <img
+            src={enemySprite}
+            alt=""
+            className="w-28 h-28 sm:w-36 sm:h-36 object-contain"
+            style={{
+              animation: 'pokemon-absorb 0.5s ease-in forwards',
+              transform: 'translate(-50%, 0)',
+            }}
+          />
+        </div>
+      )}
+
+      {/* ═══════ WHITE FLASH (on hit) ═══════ */}
+      <AnimatePresence>
+        {(phase === 'hit' || phase === 'absorb') && (
           <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
+            key="flash"
+            className="absolute inset-0 bg-white pointer-events-none"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: phase === 'hit' ? 0.8 : 0 }}
             exit={{ opacity: 0 }}
-            className="flex gap-3 mt-10"
+            transition={{ duration: 0.2 }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ═══════ POKÉBALL ═══════ */}
+      {ballVisible && phase !== 'burst' && (
+        <img
+          key={`ball-${phase}`}
+          src={`${ASSETS_BASE_URL}/pokeball.webp`}
+          alt="Pokéball"
+          className={`absolute w-12 h-12 sm:w-14 sm:h-14 ${getBallAnimClass()}`}
+          style={{
+            ...getBallStyle(),
+            zIndex: 20,
+          }}
+        />
+      )}
+
+      {/* Burst ball (separate element that fades out) */}
+      {phase === 'burst' && (
+        <img
+          src={`${ASSETS_BASE_URL}/pokeball.webp`}
+          alt=""
+          className="absolute w-12 h-12 sm:w-14 sm:h-14 animate-pokeball-burst"
+          style={{
+            top: BALL_GROUND_TOP,
+            left: '50%',
+            zIndex: 20,
+          }}
+        />
+      )}
+
+      {/* ═══════ WOBBLE PROGRESS DOTS ═══════ */}
+      <AnimatePresence>
+        {dotsCount > 0 && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, transition: { duration: 0.2 } }}
+            className="absolute left-1/2 -translate-x-1/2 flex gap-3"
+            style={{ top: `calc(${BALL_GROUND_TOP} + 50px)` }}
           >
             {[1, 2, 3].map(i => (
               <motion.div
                 key={i}
-                className={`w-2.5 h-2.5 rounded-full transition-colors duration-300 ${
-                  i <= shakeNum
-                    ? phase === 'success' || phase === 'click'
+                className={`w-2.5 h-2.5 rounded-full transition-all duration-300 ${
+                  i <= dotsCount
+                    ? (phase === 'click' || phase === 'success')
                       ? 'bg-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.8)]'
-                      : 'bg-yellow-400 shadow-[0_0_6px_rgba(250,204,21,0.5)]'
+                      : 'bg-yellow-400 shadow-[0_0_6px_rgba(250,204,21,0.6)]'
                     : 'bg-slate-700'
                 }`}
-                animate={
-                  i === shakeNum && shakeNum > 0
-                    ? { scale: [0.3, 1.6, 1] }
-                    : { scale: 1 }
-                }
-                transition={{ duration: 0.35 }}
+                initial={i === dotsCount ? { scale: 0 } : undefined}
+                animate={i === dotsCount ? { scale: [0, 1.5, 1] } : undefined}
+                transition={{ duration: 0.3 }}
               />
             ))}
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── "Click!" text on capture lock ── */}
+      {/* ═══════ CLICK TEXT ═══════ */}
       <AnimatePresence>
         {phase === 'click' && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.5 }}
+            initial={{ opacity: 0, scale: 0.3 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ type: 'spring', stiffness: 300 }}
-            className="mt-4 text-yellow-300 font-display font-black text-lg tracking-widest"
+            transition={{ type: 'spring', stiffness: 400, damping: 15 }}
+            className="absolute left-1/2 -translate-x-1/2 text-yellow-300 font-display font-black text-xl tracking-widest"
+            style={{ top: `calc(${BALL_GROUND_TOP} + 80px)` }}
           >
             ★ CLIC ! ★
           </motion.div>
         )}
       </AnimatePresence>
 
-      {/* ── Success glow ring around ball ── */}
-      <AnimatePresence>
-        {phase === 'success' && (
-          <motion.div
-            className="absolute left-1/2 top-[48%] -translate-x-1/2 -translate-y-1/2 w-24 h-24 rounded-full pointer-events-none"
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{
-              opacity: [0, 0.8, 0.4, 0.8, 0.4],
-              scale: [0.5, 1.5, 1.2, 1.5, 1.2],
-            }}
-            transition={{ duration: 2, repeat: Infinity }}
-            style={{
-              background: 'radial-gradient(circle, rgba(6,182,212,0.4) 0%, transparent 70%)',
-              boxShadow: '0 0 40px rgba(6,182,212,0.3)',
-            }}
-          />
-        )}
-      </AnimatePresence>
+      {/* ═══════ SUCCESS GLOW RING ═══════ */}
+      {phase === 'success' && (
+        <div
+          className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 w-28 h-28 rounded-full pointer-events-none"
+          style={{
+            top: `calc(${BALL_GROUND_TOP} + 16px)`,
+            background: 'radial-gradient(circle, rgba(6,182,212,0.5) 0%, transparent 70%)',
+            animation: 'pokeball-glow 1.2s ease-in-out infinite',
+          }}
+        />
+      )}
 
-      {/* ── Success result text + captured sprite ── */}
+      {/* ═══════ SUCCESS — CAPTURED! ═══════ */}
       <AnimatePresence>
         {phase === 'success' && (
           <motion.div
-            initial={{ opacity: 0, y: 30, scale: 0.7 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ delay: 0.3, type: 'spring', stiffness: 130, damping: 12 }}
-            className="mt-6 text-center"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, type: 'spring', stiffness: 120 }}
+            className="absolute left-1/2 -translate-x-1/2 text-center"
+            style={{ top: `calc(${BALL_GROUND_TOP} + 100px)` }}
           >
             <motion.img
               src={enemySprite}
               alt={enemyName}
-              className="w-20 h-20 mx-auto mb-2 drop-shadow-[0_0_25px_rgba(6,182,212,0.6)]"
-              initial={{ scale: 0, rotate: -15 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={{ delay: 0.6, type: 'spring', stiffness: 200 }}
+              className="w-20 h-20 mx-auto mb-2"
+              style={{ filter: 'drop-shadow(0 0 20px rgba(6,182,212,0.6))' }}
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ delay: 0.5, type: 'spring', stiffness: 200 }}
             />
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 0.8 }}
+              transition={{ delay: 0.7 }}
               className="text-3xl font-display font-black text-cyan-400 drop-shadow-[0_0_30px_rgba(6,182,212,0.9)]"
             >
               CAPTURÉ !
@@ -339,26 +460,26 @@ export const CaptureAnimation: React.FC<CaptureAnimationProps> = ({
         )}
       </AnimatePresence>
 
-      {/* ── Star sparkle particles on success ── */}
+      {/* ═══════ SUCCESS STAR PARTICLES ═══════ */}
       {phase === 'success' && (
-        <div className="absolute inset-0 pointer-events-none">
-          {Array.from({ length: 16 }).map((_, i) => {
-            const angle = (i * 2 * Math.PI) / 16;
-            const dist = 60 + Math.random() * 60;
+        <div className="absolute inset-0 pointer-events-none" style={{ zIndex: 25 }}>
+          {Array.from({ length: 14 }).map((_, i) => {
+            const angle = (i / 14) * Math.PI * 2;
+            const dist = 55 + Math.random() * 50;
+            const dx = Math.cos(angle) * dist;
+            const dy = Math.sin(angle) * dist;
             return (
               <motion.div
                 key={i}
-                className="absolute left-1/2 top-[48%] text-yellow-300"
-                style={{ fontSize: 10 + Math.random() * 8 }}
-                initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-                animate={{
-                  x: Math.cos(angle) * dist,
-                  y: Math.sin(angle) * dist,
-                  opacity: 0,
-                  scale: 0,
-                  rotate: Math.random() * 360,
+                className="absolute text-yellow-300"
+                style={{
+                  left: '50%',
+                  top: BALL_GROUND_TOP,
+                  fontSize: 10 + Math.random() * 8,
                 }}
-                transition={{ duration: 1, delay: 0.2 + i * 0.03, ease: 'easeOut' }}
+                initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+                animate={{ x: dx, y: dy, opacity: 0, scale: 0, rotate: Math.random() * 360 }}
+                transition={{ duration: 0.9, delay: 0.15 + i * 0.03, ease: 'easeOut' }}
               >
                 ★
               </motion.div>
@@ -367,36 +488,58 @@ export const CaptureAnimation: React.FC<CaptureAnimationProps> = ({
         </div>
       )}
 
-      {/* ── Escape: pokemon jumps back out ── */}
+      {/* ═══════ RED FLASH ON BURST ═══════ */}
+      <AnimatePresence>
+        {(phase === 'burst' || phase === 'escape') && (
+          <motion.div
+            key="red-flash"
+            className="absolute inset-0 bg-red-600 pointer-events-none"
+            initial={{ opacity: 0.5 }}
+            animate={{ opacity: 0 }}
+            transition={{ duration: 0.4 }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* ═══════ ESCAPE — Pokémon ressort ═══════ */}
       <AnimatePresence>
         {phase === 'escape' && (
           <motion.div
+            key="escape-container"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="text-center"
+            className="absolute inset-0"
           >
-            {/* Red flash when ball bursts */}
-            <motion.div
-              className="absolute inset-0 bg-red-500 pointer-events-none"
-              initial={{ opacity: 0.4 }}
-              animate={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
-            />
+            {/* Pokémon springs back */}
+            <div
+              className="absolute left-1/2"
+              style={{ top: POKE_TOP }}
+            >
+              <img
+                src={enemySprite}
+                alt={enemyName}
+                className="w-28 h-28 sm:w-36 sm:h-36 object-contain"
+                style={{
+                  animation: 'pokemon-escape 0.5s cubic-bezier(0.2, 0.8, 0.3, 1) forwards',
+                  transform: 'translate(-50%, 0)',
+                }}
+              />
+            </div>
 
-            {/* Pokemon springs out */}
-            <motion.img
-              src={enemySprite}
-              alt={enemyName}
-              className="w-28 h-28 mx-auto mb-3"
-              initial={{ scale: 0, opacity: 0, y: 40 }}
-              animate={{ scale: [0, 1.2, 1], opacity: 1, y: 0 }}
-              transition={{
-                type: 'spring',
-                stiffness: 200,
-                damping: 12,
-                delay: 0.15,
-              }}
+            {/* Broken ball halves flying apart */}
+            <motion.div
+              className="absolute w-5 h-5 rounded-full bg-red-500/60"
+              style={{ top: BALL_GROUND_TOP, left: '50%' }}
+              initial={{ x: 0, y: 0, opacity: 0.8 }}
+              animate={{ x: -40, y: 50, opacity: 0, rotate: -90 }}
+              transition={{ duration: 0.7 }}
+            />
+            <motion.div
+              className="absolute w-5 h-5 rounded-full bg-white/60"
+              style={{ top: BALL_GROUND_TOP, left: '50%' }}
+              initial={{ x: 0, y: 0, opacity: 0.8 }}
+              animate={{ x: 30, y: 45, opacity: 0, rotate: 90 }}
+              transition={{ duration: 0.7 }}
             />
 
             {/* Escape text */}
@@ -404,25 +547,12 @@ export const CaptureAnimation: React.FC<CaptureAnimationProps> = ({
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6 }}
-              className="text-2xl font-display font-bold text-red-400 drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]"
+              className="absolute left-1/2 -translate-x-1/2 text-center"
+              style={{ top: `calc(${POKE_TOP} + 160px)` }}
             >
-              {enemyName} s'est échappé !
-            </motion.div>
-
-            {/* Broken ball halves fading away */}
-            <motion.div className="absolute left-[45%] top-[48%] pointer-events-none">
-              <motion.div
-                className="w-4 h-4 bg-red-500 rounded-full opacity-50"
-                initial={{ x: 0, y: 0 }}
-                animate={{ x: -30, y: 40, opacity: 0 }}
-                transition={{ duration: 0.8, delay: 0.1 }}
-              />
-              <motion.div
-                className="w-4 h-4 bg-white rounded-full opacity-50"
-                initial={{ x: 0, y: 0 }}
-                animate={{ x: 20, y: 35, opacity: 0 }}
-                transition={{ duration: 0.8, delay: 0.1 }}
-              />
+              <div className="text-2xl font-display font-bold text-red-400 drop-shadow-[0_0_10px_rgba(239,68,68,0.5)]">
+                {enemyName} s'est échappé !
+              </div>
             </motion.div>
           </motion.div>
         )}
