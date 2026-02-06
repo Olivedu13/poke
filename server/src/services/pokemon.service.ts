@@ -162,6 +162,11 @@ export async function addPokemonXp(pokemonId: string, xpAmount: number): Promise
   let sequence: number[] = [tyradexId];
   let evolutionHappened = false;
 
+  // Si déjà au niveau max, pas d'XP supplémentaire
+  if (newLevel >= 100) {
+    return { leveledUp: false, newLevel: 100 };
+  }
+
   while (newLevel < 100) {
     const xpForNextLevel = newLevel * 100;
     if (newXp < xpForNextLevel) break;
@@ -189,6 +194,11 @@ export async function addPokemonXp(pokemonId: string, xpAmount: number): Promise
         evolutionHappened = true;
       }
     }
+  }
+
+  // Cap XP at max level
+  if (newLevel >= 100) {
+    newXp = 0;
   }
 
   // Calculer les PV max après le level-up / évolution et remettre les PV au maximum

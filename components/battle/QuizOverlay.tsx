@@ -65,8 +65,8 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
              try { data = JSON.parse(data); } catch (e) {}
         }
 
-        if (data && data.success && (data.data || data.question)) {
-          const q = data.data || data.question;
+        if (data && data.success && (data.data || (data as any).question)) {
+          const q = data.data || (data as any).question;
           setQuestion(q);
           markQuestionAsSeen(q.id);
         } else {
@@ -95,7 +95,7 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
     if (isCorrect) {
       playSfx('WIN');
     } else {
-      playSfx('LOSE');
+      playSfx('WRONG');
     }
     
     let damage = isCorrect ? 25 : 0;

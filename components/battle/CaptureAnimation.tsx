@@ -421,25 +421,37 @@ export const CaptureAnimation: React.FC<Props> = ({
         />
       )}
 
-      {/* ═══════ SUCCESS — CAPTURED! ═══════ */}
+      {/* ═══════ SUCCESS — CAPTURED POKEMON (above ball) ═══════ */}
+      <AnimatePresence>
+        {phase === 'success' && (
+          <motion.div
+            key="captured-sprite"
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.4, type: 'spring', stiffness: 200 }}
+            className="absolute left-1/2 -translate-x-1/2"
+            style={{ top: POKE_TOP, zIndex: 30 }}
+          >
+            <img
+              src={enemySprite}
+              alt={enemyName}
+              className="w-24 h-24 sm:w-32 sm:h-32 object-contain"
+              style={{ filter: 'drop-shadow(0 0 25px rgba(6,182,212,0.7))', transform: 'translate(-50%, 0)' }}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ═══════ SUCCESS — CAPTURED! TEXT ═══════ */}
       <AnimatePresence>
         {phase === 'success' && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, type: 'spring', stiffness: 120 }}
+            transition={{ delay: 0.6, type: 'spring', stiffness: 120 }}
             className="absolute left-1/2 -translate-x-1/2 text-center"
-            style={{ top: `calc(${BALL_GROUND_TOP} + 100px)` }}
+            style={{ top: `calc(${BALL_GROUND_TOP} + 70px)` }}
           >
-            <motion.img
-              src={enemySprite}
-              alt={enemyName}
-              className="w-20 h-20 mx-auto mb-2"
-              style={{ filter: 'drop-shadow(0 0 20px rgba(6,182,212,0.6))' }}
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.5, type: 'spring', stiffness: 200 }}
-            />
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
