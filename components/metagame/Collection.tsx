@@ -88,22 +88,18 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
     }, [pokemon.level]);
 
     return (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200" onClick={onClose}>
-            <div className="bg-slate-900 border border-cyan-500/50 rounded-t-2xl sm:rounded-2xl w-full max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                <div className="border-b border-slate-700 bg-slate-950 rounded-t-2xl sm:rounded-t-2xl">
-                    {/* Mobile: prominent back bar */}
-                    <div className="sm:hidden flex items-center gap-3 px-3 pt-3 pb-2">
-                        <button onClick={onClose} className="shrink-0 bg-cyan-600 active:bg-cyan-500 text-white font-bold text-sm px-5 py-3 rounded-xl flex items-center gap-2 shadow-lg">
-                            ← RETOUR
-                        </button>
-                        <div className="flex-1 min-w-0 text-center"><h2 className="text-base font-display font-bold text-white uppercase truncate">{pokemon.name}</h2><div className="text-[10px] font-mono text-cyan-400">NIV {pokemon.level} | #{pokemon.tyradex_id}</div></div>
+        <div className="fixed inset-0 z-50 bg-black/80 sm:backdrop-blur-sm sm:flex sm:items-center sm:justify-center" onClick={onClose}>
+            <div className="h-full w-full sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:rounded-2xl bg-slate-900 sm:border sm:border-cyan-500/50 overflow-hidden flex flex-col shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                {/* ── HEADER ── */}
+                <div className="shrink-0 flex items-center gap-3 px-3 py-3 sm:px-4 bg-slate-950 border-b border-slate-700 safe-area-top">
+                    <button onClick={onClose} className="shrink-0 bg-cyan-600 active:bg-cyan-500 text-white font-bold text-sm px-4 py-2.5 sm:px-5 sm:py-2.5 rounded-xl flex items-center gap-2 shadow-lg">
+                        ← RETOUR
+                    </button>
+                    <div className="flex-1 min-w-0 text-center">
+                        <h2 className="text-base sm:text-xl font-display font-bold text-white uppercase truncate">{pokemon.name}</h2>
+                        <div className="text-[10px] sm:text-xs font-mono text-cyan-400">NIV {pokemon.level} | #{pokemon.tyradex_id}</div>
                     </div>
-                    {/* Desktop: inline header */}
-                    <div className="hidden sm:flex py-3 px-4 justify-between items-center gap-2">
-                        <button onClick={onClose} className="shrink-0 text-white font-bold px-4 py-2.5 bg-cyan-700 hover:bg-cyan-600 active:scale-95 rounded-lg flex items-center gap-1.5 transition-all text-sm shadow-lg">← RETOUR</button>
-                        <div className="text-center flex-1 min-w-0"><h2 className="text-xl font-display font-bold text-white uppercase truncate">{pokemon.name}</h2><div className="flex justify-center gap-2 text-xs font-mono mt-1"><span className="text-cyan-400">NIV {pokemon.level}</span><span className="text-slate-500">|</span><span className="text-slate-400">#{pokemon.tyradex_id}</span></div></div>
-                        <div className="w-20 shrink-0"></div>
-                    </div>
+                    <div className="w-16 sm:w-20 shrink-0"></div>
                 </div>
                 {/* Animation/message de gain de niveau */}
                                 <AnimatePresence>
@@ -119,9 +115,9 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
                                         </motion.div>
                                     )}
                                 </AnimatePresence>
-                <div className="flex-1 overflow-y-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="flex flex-col items-center p-4 bg-slate-950/50 rounded-xl">
-                         <img src={pokemon.sprite_url} className="w-32 h-32 sm:w-48 sm:h-48 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] mb-4" />
+                <div className="flex-1 overflow-y-auto px-3 py-3 sm:p-6 grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                    <div className="flex flex-col items-center p-3 sm:p-4 bg-slate-950/50 rounded-xl">
+                         <img src={pokemon.sprite_url} className="w-24 h-24 sm:w-48 sm:h-48 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] mb-3 sm:mb-4" />
                          <div className="w-full mb-4"><div className="flex justify-between text-[10px] text-slate-400 mb-1 font-bold"><span>EXPÉRIENCE</span><span>{pokemon.current_xp} / {pokemon.next_level_xp || 100}</span></div><div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700"><motion.div className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 relative" initial={{ width: 0 }} animate={{ width: `${xpPercent}%` }} transition={{ duration: 0.8, ease: "easeOut" }}><div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[size:1rem_1rem] opacity-30"></div></motion.div></div></div>
                          <button
                             onMouseDown={() => startHold('feed', pokemon.id)}
@@ -187,7 +183,7 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
                     </div>
                 </div>
                 {/* Fixed bottom action bar for team toggle */}
-                <div className="p-4 border-t border-slate-700 bg-slate-950 pb-8">
+                <div className="shrink-0 p-3 sm:p-4 border-t border-slate-700 bg-slate-950 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                     {collectionSize > 3 ? (
                         <button 
                             onClick={() => onToggleTeam(pokemon.id)} 
@@ -282,7 +278,7 @@ export const Collection: React.FC = () => {
 
   const correctedCollection = collection.map(p => ({
       ...p,
-      name: (p.name && p.name.includes('Pokemon #') && nameMap[p.tyradex_id]) ? nameMap[p.tyradex_id] : (p.name || `Pokémon #${p.tyradex_id}`)
+      name: nameMap[p.tyradex_id] || p.name || `Pokémon #${p.tyradex_id}`
   }));
 
     const handleAction = async (action: string, pokeId: string, itemId?: string) => {
@@ -316,10 +312,10 @@ export const Collection: React.FC = () => {
                     else playSfx('CLICK');
                     const updatedCollection = useGameStore.getState().collection;
                     let updatedP = updatedCollection.find(p => p.id === pokeId);
-                    if (updatedP && updatedP.name && updatedP.name.includes('Pokemon #') && nameMap[updatedP.tyradex_id]) {
-                        updatedP = { ...updatedP, name: nameMap[updatedP.tyradex_id] };
+                    if (updatedP) {
+                        updatedP = { ...updatedP, name: nameMap[updatedP.tyradex_id] || updatedP.name || `Pokémon #${updatedP.tyradex_id}` };
+                        setSelectedPokemon(updatedP);
                     }
-                    if (updatedP) setSelectedPokemon(updatedP);
                 } else {
                     playSfx('CLICK');
                 }
