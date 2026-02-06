@@ -1,7 +1,7 @@
 
 import { create } from 'zustand';
 import { User, Pokemon, Item, CombatLog, ViewState, GradeLevel, BattleMode, TrainerOpponent, BattlePhase } from '../types';
-import { api } from '../services/api'; // V3 API
+import { api, registerLogoutCallback } from '../services/api'; // V3 API
 import { playSfx } from '../utils/soundEngine';
 
 export const GRADES_ORDER: GradeLevel[] = ['CP', 'CE1', 'CE2', 'CM1', 'CM2', '6EME', '5EME', '4EME', '3EME'];
@@ -303,3 +303,6 @@ export const useGameStore = create<GameState>((set, get) => ({
       return false;
   }
 }));
+
+// Register logout callback for the API interceptor (avoids circular import)
+registerLogoutCallback(() => useGameStore.getState().logout());

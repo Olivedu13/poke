@@ -29,6 +29,7 @@ export const useBattleLogic = () => {
     const [rewards, setRewards] = useState<{xp: number, gold: number, loot?: string} | null>(null);
     const [captureAttempted, setCaptureAttempted] = useState(false);
     const [captureSuccess, setCaptureSuccess] = useState(false);
+    const [captureAnimating, setCaptureAnimating] = useState(false);
     
     // Combat stats tracking (minimum 5 questions, XP based on performance)
     const [questionsAnswered, setQuestionsAnswered] = useState(0);
@@ -126,12 +127,12 @@ export const useBattleLogic = () => {
         if (battlePhase === 'NONE' || battlePhase === 'PVP_LOBBY') {
             return;
         }
-        
-        // Ne pas réinitialiser si un combat est déjà en cours
-        if (battlePhase !== 'LOADING' && playerPokemon && enemyPokemon) {
+
+        // Empêcher toute réinitialisation de l'ennemi tant que le combat n'est pas terminé
+        if ((battlePhase !== 'LOADING' && playerPokemon && enemyPokemon && !battleOver)) {
             return;
         }
-        
+
         if (battlePhase === 'LOADING') {
             const setup = async () => {
                 await fetchCollection();
@@ -140,9 +141,9 @@ export const useBattleLogic = () => {
                 const activeTeam = myTeam.filter(p => p.is_team && p.current_hp > 0);
                 const starter = activeTeam[0] || myTeam[0]; 
                 if (starter) setSelectedPlayer(starter);
-                
+
                 const baseLevel = (starter?.level || 1);
-                
+
                 if (battleMode === 'TRAINER') {
                     const trainer = await generateTrainerOpponent(baseLevel);
                     setTrainerOpponent(trainer);
@@ -156,12 +157,12 @@ export const useBattleLogic = () => {
                     setPreviewEnemy(enemy);
                     setPreviewEnemyTeam([enemy]);
                 }
-                
+
                 setBattlePhase('PREVIEW');
             };
             setup();
         }
-    }, [battlePhase]);
+    }, [battlePhase, battleOver]);
 
     // Auto-démarrage : seulement pour modes non-PVP
     useEffect(() => {
@@ -177,25 +178,28 @@ export const useBattleLogic = () => {
         if (battleMode === 'PVP') return;
         // Vérifier victoire: ennemi KO
         if (battleOver && enemyPokemon?.current_hp === 0 && battlePhase === 'FIGHTING') {
-            
             // Mode TRAINER : vérifier s'il reste des Pokemon
             if (battleMode === 'TRAINER' && trainerOpponent) {
                 const nextIndex = trainerOpponent.currentPokemonIndex + 1;
                 if (nextIndex < trainerOpponent.team.length) {
-                    addLog({ message: `${trainerOpponent.name} envoie ${trainerOpponent.team[nextIndex].name} !`, type: 'INFO' });
+                    // Clone la team et met à jour le Pokémon KO
+                    const updatedTeam = trainerOpponent.team.map((poke, idx) =>
+                        idx === trainerOpponent.currentPokemonIndex ? { ...poke, current_hp: 0 } : poke
+                    );
+                    addLog({ message: `${trainerOpponent.name} envoie ${updatedTeam[nextIndex].name} !`, type: 'INFO' });
                     setTrainerOpponent({
                         ...trainerOpponent,
+                        team: updatedTeam,
                         currentPokemonIndex: nextIndex
                     });
-                    initBattle(playerPokemon!, trainerOpponent.team[nextIndex]);
+                    // Passe le suivant avec ses PV réels
+                    initBattle(playerPokemon!, updatedTeam[nextIndex]);
                     return;
                 }
             }
-            
             // Vérifier si on a une pokeball pour proposer la capture (uniquement en mode WILD)
             if (battleMode === 'WILD') {
                 const hasPokeball = inventory.some(i => i.effect_type === 'CAPTURE' && i.quantity > 0);
-                
                 if (hasPokeball) {
                     setBattlePhase('CAPTURE');
                 } else {
@@ -213,33 +217,21 @@ export const useBattleLogic = () => {
             // Après tentative de capture, passer à la victoire
             setBattlePhase('FINISHED');
             confetti({ particleCount: 200, spread: 150, origin: { y: 0.6 } });
-            
             if (enemyPokemon) {
                 const isBoss = enemyPokemon.isBoss || false;
                 const isTrainerMode = battleMode === 'TRAINER';
-                
-                // Base XP/Gold calc
-                const baseXp = (enemyPokemon.level * 20) + 10;
+                // XP basé sur la difficulté des questions
+                // EASY=1, MEDIUM=2, HARD=3 (déjà stocké dans difficultyPoints)
+                // On donne 10xp par point de difficulté, bonus combo, bonus bonnes réponses
+                const baseXp = difficultyPoints * 10;
                 const baseGold = (enemyPokemon.level * 10) + 5;
-                
-                // Bonus basé sur les bonnes réponses
-                const correctBonus = 1 + (correctAnswers * 0.1); // +10% par bonne réponse
-                
-                // Bonus basé sur le combo max atteint
-                const comboBonus = 1 + (maxCombo * 0.2); // +20% par niveau de combo max
-                
-                // Bonus basé sur la difficulté totale (points gagnés)
-                const difficultyBonus = 1 + (difficultyPoints * 0.05); // +5% par point de difficulté
-                
-                let xpGain = Math.floor(baseXp * correctBonus * comboBonus * difficultyBonus);
+                const correctBonus = 1 + (correctAnswers * 0.1);
+                const comboBonus = 1 + (maxCombo * 0.2);
+                let xpGain = Math.floor(baseXp * correctBonus * comboBonus);
                 let goldGain = Math.floor(baseGold * correctBonus);
-                
-                // Multiplicateur pour boss et dresseur
                 if (isBoss) { xpGain *= 3; goldGain *= 3; }
                 if (isTrainerMode) { xpGain *= 2; goldGain *= 2; }
-                
                 let loot: string | undefined = undefined;
-                // Loot chance augmente avec le combo
                 const lootChance = Math.min(0.8, 0.20 + (maxCombo * 0.1));
                 if (Math.random() < lootChance || isBoss || isTrainerMode) { 
                     const items = isTrainerMode 
@@ -250,16 +242,14 @@ export const useBattleLogic = () => {
                 }
                 setRewards({ xp: xpGain, gold: goldGain, loot });
                 claimBattleRewards(xpGain, goldGain, loot);
-                
                 const victoryMsg = isTrainerMode && trainerOpponent 
                     ? `Tu as battu le dresseur ${trainerOpponent.name} !` 
                     : 'VICTOIRE !';
                 addLog({ message: victoryMsg, type: 'INFO' });
             }
-
         } else if (battleOver && playerPokemon?.current_hp === 0 && battlePhase === 'FIGHTING') {
-             setBattlePhase('FINISHED');
-             setRewards(null);
+            setBattlePhase('FINISHED');
+            setRewards(null);
         }
     }, [battleOver, battlePhase, captureAttempted, questionsAnswered]);
 
@@ -364,29 +354,42 @@ export const useBattleLogic = () => {
     };
 
     const handleUseItem = async (item: Item) => {
-        if (['HEAL', 'BUFF_ATK', 'BUFF_DEF', 'TRAITOR', 'DMG_FLAT'].includes(item.effect_type)) {
+        // Battle-usable items
+        if (['HEAL', 'HEAL_TEAM', 'BUFF_ATK', 'BUFF_DEF', 'TRAITOR', 'DMG_FLAT'].includes(item.effect_type)) {
+            // Apply local effect immediately for instant visual feedback
             if (item.effect_type === 'TRAITOR' || item.effect_type === 'DMG_FLAT') {
-                // Potion traître ou dégâts directs
                 playSfx('ATTACK');
                 damageEntity('ENEMY', item.value);
                 spawnFloatingText(`-${item.value}!`, 'text-purple-400', false);
                 addLog({ message: `${item.name} ! ${item.value} dégâts infligés !`, type: 'PLAYER' });
             } else if (item.effect_type === 'HEAL') {
-                playSfx('POTION'); 
-                healEntity('PLAYER', item.value);
-                spawnFloatingText(`+${item.value}`, 'text-green-400', true);
-            } else {
                 playSfx('POTION');
-                addLog({ message: `${item.name} utilisé !`, type: 'PLAYER' });
+                healEntity('PLAYER', item.value);
+                spawnFloatingText(`+${item.value} PV`, 'text-green-400', true);
+                addLog({ message: `${item.name} restaure ${item.value} PV !`, type: 'PLAYER' });
+            } else if (item.effect_type === 'HEAL_TEAM') {
+                playSfx('POTION');
+                healEntity('PLAYER', item.value);
+                spawnFloatingText(`+${item.value} PV (équipe)`, 'text-green-400', true);
+                addLog({ message: `${item.name} soigne toute l'équipe !`, type: 'PLAYER' });
+            } else if (item.effect_type === 'BUFF_ATK') {
+                playSfx('POTION');
+                spawnFloatingText('ATK ↑', 'text-orange-400', true);
+                addLog({ message: `${item.name} : Attaque augmentée !`, type: 'PLAYER' });
+            } else if (item.effect_type === 'BUFF_DEF') {
+                playSfx('POTION');
+                spawnFloatingText('DEF ↑', 'text-blue-400', true);
+                addLog({ message: `${item.name} : Défense augmentée !`, type: 'PLAYER' });
             }
-            
-            // Utiliser l'item via API Node.js
+
+            // Consume item via backend API
             try {
-                 await api.post(`/shop/use-item`, { itemId: item.id, pokemonId: playerPokemon?.id });
-                 await fetchInventory();
-            } catch(e) {
+                await api.post('/shop/use-item', { itemId: item.id, pokemonId: playerPokemon?.id });
+                await fetchInventory();
+            } catch (e) {
                 console.error('Erreur utilisation item:', e);
             }
+
             setShowInventory(false);
             endTurn();
         }
@@ -417,7 +420,7 @@ export const useBattleLogic = () => {
             battleOver: false, 
             battleLogs: [], 
             isPlayerTurn: true, 
-            gradeGauge: 0, 
+            // gradeGauge: 0, // Do NOT reset gradeGauge to persist between battles
             combo: 0, 
             specialGauge: 0, 
             battlePhase: 'NONE',
@@ -444,7 +447,6 @@ export const useBattleLogic = () => {
             setCaptureSuccess(false);
             return;
         }
-        
         // Vérifier qu'on a une pokeball
         const pokeball = inventory.find(i => i.effect_type === 'CAPTURE' && i.quantity > 0);
         if (!pokeball || !enemyPokemon) {
@@ -453,13 +455,20 @@ export const useBattleLogic = () => {
             addLog({ message: 'Pas de Pokéball !', type: 'INFO' });
             return;
         }
-        
-        // Calcul de la probabilité de capture (plus HP bas = plus facile)
+        // Calcul de la probabilité de capture
         const hpPercent = (enemyPokemon?.current_hp || 0) / (enemyPokemon?.max_hp || 1);
-        const captureChance = 0.6 + (1 - hpPercent) * 0.4;
+        let rarityBonus = 1;
+        if (enemyPokemon.isBoss) rarityBonus = 0.5;
+        const baseRate = 0.4;
+        const captureChance = Math.max(0.05, Math.min(0.95, baseRate * rarityBonus + (1 - hpPercent) * 0.5));
         const success = Math.random() < captureChance;
-        
-        // Consommer la pokeball via API Node.js
+
+        // Set result immediately then start animation
+        setCaptureSuccess(success);
+        setCaptureAnimating(true);
+        addLog({ message: 'Tu lances une Pokéball...', type: 'INFO' });
+
+        // Consume pokeball via API (runs in background while animation plays)
         try {
             await api.post(`/shop/use-item`, {
                 itemId: pokeball.id,
@@ -469,7 +478,7 @@ export const useBattleLogic = () => {
         } catch (e) {
             console.error('Erreur consommation pokeball:', e);
         }
-        
+        // If success, register capture via API
         if (success && enemyPokemon) {
             try {
                 await api.post(`/collection/capture`, {
@@ -477,8 +486,6 @@ export const useBattleLogic = () => {
                     level: enemyPokemon.level,
                     name: enemyPokemon.name
                 });
-                setCaptureSuccess(true);
-                confetti({ particleCount: 300, spread: 180, origin: { y: 0.6 } });
                 addLog({ message: `${enemyPokemon.name} capturé !`, type: 'PLAYER' });
             } catch (e) {
                 console.error('Erreur capture:', e);
@@ -486,9 +493,13 @@ export const useBattleLogic = () => {
         } else {
             addLog({ message: `${enemyPokemon?.name} s'est échappé !`, type: 'INFO' });
         }
-        
+        // NOTE: captureAttempted is set by onCaptureAnimEnd when animation finishes
+    };
+
+    /** Called by CaptureAnimation when the sequence finishes */
+    const onCaptureAnimEnd = () => {
+        setCaptureAnimating(false);
         setCaptureAttempted(true);
-        setCaptureSuccess(success);
     };
 
     return {
@@ -500,6 +511,7 @@ export const useBattleLogic = () => {
         shake, flash, floatingTexts,
         controlsPlayer, controlsEnemy,
         captureSuccess,
+        captureAnimating,
         
         // PVP State (legacy, non utilisé)
         isPvpMyTurn: false,
@@ -515,6 +527,7 @@ export const useBattleLogic = () => {
         handleSwitchPokemon,
         handleExitBattle,
         revealLoot,
-        handleCapture
+        handleCapture,
+        onCaptureAnimEnd,
     };
 };

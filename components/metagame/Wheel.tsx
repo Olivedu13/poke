@@ -30,20 +30,30 @@ const getItemIcon = (id: string | number | undefined) => {
 };
 
 const generatePreviewSegments = (bet: number): WheelSegment[] => {
-  const genericPoke = `${ASSETS_BASE_URL}/pokeball.webp`;
-  const genericItem = `${ASSETS_BASE_URL}/jetons.webp`;
   const mult = bet === 10 ? 15 : bet === 5 ? 5 : 1;
 
-  // Ordre identique au serveur, sans doublons adjacents
+  // Items varient selon le palier
+  const item1 = bet >= 5
+    ? { id: 'heal_r2', label: 'SUPER POTION', img: `${ASSETS_BASE_URL}/soin.webp` }
+    : { id: 'heal_r1', label: 'POTION', img: `${ASSETS_BASE_URL}/soin.webp` };
+
+  const item2 = bet >= 10
+    ? { id: 'traitor_r1', label: 'TRAÎTRE', img: `${ASSETS_BASE_URL}/traitre.webp` }
+    : bet >= 5
+      ? { id: 'atk_r1', label: 'BOOST ATK', img: `${ASSETS_BASE_URL}/attaque.webp` }
+      : { id: 'pokeball', label: 'POKÉBALL', img: `${ASSETS_BASE_URL}/pokeball.webp` };
+
+  // Alternance stricte : GOLD → POKEMON → ITEM → XP → GOLD → ITEM → POKEMON → XP
+  // Aucun type adjacent identique (y compris wrap-around)
   return [
-    { type: 'GOLD', value: 50 * mult, label: `${50 * mult} OR`, color: '#fbbf24' },
-    { type: 'XP', value: 100 * mult, label: `${100 * mult} XP`, color: '#3b82f6' },
-    { type: 'ITEM', label: 'POTION', img: genericItem, color: '#a855f7', isMystery: true },
-    { type: 'GOLD', value: 200 * mult, label: `${200 * mult} OR`, color: '#fbbf24' },
-    { type: 'POKEMON', label: 'POKEMON', img: genericPoke, color: '#ef4444', isMystery: true },
-    { type: 'XP', value: 250 * mult, label: `${250 * mult} XP`, color: '#3b82f6' },
-    { type: 'ITEM', label: bet >= 5 ? 'SUPER POTION' : 'POKEBALL', img: genericItem, color: '#a855f7', isMystery: true },
-    { type: 'GOLD', value: 10000 * (bet === 10 ? 3 : bet === 5 ? 1.5 : 1), label: 'JACKPOT 💰', color: '#10b981' },
+    { type: 'GOLD', value: 50 * mult, label: `${50 * mult} OR`, img: `${ASSETS_BASE_URL}/credits.webp`, color: '#fbbf24' },
+    { type: 'POKEMON', label: 'POKÉMON', img: `${ASSETS_BASE_URL}/pokeball.webp`, color: '#ef4444', isMystery: true },
+    { type: 'ITEM', ...item1, color: '#a855f7' },
+    { type: 'XP', value: 100 * mult, label: `${100 * mult} XP`, img: `${ASSETS_BASE_URL}/xp.webp`, color: '#3b82f6' },
+    { type: 'GOLD', value: 10000 * (bet === 10 ? 3 : bet === 5 ? 1.5 : 1), label: 'JACKPOT 💰', img: `${ASSETS_BASE_URL}/credits.webp`, color: '#10b981' },
+    { type: 'ITEM', ...item2, color: '#a855f7' },
+    { type: 'POKEMON', label: 'POKÉMON', img: `${ASSETS_BASE_URL}/pokeball.webp`, color: '#ef4444', isMystery: true },
+    { type: 'XP', value: 250 * mult, label: `${250 * mult} XP`, img: `${ASSETS_BASE_URL}/xp.webp`, color: '#3b82f6' },
   ];
 };
 
@@ -88,12 +98,21 @@ export const Wheel: React.FC = () => {
         if (apiResponse.data.success) {
           targetIndex = apiResponse.data.result_index;
           if (apiResponse.data.segments && Array.isArray(apiResponse.data.segments) && apiResponse.data.segments.length > 0) {
-            newSegments = apiResponse.data.segments.map((s: any) => ({
-              ...s,
-              img: s.type === 'POKEMON'
-                ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${s.id}.png`
-                : s.img,
-            }));
+            newSegments = apiResponse.data.segments.map((s: any) => {
+              let img: string;
+              if (s.type === 'POKEMON') {
+                img = s.id
+                  ? `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${s.id}.png`
+                  : `${ASSETS_BASE_URL}/pokeball.webp`;
+              } else if (s.type === 'ITEM') {
+                img = getItemIcon(s.id || s.value);
+              } else if (s.type === 'GOLD') {
+                img = `${ASSETS_BASE_URL}/credits.webp`;
+              } else {
+                img = `${ASSETS_BASE_URL}/xp.webp`;
+              }
+              return { ...s, img };
+            });
           }
         } else {
           controls.stop();
@@ -149,9 +168,10 @@ export const Wheel: React.FC = () => {
   };
 
   const getSegmentImage = (seg: WheelSegment) => {
-    if (seg.isMystery) return seg.img;
-    if (seg.type === 'POKEMON')
-      return seg.img || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/${seg.id}.png`;
+    // Si une image est déjà définie, l'utiliser directement
+    if (seg.img) return seg.img;
+    // Fallback par type
+    if (seg.type === 'POKEMON') return `${ASSETS_BASE_URL}/pokeball.webp`;
     if (seg.type === 'ITEM') return getItemIcon(seg.id);
     if (seg.type === 'GOLD') return `${ASSETS_BASE_URL}/credits.webp`;
     return `${ASSETS_BASE_URL}/xp.webp`;

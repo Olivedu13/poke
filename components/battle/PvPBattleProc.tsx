@@ -155,13 +155,14 @@ export const PvPBattleProc: React.FC = () => {
     };
   }, [matchId, user?.id]);
 
-  const submitAnswer = () => {
-    if (selectedAnswer === null || !matchId) return;
+  const submitAnswer = (answerIdx: number) => {
+    if (answerIdx === null || !matchId) return;
     
     socketService.emit('pvp:submit_answer', {
       matchId: parseInt(matchId),
-      answerIndex: selectedAnswer
+      answerIndex: answerIdx
     });
+    setSelectedAnswer(answerIdx);
   };
 
   const forfeit = () => {
@@ -402,13 +403,15 @@ export const PvPBattleProc: React.FC = () => {
                 {currentQuestion.options.map((option, idx) => (
                   <button
                     key={idx}
-                    onClick={() => isMyTurn && setSelectedAnswer(idx)}
-                    disabled={!isMyTurn}
+                    onClick={() => isMyTurn && selectedAnswer === null && submitAnswer(idx)}
+                    disabled={!isMyTurn || selectedAnswer !== null}
                     className={`w-full p-3 rounded-lg border-2 text-left transition-all text-sm ${
                       isMyTurn
                         ? selectedAnswer === idx
                           ? 'bg-cyan-600 border-cyan-400 text-white'
-                          : 'bg-slate-800 border-slate-700 text-slate-300 active:scale-[0.98]'
+                          : selectedAnswer !== null
+                            ? 'bg-slate-800/50 border-slate-700/50 text-slate-500'
+                            : 'bg-slate-800 border-slate-700 text-slate-300 active:scale-[0.98]'
                         : 'bg-slate-800/50 border-slate-700/50 text-slate-500 cursor-not-allowed'
                     }`}
                   >
@@ -416,17 +419,6 @@ export const PvPBattleProc: React.FC = () => {
                   </button>
                 ))}
               </div>
-
-              {/* Submit */}
-              {isMyTurn && (
-                <button
-                  onClick={submitAnswer}
-                  disabled={selectedAnswer === null}
-                  className="w-full mt-4 py-3 bg-green-600 hover:bg-green-500 disabled:bg-slate-700 disabled:opacity-50 text-white font-bold rounded-lg transition-colors active:scale-[0.98]"
-                >
-                  VALIDER
-                </button>
-              )}
             </div>
           ) : (
             <div className="text-center">

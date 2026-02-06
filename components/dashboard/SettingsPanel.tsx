@@ -13,7 +13,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
 
-  const [gradeLevel, setGradeLevel] = useState(user?.grade_level || 'CE1');
+  const [gradeLevel, setGradeLevel] = useState<string>(user?.grade_level || 'CE1');
   const [subjects, setSubjects] = useState<string[]>(() => {
     try {
       if (user?.active_subjects && typeof user.active_subjects === 'string') {
@@ -89,8 +89,16 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
       });
 
       if (res.data.success) {
+        // Mettre à jour le store directement au lieu de recharger la page
+        useGameStore.setState((state) => ({
+          user: state.user ? {
+            ...state.user,
+            grade_level: gradeLevel,
+            active_subjects: subjects,
+          } : null,
+        }));
         setMessage('✅ Configuration sauvegardée');
-        setTimeout(() => window.location.reload(), 1500);
+        setTimeout(() => onClose(), 1200);
       } else {
         setMessage('❌ Erreur lors de la sauvegarde');
       }

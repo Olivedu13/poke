@@ -65,15 +65,11 @@ describe('PvPBattleProc socket flows', () => {
     // question should be visible
     expect(await findByText(/Quelle est 1\+1\?/i)).toBeTruthy();
 
-    // click second option (index 1)
+    // click second option (index 1) — auto-submits immediately
     const option = getByText('2');
     await act(async () => { fireEvent.click(option); });
 
-    // click VALIDER
-    const submit = getByText('VALIDER');
-    await act(async () => { fireEvent.click(submit); });
-
-    // ensure submit emitted to socket
+    // ensure submit emitted to socket (auto-validated on click, no VALIDER button)
     expect(mockSocket.emit).toHaveBeenCalledWith('pvp:submit_answer', { matchId: 1, answerIndex: 1 });
   });
 });

@@ -20,19 +20,43 @@ const BET_MULTIPLIERS: Record<number, number> = {
 };
 
 // Configuration des prix de la roue par palier
+// Alternance stricte : GOLD → POKEMON → ITEM → XP → GOLD → ITEM → POKEMON → XP
+// Aucun type adjacent identique (y compris wrap-around)
 function generateWheelPrizes(bet: number = 1): WheelPrize[] {
   const mult = BET_MULTIPLIERS[bet] || 1;
-  
-  // Arrangement qui évite les items identiques côte à côte
+
+  // Plus le bet est élevé, plus les pokémon sont probables
+  const pokemonRarity: WheelPrize['rarity'] =
+    bet >= 10 ? 'common' : bet >= 5 ? 'uncommon' : 'epic';
+
+  // Items varient selon le palier de mise
+  const item1 = bet >= 5
+    ? { value: 'heal_r2' as string | number, id: 'heal_r2', name: 'Super Potion', label: 'SUPER POTION' }
+    : { value: 'heal_r1' as string | number, id: 'heal_r1', name: 'Potion', label: 'POTION' };
+
+  const item2 = bet >= 10
+    ? { value: 'traitor_r1' as string | number, id: 'traitor_r1', name: 'Traître', label: 'TRAÎTRE' }
+    : bet >= 5
+      ? { value: 'atk_r1' as string | number, id: 'atk_r1', name: 'Boost Attaque', label: 'BOOST ATK' }
+      : { value: 'pokeball' as string | number, id: 'pokeball', name: 'Poké Ball', label: 'POKÉBALL' };
+
   return [
+    // 0: GOLD
     { type: 'GOLD', value: 50 * mult, name: `${50 * mult} Or`, label: `${50 * mult} OR`, rarity: 'common', color: '#fbbf24' },
+    // 1: POKEMON
+    { type: 'POKEMON', value: 'random', name: 'Pokémon Mystère', label: 'POKÉMON', rarity: pokemonRarity, color: '#ef4444' },
+    // 2: ITEM (basique)
+    { type: 'ITEM', ...item1, rarity: 'common', color: '#a855f7' },
+    // 3: XP
     { type: 'XP', value: 100 * mult, name: `${100 * mult} XP`, label: `${100 * mult} XP`, rarity: 'common', color: '#3b82f6' },
-    { type: 'ITEM', value: 'heal_r1', id: 'heal_r1', name: 'Potion', label: 'POTION', rarity: 'common', color: '#a855f7' },
-    { type: 'GOLD', value: 200 * mult, name: `${200 * mult} Or`, label: `${200 * mult} OR`, rarity: 'uncommon', color: '#fbbf24' },
-    { type: 'POKEMON', value: 'random', name: 'Pokémon Mystère', label: 'POKEMON', rarity: bet >= 10 ? 'uncommon' : 'rare', color: '#ef4444' },
-    { type: 'XP', value: 250 * mult, name: `${250 * mult} XP`, label: `${250 * mult} XP`, rarity: 'uncommon', color: '#3b82f6' },
-    { type: 'ITEM', value: bet >= 5 ? 'heal_r2' : 'pokeball', id: bet >= 5 ? 'heal_r2' : 'pokeball', name: bet >= 5 ? 'Super Potion' : 'Poké Ball', label: bet >= 5 ? 'SUPER POTION' : 'POKEBALL', rarity: 'uncommon', color: '#a855f7' },
+    // 4: GOLD (JACKPOT)
     { type: 'GOLD', value: 10000 * (bet === 10 ? 3 : bet === 5 ? 1.5 : 1), name: 'JACKPOT', label: 'JACKPOT 💰', rarity: 'legendary', color: '#10b981' },
+    // 5: ITEM (meilleur)
+    { type: 'ITEM', ...item2, rarity: 'uncommon', color: '#a855f7' },
+    // 6: POKEMON
+    { type: 'POKEMON', value: 'random', name: 'Pokémon Mystère', label: 'POKÉMON', rarity: pokemonRarity, color: '#ef4444' },
+    // 7: XP
+    { type: 'XP', value: 250 * mult, name: `${250 * mult} XP`, label: `${250 * mult} XP`, rarity: 'uncommon', color: '#3b82f6' },
   ];
 }
 
