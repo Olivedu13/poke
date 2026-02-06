@@ -13,7 +13,7 @@ async function loadTyradexJson(): Promise<any[]> {
     const json: any = await res.json();
     cachedTyradex = Array.isArray(json) ? json : (json?.pokemon || []);
     cacheAt = now;
-    return cachedTyradex;
+    return cachedTyradex || [];
   } catch (e) {
     console.error('Impossible de charger pokemon.json depuis assets:', e);
     return cachedTyradex || [];
