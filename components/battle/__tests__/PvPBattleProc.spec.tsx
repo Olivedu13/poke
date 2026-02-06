@@ -13,13 +13,18 @@ describe('PvPBattleProc socket flows', () => {
     emit: vi.fn(() => {}),
   } as any;
 
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
     callbacks = {};
-    // ensure module socketService points to our mock
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const socketMod = require('../../../services/socket');
-    socketMod.socketService = mockSocket;
+    // dynamically import socket module and replace exported socketService with our mock
+    const socketMod = await import('../../../services/socket');
+    // Replace methods on the exported instance so listeners register to our mocks
+    // @ts-ignore
+    socketMod.socketService.on = mockSocket.on;
+    // @ts-ignore
+    socketMod.socketService.off = mockSocket.off;
+    // @ts-ignore
+    socketMod.socketService.emit = mockSocket.emit;
 
     // set a logged user and a match id
     useGameStore.setState({ user: { id: 10, username: 'me', grade_level: 'CP', global_xp: 0 } });
@@ -46,7 +51,7 @@ describe('PvPBattleProc socket flows', () => {
     };
 
     const data = {
-      match: matchState,
+      match: { ...matchState, turnNumber: 2 },
       history: [],
       isMyTurn: true,
       currentQuestion: { id: 99, text: 'Quelle est 1+1?', options: ['1','2'], difficulty: 1 }
