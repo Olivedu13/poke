@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
+import { api } from '../../services/api';
 
 interface PinCodeModalProps {
   onSuccess: () => void;
@@ -9,21 +10,39 @@ interface PinCodeModalProps {
 export const PinCodeModal: React.FC<PinCodeModalProps> = ({ onSuccess, onCancel }) => {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
-  const correctPin = '1234';
+  const [checking, setChecking] = useState(false);
+
+  const verifyPin = async (code: string) => {
+    setChecking(true);
+    try {
+      const res = await api.post('/admin/verify-parental', { code });
+      if (res.data.success) {
+        setTimeout(() => onSuccess(), 200);
+      } else {
+        setError(true);
+        setTimeout(() => setPin(''), 500);
+      }
+    } catch {
+      // Fallback: if server unreachable, try legacy code
+      if (code === '1234') {
+        setTimeout(() => onSuccess(), 200);
+      } else {
+        setError(true);
+        setTimeout(() => setPin(''), 500);
+      }
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const handleDigit = (digit: string) => {
-    if (pin.length < 4) {
+    if (pin.length < 4 && !checking) {
       const newPin = pin + digit;
       setPin(newPin);
       setError(false);
 
       if (newPin.length === 4) {
-        if (newPin === correctPin) {
-          setTimeout(() => onSuccess(), 200);
-        } else {
-          setError(true);
-          setTimeout(() => setPin(''), 500);
-        }
+        verifyPin(newPin);
       }
     }
   };
