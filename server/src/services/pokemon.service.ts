@@ -59,7 +59,7 @@ function getSpriteUrl(tyradexId: number): string {
   return `${TYRADEX_ASSETS_BASE}/images/${tyradexId}/regular.png`;
 }
 
-function calculateMaxHp(level: number, tyradexId: number): number {
+export function calculateMaxHp(level: number, tyradexId: number): number {
   const baseHp = 20 + tyradexId % 30;
   return baseHp + level * 5;
 }
@@ -194,9 +194,15 @@ export async function addPokemonXp(pokemonId: string, xpAmount: number): Promise
   // Calculer les PV max après le level-up / évolution et remettre les PV au maximum
   const newMaxHp = calculateMaxHp(newLevel, tyradexId);
 
+  // Update nickname to evolved Pokémon's name if evolution happened
+  const updateData: any = { currentXp: newXp, level: newLevel, tyradexId, currentHp: newMaxHp };
+  if (evolutionHappened) {
+    updateData.nickname = getPokemonName(tyradexId);
+  }
+
   await prisma.userPokemon.update({
     where: { id: pokemonId },
-    data: { currentXp: newXp, level: newLevel, tyradexId, currentHp: newMaxHp },
+    data: updateData,
   });
 
   return { leveledUp, newLevel, evolution: evolutionHappened, sequence: evolutionHappened ? sequence : undefined };

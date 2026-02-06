@@ -43,9 +43,21 @@ const EvolutionOverlay = ({ sequence, onClose }: { sequence: number[], onClose: 
 
 const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onToggleTeam, collectionSize }: any) => {
     const [tab, setTab] = useState<'STATS' | 'ITEMS'>('STATS');
+    const [showLevelUp, setShowLevelUp] = useState(false);
+    const prevLevel = useRef(pokemon.level);
     const usableItems = inventory.filter((i: Item) => ['HEAL', 'HEAL_TEAM', 'TEAM_HEAL', 'EVOLUTION', 'EVOLUTION_MAX'].includes(i.effect_type) && i.quantity > 0);
     const xpPercent = Math.min(100, (pokemon.current_xp / (pokemon.next_level_xp || 100)) * 100);
     const statLabels: Record<string, string> = { HP: 'SANTÉ', ATK: 'ATTAQUE', DEF: 'DÉFENSE', SPE: 'VITESSE' };
+
+    // Détecte le gain de niveau
+    useEffect(() => {
+        if (pokemon.level > prevLevel.current) {
+            setShowLevelUp(true);
+            prevLevel.current = pokemon.level;
+            playSfx && playSfx('LEVEL_UP');
+            setTimeout(() => setShowLevelUp(false), 2000);
+        }
+    }, [pokemon.level]);
 
     return (
         <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in zoom-in-95 duration-200" onClick={onClose}>
@@ -55,12 +67,29 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
                     <div className="text-center flex-1"><h2 className="text-xl font-display font-bold text-white uppercase">{pokemon.name}</h2><div className="flex justify-center gap-2 text-xs font-mono mt-1"><span className="text-cyan-400">NIV {pokemon.level}</span><span className="text-slate-500">|</span><span className="text-slate-400">ID #{pokemon.tyradex_id}</span></div></div>
                     <div className="w-20"></div>
                 </div>
+                {/* Animation/message de gain de niveau */}
+                                <AnimatePresence>
+                                    {showLevelUp && (
+                                        <motion.div 
+                                            initial={{ opacity: 0, scale: 0.7 }} 
+                                            animate={{ opacity: 1, scale: 1 }} 
+                                            exit={{ opacity: 0, scale: 0.7 }} 
+                                            transition={{ duration: 0.4 }}
+                                            className="fixed left-1/2 top-8 sm:top-20 -translate-x-1/2 z-[120] bg-gradient-to-r from-yellow-400 to-cyan-400 text-black px-4 py-2 sm:px-8 sm:py-4 rounded-2xl shadow-2xl border-2 sm:border-4 border-yellow-300 font-display font-black text-lg sm:text-2xl flex items-center gap-2 sm:gap-3 animate-bounce w-[90vw] max-w-xs sm:max-w-none justify-center"
+                                        >
+                                            <span className="text-2xl sm:text-3xl">⭐</span> NIVEAU SUPÉRIEUR !
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
                 <div className="flex-1 overflow-y-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="flex flex-col items-center p-4 bg-slate-950/50 rounded-xl">
                          <img src={pokemon.sprite_url} className="w-32 h-32 sm:w-48 sm:h-48 object-contain drop-shadow-[0_10px_20px_rgba(0,0,0,0.5)] mb-4" />
                          <div className="w-full mb-4"><div className="flex justify-between text-[10px] text-slate-400 mb-1 font-bold"><span>EXPÉRIENCE</span><span>{pokemon.current_xp} / {pokemon.next_level_xp || 100}</span></div><div className="w-full h-3 bg-slate-800 rounded-full overflow-hidden border border-slate-700"><motion.div className="h-full bg-gradient-to-r from-blue-600 to-cyan-400 relative" initial={{ width: 0 }} animate={{ width: `${xpPercent}%` }} transition={{ duration: 0.8, ease: "easeOut" }}><div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.2)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.2)_50%,rgba(255,255,255,0.2)_75%,transparent_75%,transparent)] bg-[size:1rem_1rem] opacity-30"></div></motion.div></div></div>
                          <button onClick={() => onAction('feed', pokemon.id)} disabled={(user?.global_xp || 0) < 100} className="w-full bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white py-3 rounded-lg font-bold shadow-lg disabled:opacity-50 disabled:grayscale transition-all flex items-center justify-center gap-2 group active:scale-[0.98]">
                             <img src={`${ASSETS_BASE_URL}/xp.webp`} className="w-5 h-5 group-hover:scale-110 transition-transform"/> DONNER 100 XP
+                         </button>
+                         <button onClick={() => onAction('unfeed', pokemon.id)} disabled={pokemon.level <= 1 && pokemon.current_xp < 100} className="w-full mt-2 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2 rounded-lg font-bold text-sm disabled:opacity-30 disabled:pointer-events-none transition-all flex items-center justify-center gap-2 active:scale-[0.98] border border-slate-700">
+                            ↩ REPRENDRE 100 XP
                          </button>
                     </div>
                     <div className="p-2">
@@ -88,15 +117,7 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
                                 {usableItems.map((item: Item) => (
                                     <div key={item.id} className="flex justify-between items-center bg-slate-800 p-2 rounded border border-slate-700">
                                         <div className="flex items-center gap-2">
-                                            <img
-                                                src={`${ASSETS_BASE_URL}/${item.image || 'pokeball.webp'}`}
-                                                className="w-8 h-8"
-                                                onError={(e) => {
-                                                    const img = e.currentTarget as HTMLImageElement;
-                                                    if (img.src.includes('poudre_')) img.src = img.src.replace('poudre_', '');
-                                                    else img.src = `${ASSETS_BASE_URL}/pokeball.webp`;
-                                                }}
-                                            />
+                                            <img src={`${ASSETS_BASE_URL}/${item.image || 'pokeball.webp'}`} className="w-8 h-8" />
                                             <div><div className="text-xs font-bold text-white">{item.name}</div><div className="text-[10px] text-slate-400">x{item.quantity}</div></div>
                                         </div>
                                         <button onClick={() => onAction('use_item', pokemon.id, item.id)} className="bg-slate-700 hover:bg-cyan-600 text-white text-[10px] font-bold px-3 py-1.5 rounded active:scale-95 transition-transform">UTILISER</button>
@@ -128,35 +149,15 @@ const PokemonDetailModal = ({ pokemon, user, inventory, onClose, onAction, onTog
     );
 };
 
-// Swap overlay shown when trying to add a pokemon while team is full
-const SwapOverlay = ({ toAddId, activeTeam, onClose, onSwap }: { toAddId: string | null, activeTeam: any[], onClose: () => void, onSwap: (outId: string) => void }) => {
-    if (!toAddId) return null;
-    return (
-        <div className="fixed inset-0 z-[120] bg-black/70 flex items-center justify-center">
-            <div className="bg-slate-900 rounded-xl border border-slate-700 p-6 w-full max-w-lg">
-                <h3 className="text-lg font-display font-bold text-white mb-4">Équipe pleine — choisir un Pokémon à remplacer</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                    {activeTeam.map(p => (
-                        <div key={p.id} className="bg-slate-800 p-3 rounded-lg flex flex-col items-center">
-                            <img src={p.sprite_url} className="w-20 h-20 object-contain mb-2" />
-                            <div className="text-white font-bold text-sm">{p.name}</div>
-                            <button onClick={() => onSwap(p.id)} className="mt-2 px-3 py-2 bg-red-700 text-white rounded">Remplacer</button>
-                        </div>
-                    ))}
-                </div>
-                <div className="text-right"><button onClick={onClose} className="px-4 py-2 bg-slate-700 text-white rounded">Annuler</button></div>
-            </div>
-        </div>
-    );
-};
-
 const PokemonCard: React.FC<{ pokemon: Pokemon, onClick: () => void, onToggleTeam?: (id: string) => void, teamCount?: number }> = ({ pokemon, onClick, onToggleTeam, teamCount = 0 }) => {
     const canAddToTeam = !pokemon.is_team && teamCount < 3;
     const canRemove = pokemon.is_team;
     
     const handleToggle = (e: React.MouseEvent) => {
         e.stopPropagation();
-        if (onToggleTeam) onToggleTeam(pokemon.id);
+        if (onToggleTeam && (canAddToTeam || canRemove)) {
+            onToggleTeam(pokemon.id);
+        }
     };
     
     return (
@@ -168,12 +169,13 @@ const PokemonCard: React.FC<{ pokemon: Pokemon, onClick: () => void, onToggleTea
             {onToggleTeam && (
                 <button 
                     onClick={handleToggle}
+                    disabled={!canAddToTeam && !canRemove}
                     className={`w-full mt-3 py-2 rounded-lg font-bold text-xs transition-all ${
                         pokemon.is_team 
                             ? 'bg-red-900/50 border border-red-500/50 text-red-400 hover:bg-red-900/70' 
                             : canAddToTeam 
                                 ? 'bg-green-900/50 border border-green-500/50 text-green-400 hover:bg-green-900/70'
-                                : 'bg-slate-800 border border-slate-700 text-slate-500'
+                                : 'bg-slate-800 border border-slate-700 text-slate-500 cursor-not-allowed'
                     }`}
                 >
                     {pokemon.is_team ? '− RETIRER' : canAddToTeam ? '+ ÉQUIPE' : 'ÉQUIPE PLEINE'}
@@ -189,18 +191,16 @@ export const Collection: React.FC = () => {
   const [evolutionSeq, setEvolutionSeq] = useState<number[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [nameMap, setNameMap] = useState<Record<number, string>>({});
-    const [swapTarget, setSwapTarget] = useState<string | null>(null);
 
   useEffect(() => {
     fetchCollection();
     fetchInventory(); 
     const fetchNames = async () => {
         try {
-            const res = await axios.get(`${ASSETS_BASE_URL}/tyradex/pokemon.json`);
-            const list = res.data;
-            if (Array.isArray(list)) {
+            const res = await axios.get('https://tyradex.app/api/v1/pokemon');
+            if(Array.isArray(res.data)) {
                 const map: Record<number, string> = {};
-                list.forEach((p: any) => { map[p.pokedex_id || p.pokedexId] = p.name?.fr; });
+                res.data.forEach((p: any) => { map[p.pokedexId] = p.name.fr; });
                 setNameMap(map);
             }
         } catch (e) {}
@@ -226,119 +226,102 @@ export const Collection: React.FC = () => {
       name: (p.name && p.name.includes('Pokemon #') && nameMap[p.tyradex_id]) ? nameMap[p.tyradex_id] : (p.name || `Pokémon #${p.tyradex_id}`)
   }));
 
-  const handleAction = async (action: string, pokeId: string, itemId?: string) => {
-      const rawPokeId = pokeId;
-      const rawItemId = itemId;
-      const pokeIdTrimmed = typeof pokeId === 'string' ? pokeId.trim() : pokeId;
-      const itemIdTrimmed = typeof itemId === 'string' ? itemId.trim() : itemId;
-      console.log('[Collection] handleAction', action, rawPokeId, rawItemId, '->', pokeIdTrimmed, itemIdTrimmed);
+    const handleAction = async (action: string, pokeId: string, itemId?: string) => {
+        setLoading(true);
+        try {
+            // Router vers le bon endpoint selon l'action
+            let res;
+            if (action === 'feed') {
+                res = await api.post(`/collection/feed`, { pokemonId: pokeId, xpAmount: 100 });
+            } else if (action === 'unfeed') {
+                res = await api.post(`/collection/unfeed`, { pokemonId: pokeId, xpAmount: 100 });
+            } else if (action === 'toggle_team') {
+                res = await api.post(`/collection/toggle-team`, { pokemonId: pokeId });
+            } else if (action === 'use_item') {
+                res = await api.post(`/shop/use-item`, { itemId: itemId, pokemonId: pokeId });
+            } else {
+                res = { data: { success: false, message: 'Action inconnue' } };
+            }
 
-      // Special-case: when trying to add to team but team is full, open swap overlay
-      if (action === 'toggle_team') {
-          const targetPoke = correctedCollection.find(p => p.id === pokeIdTrimmed || p.id === pokeId);
-          const activeTeamLocal = correctedCollection.filter(p => p.is_team);
-          if (targetPoke && !targetPoke.is_team && activeTeamLocal.length >= 3) {
-              setSwapTarget(pokeIdTrimmed);
-              return;
-          }
-      }
-
-      setLoading(true);
-      try {
-          // Router vers le bon endpoint selon l'action
-          let res;
-          if (action === 'feed') {
-              res = await api.post(`/collection/feed`, { pokemonId: pokeIdTrimmed, xpAmount: 100 });
-          } else if (action === 'toggle_team') {
-              res = await api.post(`/collection/toggle-team`, { pokemonId: pokeIdTrimmed });
-          } else if (action === 'use_item') {
-              res = await api.post(`/shop/use-item`, { itemId: itemIdTrimmed, pokemonId: pokeIdTrimmed });
-          } else {
-              res = { data: { success: false, message: 'Action inconnue' } };
-          }
-
-          if (res.data && res.data.success) {
-              await fetchCollection();
-              await fetchInventory();
-              // Rafraîchir l'utilisateur pour mettre à jour l'XP globale
-              if (action === 'feed' || (res.data.evolution && res.data.sequence)) {
-                  if (useGameStore.getState().fetchUser) await useGameStore.getState().fetchUser();
-              }
-              if (res.data.evolution && res.data.sequence) {
-                  setSelectedPokemon(null); setEvolutionSeq(res.data.sequence); 
-              } else if (action !== 'toggle_team') {
-                  if (itemId && (itemId.includes('heal') || itemId.includes('potion'))) playSfx('POTION');
-                  else playSfx('CLICK');
-                  const updatedCollection = useGameStore.getState().collection;
-                  let updatedP = updatedCollection.find(p => p.id === pokeIdTrimmed || p.id === pokeId);
-                  if (updatedP && updatedP.name && updatedP.name.includes('Pokemon #') && nameMap[updatedP.tyradex_id]) {
-                      updatedP = { ...updatedP, name: nameMap[updatedP.tyradex_id] };
-                  }
-                  if (updatedP) setSelectedPokemon(updatedP);
-              } else {
-                  playSfx('CLICK');
-              }
-          } else {
-              // Revert optimistic update on failure
-              if (action === 'toggle_team') await fetchCollection();
-              const msg = res.data?.message || 'Action échouée';
-              console.warn('[Collection] action failed:', msg, res.data);
-              alert(msg);
-          }
-      } catch (e) { 
-          console.error('[Collection] action error:', e);
-          // Revert optimistic update on error
-          if (action === 'toggle_team') await fetchCollection();
-          const msg = e?.response?.data?.message || e?.message || 'Erreur de communication';
-          alert(msg);
-      } finally { setLoading(false); }
-  };
-
-  const performSwap = async (outId: string) => {
-      if (!swapTarget) return;
-      setLoading(true);
-      try {
-          const success = await useGameStore.getState().swapTeamMember(outId, swapTarget);
-          if (success) {
-              setSwapTarget(null);
-              await fetchCollection();
-              await fetchInventory();
-              playSfx('CLICK');
-          } else {
-              alert('Échec de l\'échange');
-          }
-      } catch (e) {
-          console.error('Swap error', e); alert('Erreur pendant l\'échange');
-      } finally { setLoading(false); }
-  };
+            if (res.data.success) {
+                await fetchCollection();
+                await fetchInventory();
+                // Rafraîchir l'utilisateur pour mettre à jour l'XP globale
+                if (action === 'feed' || action === 'unfeed' || (res.data.evolution && res.data.sequence)) {
+                    if (useGameStore.getState().fetchUser) await useGameStore.getState().fetchUser();
+                }
+                if (res.data.evolution && res.data.sequence) {
+                    setSelectedPokemon(null); setEvolutionSeq(res.data.sequence); 
+                } else if (action !== 'toggle_team') {
+                    if (itemId && (itemId.includes('heal') || itemId.includes('potion'))) playSfx('POTION');
+                    else playSfx('CLICK');
+                    const updatedCollection = useGameStore.getState().collection;
+                    let updatedP = updatedCollection.find(p => p.id === pokeId);
+                    if (updatedP && updatedP.name && updatedP.name.includes('Pokemon #') && nameMap[updatedP.tyradex_id]) {
+                        updatedP = { ...updatedP, name: nameMap[updatedP.tyradex_id] };
+                    }
+                    if (updatedP) setSelectedPokemon(updatedP);
+                } else {
+                    playSfx('CLICK');
+                }
+            } else {
+                // Affichage d'un message d'erreur si le Pokémon ne peut pas évoluer
+                if (action === 'use_item' && res.data.message && res.data.message.includes('ne peut pas évoluer')) {
+                    alert('Ce Pokémon ne peut pas évoluer. La potion n\'a pas été consommée.');
+                } else {
+                    // Revert optimistic update on failure
+                    if (action === 'toggle_team') await fetchCollection();
+                    alert(res.data.message);
+                }
+            }
+        } catch (e) { 
+            console.error(e); 
+            // Revert optimistic update on error
+            if (action === 'toggle_team') await fetchCollection();
+        } finally { setLoading(false); }
+    };
 
   const activeTeam = correctedCollection.filter(p => p.is_team);
   const boxPokemon = correctedCollection.filter(p => !p.is_team);
 
-  return (
-    <div className="w-full max-w-6xl mx-auto pb-20">
-            {/* removed top XP bar per UX request */}
-    <AnimatePresence>{evolutionSeq && (<EvolutionOverlay sequence={evolutionSeq} onClose={() => setEvolutionSeq(null)} />)}</AnimatePresence>
-    <AnimatePresence>{selectedPokemon && (<PokemonDetailModal pokemon={selectedPokemon} user={user} inventory={inventory} onClose={() => setSelectedPokemon(null)} onAction={handleAction} onToggleTeam={(id: string) => handleAction('toggle_team', id)} collectionSize={correctedCollection.length} />)}</AnimatePresence>
-    {swapTarget && (<SwapOverlay toAddId={swapTarget} activeTeam={activeTeam} onClose={() => setSwapTarget(null)} onSwap={(outId: string) => performSwap(outId)} />)}
+    return (
+        <div className="w-full max-w-6xl mx-auto pb-20 px-1 sm:px-0">
+            <AnimatePresence>{evolutionSeq && (<EvolutionOverlay sequence={evolutionSeq} onClose={() => setEvolutionSeq(null)} />)}</AnimatePresence>
+            <AnimatePresence>{selectedPokemon && (<PokemonDetailModal pokemon={selectedPokemon} user={user} inventory={inventory} onClose={() => setSelectedPokemon(null)} onAction={handleAction} onToggleTeam={(id: string) => handleAction('toggle_team', id)} collectionSize={correctedCollection.length} />)}</AnimatePresence>
 
-      <div className="flex flex-col md:flex-row justify-between items-center mb-8 bg-slate-900/80 p-6 rounded-2xl border border-slate-700 shadow-xl backdrop-blur-sm">
-        <div className="flex items-center gap-4">
-             <div className="w-16 h-16 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-full flex items-center justify-center border-4 border-slate-800 shadow-lg"><img src={`${ASSETS_BASE_URL}/pokeball.webp`} className="w-10 h-10 animate-pulse-fast" /></div>
-             <div><h2 className="text-3xl font-display font-bold text-white tracking-wide">CENTRE POKÉMON</h2><p className="text-slate-400 font-mono text-sm">Gérez votre équipe et vos évolutions</p></div>
+            {/* Responsive grid fix: use flex-wrap and min-w-0 for children */}
+            <div className="mb-12">
+                <h3 className="text-xl font-display font-bold text-cyan-400 mb-4 flex items-center gap-2"><span className="w-2 h-8 bg-cyan-500 rounded-full"></span> ÉQUIPE ACTIVE ({activeTeam.length}/3)</h3>
+                {activeTeam.length === 0 ? (
+                    <div className="border-2 border-dashed border-slate-800 rounded-2xl p-8 text-center text-slate-500">Votre équipe est vide. Cliquez sur "+ ÉQUIPE" sur un Pokémon ci-dessous.</div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-6">
+                        {activeTeam.map(poke => (
+                            <PokemonCard key={poke.id} pokemon={poke} onClick={() => setSelectedPokemon(poke)} onToggleTeam={(id) => handleAction('toggle_team', id)} teamCount={activeTeam.length} />
+                        ))}
+                        {[...Array(3 - activeTeam.length)].map((_, i) => (
+                            <div key={i} className="bg-slate-900/30 border border-slate-800 rounded-2xl flex items-center justify-center opacity-30 min-h-[200px]">
+                                <span className="font-display font-bold text-slate-600">EMPLACEMENT VIDE</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+
+            <div>
+                <h3 className="text-xl font-display font-bold text-slate-400 mb-4 flex items-center gap-2"><span className="w-2 h-8 bg-slate-700 rounded-full"></span> RÉSERVE ({boxPokemon.length})</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-2 sm:gap-4" style={{flexWrap:'wrap'}}>
+                    {boxPokemon.map(poke => (
+                        <div style={{minWidth:0}} key={poke.id}>
+                            <PokemonCard pokemon={poke} onClick={() => setSelectedPokemon(poke)} onToggleTeam={(id) => handleAction('toggle_team', id)} teamCount={activeTeam.length} />
+                        </div>
+                    ))}
+                    <div className="border-2 border-dashed border-slate-800 bg-slate-900/20 rounded-2xl flex flex-col items-center justify-center p-4 text-slate-600 hover:border-cyan-500/30 hover:text-cyan-500 cursor-pointer transition-colors min-h-[120px] sm:min-h-[180px]">
+                        <span className="text-4xl font-light mb-2">+</span>
+                        <span className="text-xs font-bold text-center">CAPTURER PLUS</span>
+                    </div>
+                </div>
+            </div>
         </div>
-        <div className="mt-4 md:mt-0 bg-slate-950 px-6 py-3 rounded-xl border border-cyan-500/30 flex items-center gap-4"><div className="text-right"><div className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">RÉSERVE XP</div><div className="text-2xl font-mono text-cyan-400 font-bold drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]">{user?.global_xp} XP</div></div><img src={`${ASSETS_BASE_URL}/xp.webp`} className="w-8 h-8" /></div>
-      </div>
-
-      <div className="mb-12">
-          <h3 className="text-xl font-display font-bold text-cyan-400 mb-4 flex items-center gap-2"><span className="w-2 h-8 bg-cyan-500 rounded-full"></span> ÉQUIPE ACTIVE ({activeTeam.length}/3)</h3>
-          {activeTeam.length === 0 ? (<div className="border-2 border-dashed border-slate-800 rounded-2xl p-8 text-center text-slate-500">Votre équipe est vide. Cliquez sur "+ ÉQUIPE" sur un Pokémon ci-dessous.</div>) : (<div className="grid grid-cols-1 md:grid-cols-3 gap-6">{activeTeam.map(poke => (<PokemonCard key={poke.id} pokemon={poke} onClick={() => setSelectedPokemon(poke)} onToggleTeam={(id) => handleAction('toggle_team', id)} teamCount={activeTeam.length} />))}{[...Array(3 - activeTeam.length)].map((_, i) => (<div key={i} className="bg-slate-900/30 border border-slate-800 rounded-2xl flex items-center justify-center opacity-30 min-h-[200px]"><span className="font-display font-bold text-slate-600">EMPLACEMENT VIDE</span></div>))}</div>)}
-      </div>
-
-      <div>
-          <h3 className="text-xl font-display font-bold text-slate-400 mb-4 flex items-center gap-2"><span className="w-2 h-8 bg-slate-700 rounded-full"></span> RÉSERVE ({boxPokemon.length})</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">{boxPokemon.map(poke => (<PokemonCard key={poke.id} pokemon={poke} onClick={() => setSelectedPokemon(poke)} onToggleTeam={(id) => handleAction('toggle_team', id)} teamCount={activeTeam.length} />))}<div className="border-2 border-dashed border-slate-800 bg-slate-900/20 rounded-2xl flex flex-col items-center justify-center p-4 text-slate-600 hover:border-cyan-500/30 hover:text-cyan-500 cursor-pointer transition-colors min-h-[180px]"><span className="text-4xl font-light mb-2">+</span><span className="text-xs font-bold text-center">CAPTURER PLUS</span></div></div>
-      </div>
-    </div>
-  );
+    );
 };

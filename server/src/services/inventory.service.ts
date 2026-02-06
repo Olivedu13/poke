@@ -253,7 +253,11 @@ export async function useItem(
         newHp = Math.floor(newMaxHp * hpRatio);
       }
 
-      const updateData: any = { tyradexId: newTyradexId, currentHp: newHp, level: newLevel };
+      // Update nickname to evolved Pokémon's name
+      const { getPokemonName } = await import('./pokemon.service.js');
+      const newNickname = getPokemonName(newTyradexId);
+
+      const updateData: any = { tyradexId: newTyradexId, currentHp: newHp, level: newLevel, nickname: newNickname };
       if (typeof finalCurrentXp !== 'undefined') updateData.currentXp = finalCurrentXp;
 
       await prisma.$transaction([

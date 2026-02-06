@@ -1,18 +1,17 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { getUserById, updateUserConfig } from '../../services/user.service.js';
+import { type AuthRequest } from '../middleware/auth.middleware.js';
 
-type AuthenticatedRequest = Request & { user?: { id: number } };
-
-export async function getUserProfile(req: AuthenticatedRequest, res: Response) {
-  // TODO: Auth middleware to set req.userId
-  const userId = req.user?.id || 1; // fallback for demo
+export async function getUserProfile(req: AuthRequest, res: Response) {
+  const userId = req.userId;
+  if (!userId) return res.status(401).json({ success: false, message: 'Non authentifié' });
   const user = await getUserById(userId);
   if (!user) return res.status(404).json({ error: 'User not found' });
   res.json({ user });
 }
 
-export async function updateConfig(req: AuthenticatedRequest, res: Response) {
-  const userId = req.user?.id;
+export async function updateConfig(req: AuthRequest, res: Response) {
+  const userId = req.userId;
   if (!userId) {
     return res.status(401).json({ success: false, message: 'Non authentifié' });
   }

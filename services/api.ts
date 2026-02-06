@@ -11,6 +11,10 @@ export const api = axios.create({
   }
 });
 
+// Callback de logout — sera enregistré par le store au boot
+let _logoutFn: (() => void) | null = null;
+export function registerLogoutCallback(fn: () => void) { _logoutFn = fn; }
+
 // Intercepteur REQUEST : Injecter le token
 api.interceptors.request.use(
   (config) => {
@@ -24,14 +28,24 @@ api.interceptors.request.use(
 );
 
 // Intercepteur RESPONSE : Gérer l'expiration
+// Ne logout QUE pour les requêtes d'authentification (verify), pas pour les
+// appels API normaux (battle/rewards, shop, etc.) qui peuvent échouer sans
+// que la session soit réellement expirée.
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
-      console.warn("Session expirée. Déconnexion.");
-      localStorage.removeItem('poke_edu_token');
-      // Force reload to reset store via Auth boundary
-      window.location.reload();
+      const url = error.config?.url || '';
+      // Seulement logout si c'est un appel critique de vérification d'auth
+      const isCriticalAuth = url.includes('/auth/verify') || url.includes('/auth/login');
+      if (isCriticalAuth) {
+        console.warn('Session expirée. Déconnexion.');
+        localStorage.removeItem('poke_edu_token');
+        if (_logoutFn) _logoutFn();
+        else window.location.reload();
+      } else {
+        console.warn(`401 sur ${url} — ignoré (pas un endpoint auth critique)`);
+      }
     }
     return Promise.reject(error);
   }
