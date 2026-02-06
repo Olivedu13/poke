@@ -277,7 +277,38 @@ export const Collection: React.FC = () => {
       </div>
 
       <div className="mb-12">
-          <h3 className="text-xl font-display font-bold text-cyan-400 mb-4 flex items-center gap-2"><span className="w-2 h-8 bg-cyan-500 rounded-full"></span> ÉQUIPE ACTIVE ({activeTeam.length}/3)</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-xl font-display font-bold text-cyan-400 flex items-center gap-2"><span className="w-2 h-8 bg-cyan-500 rounded-full"></span> ÉQUIPE ACTIVE ({activeTeam.length}/3)</h3>
+            <div className="flex items-center gap-2">
+                <button onClick={async () => {
+                    // Quick fill highest level
+                    if (loading) return; setLoading(true);
+                    try {
+                        const notIn = correctedCollection.filter(p => !p.is_team).sort((a,b) => (b.level||0) - (a.level||0));
+                        const slots = 3 - activeTeam.length;
+                        for (let i=0;i<slots;i++) {
+                            const p = notIn[i]; if (!p) break;
+                            await api.post('/collection/toggle-team', { pokemonId: p.id });
+                        }
+                        await fetchCollection();
+                        playSfx('CLICK');
+                    } catch (e) { console.error(e); }
+                    finally { setLoading(false); }
+                }} className="px-3 py-2 bg-cyan-600 text-white rounded-md text-sm font-bold hover:opacity-90">Quick Fill</button>
+                <button onClick={async () => {
+                    // Clear entire team
+                    if (loading) return; if (activeTeam.length === 0) return;
+                    if (!confirm('Supprimer tous les Pokémon de l\'équipe ?')) return;
+                    setLoading(true);
+                    try {
+                        for (const p of activeTeam) { await api.post('/collection/toggle-team', { pokemonId: p.id }); }
+                        await fetchCollection();
+                        playSfx('CLICK');
+                    } catch (e) { console.error(e); }
+                    finally { setLoading(false); }
+                }} className="px-3 py-2 bg-red-700 text-white rounded-md text-sm font-bold hover:opacity-90">Clear</button>
+            </div>
+          </div>
           {activeTeam.length === 0 ? (<div className="border-2 border-dashed border-slate-800 rounded-2xl p-8 text-center text-slate-500">Votre équipe est vide. Cliquez sur "+ ÉQUIPE" sur un Pokémon ci-dessous.</div>) : (<div className="grid grid-cols-1 md:grid-cols-3 gap-6">{activeTeam.map(poke => (<PokemonCard key={poke.id} pokemon={poke} onClick={() => setSelectedPokemon(poke)} onToggleTeam={(id) => handleAction('toggle_team', id)} teamCount={activeTeam.length} />))}{[...Array(3 - activeTeam.length)].map((_, i) => (<div key={i} className="bg-slate-900/30 border border-slate-800 rounded-2xl flex items-center justify-center opacity-30 min-h-[200px]"><span className="font-display font-bold text-slate-600">EMPLACEMENT VIDE</span></div>))}</div>)}
       </div>
 
