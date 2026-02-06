@@ -296,8 +296,8 @@ export const useGameStore = create<GameState>((set, get) => ({
   swapTeamMember: async (outId, inId) => {
       playSfx('CLICK');
       try {
-          if (outId) await api.post('/collection/toggle-team', { pokemon_id: outId });
-          const res = await api.post('/collection/toggle-team', { pokemon_id: inId });
+        if (outId) await api.post('/collection/toggle-team', { pokemonId: outId });
+        const res = await api.post('/collection/toggle-team', { pokemonId: inId });
           if (res.data.success) { await get().fetchCollection(); return true; }
       } catch (e) {}
       return false;

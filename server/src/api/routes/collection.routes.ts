@@ -22,7 +22,11 @@ collectionRouter.get('/', async (req: AuthRequest, res: Response) => {
         sprite_url: p.spriteUrl,
         current_hp: p.currentHp,
         max_hp: p.maxHp,
+        current_xp: p.currentXp,
+        next_level_xp: p.nextLevelXp,
+        stats: p.stats || { atk: 0, def: 0, spe: 0 },
         nickname: p.nickname,
+        is_team: p.isTeam || false,
       })),
     });
   } catch (error) {
@@ -45,7 +49,11 @@ collectionRouter.get('/team', async (req: AuthRequest, res: Response) => {
         sprite_url: p.spriteUrl,
         current_hp: p.currentHp,
         max_hp: p.maxHp,
+        current_xp: p.currentXp,
+        next_level_xp: p.nextLevelXp,
+        stats: p.stats || { atk: 0, def: 0, spe: 0 },
         nickname: p.nickname,
+        is_team: p.isTeam || false,
       })),
     });
   } catch (error) {

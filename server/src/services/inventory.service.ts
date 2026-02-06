@@ -1,5 +1,6 @@
 import { prisma } from '../config/database.js';
 import type { Item, Inventory } from '@prisma/client';
+import { displayNameForItem } from './itemDisplay.service.js';
 
 export interface InventoryItem {
   id: string;
@@ -31,7 +32,7 @@ export async function getUserInventory(userId: number): Promise<InventoryItem[]>
 
   return inventory.map((inv) => ({
     id: inv.item.id,
-    name: inv.item.name,
+    name: displayNameForItem(inv.item),
     description: inv.item.description,
     effectType: inv.item.effectType,
     value: inv.item.value,
@@ -174,7 +175,7 @@ export async function useItem(
     };
   }
 
-  // Apply EVOLUTION effect
+  // Apply EVOLUTION effect (normal or ultimate)
   if ((item.effectType === 'EVOLUTION' || item.effectType === 'EVOLUTION_MAX') && pokemonId) {
     const pokemon = await prisma.userPokemon.findFirst({
       where: { id: pokemonId, userId },
@@ -195,16 +196,45 @@ export async function useItem(
       let sequence: number[];
       let newLevel = pokemon.level;
 
-      if (item.effectType === 'EVOLUTION_MAX') {
-        const lastEvo = pokeData.evolution.next[pokeData.evolution.next.length - 1];
-        newTyradexId = lastEvo.pokedex_id;
-        sequence = [pokemon.tyradexId, ...pokeData.evolution.next.map((e: any) => e.pokedex_id)];
+      // detect ultimate even when DB stores as EVOLUTION with value or naming
+      const idStr = (item.id || '').toString().toLowerCase();
+      const nameStr = (item.name || '').toString();
+      const descStr = (item.description || '')?.toString().toLowerCase() || '';
+      const looksUltimate = item.effectType === 'EVOLUTION_MAX' || idStr.includes('ult') || /ultim|maxim/i.test(nameStr) || /ultim|maxim/i.test(descStr) || (typeof item.value === 'number' && item.value >= 3);
+
+      if (looksUltimate) {
+        // Build full evolution chain (follow first branch at each step)
+        sequence = [pokemon.tyradexId];
+        let curId = pokemon.tyradexId;
+        // follow successive next evolutions until none
+        // use evolution.service.getEvolutionChain for each step
+        // Note: choose the first available next evolution at each step
+        // to produce a deterministic full-chain
+        // (covers multi-stage evolutions)
+        // We already have pokeData for the starting pokemon
+        let stepData = pokeData;
+        while (stepData && stepData.evolution && Array.isArray(stepData.evolution.next) && stepData.evolution.next.length > 0) {
+          const next = stepData.evolution.next[0];
+          const nextId = next.pokedex_id;
+          sequence.push(nextId);
+          // load next step data
+          try {
+            const { getPokemonData } = await import('./evolution.service.js');
+            stepData = await getPokemonData(nextId);
+          } catch (e) {
+            stepData = null;
+          }
+          curId = nextId;
+        }
+        newTyradexId = sequence[sequence.length - 1];
         newLevel = 100;
-        const maxXp = pokeData.level_100 || 1250000;
-        await prisma.userPokemon.update({
-          where: { id: pokemonId },
-          data: { currentXp: maxXp },
-        });
+        // determine max XP from final form if available
+        const finalData = await (async () => {
+          try { const { getPokemonData } = await import('./evolution.service.js'); return await getPokemonData(newTyradexId); } catch (e) { return null; }
+        })();
+        const maxXp = finalData?.level_100 ?? pokeData.level_100 ?? 1250000;
+        // will include currentXp in the final update
+        var finalCurrentXp = maxXp;
       } else {
         const nextEvo = pokeData.evolution.next[0];
         newTyradexId = nextEvo.pokedex_id;
@@ -214,8 +244,17 @@ export async function useItem(
       // Recalculate HP for new evolution
       const newMaxHp = 30 + (newTyradexId % 30) + newLevel * 5;
       const oldMaxHp = 30 + (pokemon.tyradexId % 30) + pokemon.level * 5;
-      const hpRatio = pokemon.currentHp / oldMaxHp;
-      const newHp = Math.floor(newMaxHp * hpRatio);
+      let newHp: number;
+      if (item.effectType === 'EVOLUTION_MAX') {
+        // keep at full HP after ultimate evolution
+        newHp = newMaxHp;
+      } else {
+        const hpRatio = pokemon.currentHp / oldMaxHp;
+        newHp = Math.floor(newMaxHp * hpRatio);
+      }
+
+      const updateData: any = { tyradexId: newTyradexId, currentHp: newHp, level: newLevel };
+      if (typeof finalCurrentXp !== 'undefined') updateData.currentXp = finalCurrentXp;
 
       await prisma.$transaction([
         prisma.inventory.update({
@@ -224,7 +263,7 @@ export async function useItem(
         }),
         prisma.userPokemon.update({
           where: { id: pokemonId },
-          data: { tyradexId: newTyradexId, currentHp: newHp, level: newLevel },
+          data: updateData,
         }),
       ]);
 

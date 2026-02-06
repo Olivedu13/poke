@@ -9,6 +9,10 @@ export interface PokemonData {
   currentHp: number;
   maxHp: number;
   nickname: string | null;
+  currentXp?: number;
+  nextLevelXp?: number;
+  isTeam?: boolean;
+  stats?: { hp: number; atk: number; def: number; spe: number };
 }
 
 // Noms français des 151 premiers Pokémon (Génération 1)
@@ -60,6 +64,23 @@ function calculateMaxHp(level: number, tyradexId: number): number {
   return baseHp + level * 5;
 }
 
+// Stats de base approximatives (réutilise la logique du shop)
+function getBaseStats(id: number): { hp: number; atk: number; def: number; spe: number } {
+  const base = 40 + (id % 30);
+  return { hp: base + 20, atk: base + 10, def: base + 5, spe: base };
+}
+
+function computeStatsForLevel(level: number, id: number) {
+  const base = getBaseStats(id);
+  // Simple scaling par niveau
+  return {
+    hp: Math.max(1, Math.floor(base.hp + (level - 1) * 5)),
+    atk: Math.max(0, Math.floor(base.atk + (level - 1) * 2)),
+    def: Math.max(0, Math.floor(base.def + (level - 1) * 1)),
+    spe: Math.max(0, Math.floor(base.spe + (level - 1) * 1)),
+  };
+}
+
 /**
  * Récupère l'équipe active d'un utilisateur (max 3 Pokémon avec is_team = true)
  */
@@ -81,6 +102,10 @@ export async function getUserTeam(userId: number): Promise<PokemonData[]> {
       currentHp: Math.min(p.currentHp, maxHp),
       maxHp,
       nickname: p.nickname,
+      isTeam: !!p.isTeam,
+      currentXp: p.currentXp,
+      nextLevelXp: p.level * 100,
+      stats: computeStatsForLevel(p.level, p.tyradexId),
     };
   });
 }
@@ -105,6 +130,10 @@ export async function getUserCollection(userId: number): Promise<PokemonData[]> 
       currentHp: Math.min(p.currentHp, maxHp),
       maxHp,
       nickname: p.nickname,
+      isTeam: !!p.isTeam,
+      currentXp: p.currentXp,
+      nextLevelXp: p.level * 100,
+      stats: computeStatsForLevel(p.level, p.tyradexId),
     };
   });
 }
@@ -162,9 +191,12 @@ export async function addPokemonXp(pokemonId: string, xpAmount: number): Promise
     }
   }
 
+  // Calculer les PV max après le level-up / évolution et remettre les PV au maximum
+  const newMaxHp = calculateMaxHp(newLevel, tyradexId);
+
   await prisma.userPokemon.update({
     where: { id: pokemonId },
-    data: { currentXp: newXp, level: newLevel, tyradexId },
+    data: { currentXp: newXp, level: newLevel, tyradexId, currentHp: newMaxHp },
   });
 
   return { leveledUp, newLevel, evolution: evolutionHappened, sequence: evolutionHappened ? sequence : undefined };
