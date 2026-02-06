@@ -117,6 +117,12 @@ collectionRouter.post('/feed', async (req: AuthRequest, res: Response) => {
     if (!user || (user.globalXp || 0) < xpAmount) {
       return res.status(400).json({ success: false, message: 'XP insuffisante' });
     }
+
+    // Vérifier que le Pokémon n'est pas déjà au niveau max
+    const targetPokemon = await prisma.userPokemon.findUnique({ where: { id: pokemonId } });
+    if (targetPokemon && targetPokemon.level >= 100) {
+      return res.status(400).json({ success: false, message: 'Ce Pokémon est déjà au niveau maximum !' });
+    }
     
     // Transférer l'XP
     const result = await pokemonService.addPokemonXp(pokemonId, xpAmount);
@@ -134,6 +140,69 @@ collectionRouter.post('/feed', async (req: AuthRequest, res: Response) => {
     });
   } catch (error) {
     console.error('Error feeding pokemon:', error);
+    res.status(500).json({ success: false, message: 'Erreur serveur' });
+  }
+});
+
+// POST /api/collection/unfeed - Reprendre 100 XP d'un Pokémon (annuler un don d'XP)
+collectionRouter.post('/unfeed', async (req: AuthRequest, res: Response) => {
+  try {
+    const { pokemonId, xpAmount = 100 } = req.body;
+    if (!pokemonId) {
+      return res.status(400).json({ success: false, message: 'pokemonId requis' });
+    }
+
+    const pokemon = await prisma.userPokemon.findUnique({ where: { id: pokemonId } });
+    if (!pokemon) {
+      return res.status(404).json({ success: false, message: 'Pokémon introuvable' });
+    }
+
+    // Cannot unfeed if pokemon has 0 xp and is level 1
+    if (pokemon.level === 1 && pokemon.currentXp < xpAmount) {
+      return res.status(400).json({ success: false, message: 'Ce Pokémon n\'a pas assez d\'XP à retirer' });
+    }
+
+    // Calculate new XP/level going backwards
+    let newXp = pokemon.currentXp - xpAmount;
+    let newLevel = pokemon.level;
+
+    // Handle level down: if XP goes negative, go back levels
+    while (newXp < 0 && newLevel > 1) {
+      newLevel--;
+      const xpForThisLevel = newLevel * 100;
+      newXp += xpForThisLevel;
+    }
+    // Clamp to minimum
+    if (newLevel <= 1 && newXp < 0) {
+      newXp = 0;
+      newLevel = 1;
+    }
+
+    const { calculateMaxHp } = await import('../../services/pokemon.service.js');
+    const newMaxHp = calculateMaxHp(newLevel, pokemon.tyradexId);
+
+    await prisma.userPokemon.update({
+      where: { id: pokemonId },
+      data: {
+        currentXp: newXp,
+        level: newLevel,
+        currentHp: Math.min(pokemon.currentHp, newMaxHp),
+      },
+    });
+
+    // Refund XP to user
+    await prisma.user.update({
+      where: { id: req.userId! },
+      data: { globalXp: { increment: xpAmount } },
+    });
+
+    res.json({
+      success: true,
+      message: `${xpAmount} XP récupérées. Niveau ${newLevel}`,
+      newLevel,
+    });
+  } catch (error) {
+    console.error('Error unfeeding pokemon:', error);
     res.status(500).json({ success: false, message: 'Erreur serveur' });
   }
 });
