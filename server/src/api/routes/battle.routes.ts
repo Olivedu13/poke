@@ -1,6 +1,7 @@
 import { Router, type IRouter, type Response } from 'express';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.middleware.js';
 import * as BattleService from '../../services/battle.service.js';
+import { prisma } from '../../config/database.js';
 
 export const battleRouter: IRouter = Router();
 
@@ -132,6 +133,51 @@ battleRouter.post('/use-item', authMiddleware, async (req: AuthRequest, res: Res
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to use item';
+    res.status(400).json({ success: false, message });
+  }
+});
+
+// Réclamer les récompenses de combat (XP, or, loot)
+battleRouter.post('/rewards', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const userId = req.userId!;
+    const { xp, gold, item_drop } = req.body;
+
+    const safeXp = Math.max(0, Math.floor(Number(xp) || 0));
+    const safeGold = Math.max(0, Math.floor(Number(gold) || 0));
+
+    // Update user XP, gold, and streak
+    const updatedUser = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        globalXp: { increment: safeXp },
+        gold: { increment: safeGold },
+        streak: { increment: 1 },
+      },
+    });
+
+    // If loot item, add to inventory
+    if (item_drop && typeof item_drop === 'string') {
+      const itemExists = await prisma.item.findUnique({ where: { id: item_drop } });
+      if (itemExists) {
+        await prisma.inventory.upsert({
+          where: { userId_itemId: { userId, itemId: item_drop } },
+          update: { quantity: { increment: 1 } },
+          create: { userId, itemId: item_drop, quantity: 1 },
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      data: {
+        gold: updatedUser.gold,
+        globalXp: updatedUser.globalXp,
+        streak: updatedUser.streak,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Failed to claim rewards';
     res.status(400).json({ success: false, message });
   }
 });

@@ -2,11 +2,10 @@ import { Router, type IRouter, type Response } from 'express';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.middleware.js';
 import { prisma } from '../../config/database.js';
 import {
-  generateAIPrompt,
-  parseAIResponse,
+  generateQuestionsWithAI,
   saveGeneratedQuestions,
-  generateMockQuestions,
   getAIPreparedQuestions,
+  prepareBattleQuestions,
 } from '../../services/ai.service.js';
 
 export const aiRouter: IRouter = Router();
@@ -27,8 +26,8 @@ aiRouter.post('/generate', authMiddleware, async (req: AuthRequest, res: Respons
 
     const gradeLevel = grade_level || user.gradeLevel || 'CE1';
 
-    // Pour l'instant, utiliser les questions mock (remplacer par appel OpenAI si configuré)
-    let questions = generateMockQuestions(prompt, gradeLevel, count);
+    // Générer des questions via Gemini AI (fallback automatique vers mock)
+    const questions = await generateQuestionsWithAI(prompt, gradeLevel, difficulty || 'MEDIUM', count);
 
     // Sauvegarder en base si des questions ont été générées
     if (questions.length > 0) {
@@ -81,31 +80,13 @@ aiRouter.post('/prepare-battle', authMiddleware, async (req: AuthRequest, res: R
       return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
     }
 
-    // Si l'utilisateur a un prompt personnalisé actif
-    if (user.customPromptActive && user.customPromptText) {
-      const questions = generateMockQuestions(
-        user.customPromptText,
-        user.gradeLevel,
-        10
-      );
+    const result = await prepareBattleQuestions(req.userId!, 10);
 
-      if (questions.length > 0) {
-        const savedIds = await saveGeneratedQuestions(questions, req.userId!);
-        return res.json({
-          success: true,
-          message: `${questions.length} questions préparées`,
-          question_ids: savedIds,
-        });
-      }
-    }
-
-    // Sinon, utiliser les questions existantes
-    const existingQuestions = await getAIPreparedQuestions(req.userId!, 10);
-    
     res.json({
       success: true,
-      message: `${existingQuestions.length} questions disponibles`,
-      questions: existingQuestions,
+      message: `Questions préparées (source: ${result.source})`,
+      source: result.source,
+      question_ids: result.questionIds,
     });
   } catch (error) {
     console.error('Error preparing battle questions:', error);

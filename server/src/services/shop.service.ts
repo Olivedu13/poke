@@ -16,13 +16,13 @@ export interface ShopPokemon {
 // Rareté basée sur l'ID du Pokémon
 function getRarity(id: number): { label: string; priceMultiplier: number } {
   // Légendaires
-  if ([144, 145, 146, 150, 151].includes(id)) return { label: 'LÉGENDAIRE', priceMultiplier: 10 };
+  if ([144, 145, 146, 150, 151].includes(id)) return { label: 'LÉGENDAIRE', priceMultiplier: 40 };
   // Épiques (starters évolutions finales, pseudo-légendaires)
-  if ([3, 6, 9, 131, 143, 149].includes(id)) return { label: 'ÉPIQUE', priceMultiplier: 5 };
+  if ([3, 6, 9, 131, 143, 149].includes(id)) return { label: 'ÉPIQUE', priceMultiplier: 16 };
   // Rares (évolutions intermédiaires, populaires)
-  if ([2, 5, 8, 25, 26, 133, 134, 135, 136].includes(id) || id > 100) return { label: 'RARE', priceMultiplier: 2 };
+  if ([2, 5, 8, 25, 26, 133, 134, 135, 136].includes(id) || id > 100) return { label: 'RARE', priceMultiplier: 6 };
   // Peu communs
-  if (id > 50) return { label: 'PEU COMMUN', priceMultiplier: 1.5 };
+  if (id > 50) return { label: 'PEU COMMUN', priceMultiplier: 3 };
   // Communs
   return { label: 'COMMUN', priceMultiplier: 1 };
 }
@@ -48,7 +48,7 @@ export function getShopPokemons(): ShopPokemon[] {
   
   for (let id = 1; id <= 151; id++) {
     const rarity = getRarity(id);
-    const basePrice = 300 + (id * 3);
+    const basePrice = 500;
     const types = POKEMON_TYPES[id] || ['Normal'];
     
     pokemons.push({
@@ -135,7 +135,7 @@ export async function sellPokemon(userId: number, pokemonId: string): Promise<{ 
   
   // Prix de vente = 50% du prix de base
   const rarity = getRarity(pokemon.tyradexId);
-  const sellPrice = Math.floor((300 + pokemon.tyradexId * 3) * rarity.priceMultiplier * 0.5);
+  const sellPrice = Math.floor(500 * rarity.priceMultiplier * 0.5);
   
   // Supprimer le Pokémon
   await prisma.userPokemon.delete({ where: { id: pokemonId } });

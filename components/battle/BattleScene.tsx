@@ -41,19 +41,56 @@ const BattlePokemonCard: React.FC<{
   pokemon: Pokemon;
   isEnemy?: boolean;
   controls?: any;
-}> = ({ pokemon, isEnemy = false, controls }) => (
+  statusEffect?: 'sleep' | 'poison' | null;
+}> = ({ pokemon, isEnemy = false, controls, statusEffect }) => (
   <motion.div
     animate={controls}
-    className={`flex flex-col items-center px-3 py-2 rounded-xl border ${
+    className={`relative flex flex-col items-center px-3 py-2 rounded-xl border ${
       isEnemy
         ? 'border-red-500/30 bg-gradient-to-b from-red-950/30 to-slate-900/50'
         : 'border-cyan-500/30 bg-gradient-to-b from-cyan-950/30 to-slate-900/50'
     }`}
   >
+    {/* Status effect overlay */}
+    <AnimatePresence>
+      {statusEffect === 'sleep' && (
+        <motion.div
+          key="sleep-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 rounded-xl bg-indigo-900/30 z-10 pointer-events-none flex items-center justify-center"
+        >
+          <motion.span
+            className="text-3xl"
+            animate={{ y: [0, -8, 0], opacity: [0.6, 1, 0.6], scale: [1, 1.2, 1] }}
+            transition={{ repeat: Infinity, duration: 1.5 }}
+          >💤</motion.span>
+        </motion.div>
+      )}
+      {statusEffect === 'poison' && (
+        <motion.div
+          key="poison-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="absolute inset-0 rounded-xl bg-green-900/25 z-10 pointer-events-none flex items-center justify-center"
+        >
+          <motion.span
+            className="text-3xl"
+            animate={{ rotate: [0, 10, -10, 0], scale: [1, 1.15, 1], opacity: [0.7, 1, 0.7] }}
+            transition={{ repeat: Infinity, duration: 2 }}
+          >☠️</motion.span>
+        </motion.div>
+      )}
+    </AnimatePresence>
+
     <motion.img
       src={pokemon.sprite_url}
       alt={pokemon.name}
-      className="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 object-contain drop-shadow-lg"
+      className={`w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 object-contain drop-shadow-lg ${
+        statusEffect === 'poison' ? 'hue-rotate-[90deg] brightness-90' : statusEffect === 'sleep' ? 'brightness-75 saturate-50' : ''
+      }`}
       draggable={false}
     />
     <div className="w-full mt-1 text-center">
@@ -61,6 +98,13 @@ const BattlePokemonCard: React.FC<{
         {pokemon.name}{' '}
         <span className="text-slate-400 font-mono text-[10px]">Nv.{pokemon.level}</span>
       </div>
+      {statusEffect && (
+        <span className={`text-[9px] font-bold uppercase tracking-wider ${
+          statusEffect === 'sleep' ? 'text-indigo-400' : 'text-green-400'
+        }`}>
+          {statusEffect === 'sleep' ? '💤 ENDORMI' : '☠️ EMPOISONNÉ'}
+        </span>
+      )}
       {pokemon.isBoss && (
         <span className="text-[9px] font-bold text-yellow-400 uppercase tracking-wider">★ BOSS</span>
       )}
@@ -395,6 +439,7 @@ export const BattleScene: React.FC = () => {
     controlsEnemy,
     captureSuccess,
     captureAnimating,
+    enemyStatus,
     handleQuizComplete,
     handleUltimate,
     handleFlee,
@@ -571,7 +616,7 @@ export const BattleScene: React.FC = () => {
         {/* Enemy Pokemon */}
         <div className="relative z-10">
           {enemyPokemon ? (
-            <BattlePokemonCard pokemon={enemyPokemon} isEnemy controls={controlsEnemy} />
+            <BattlePokemonCard pokemon={enemyPokemon} isEnemy controls={controlsEnemy} statusEffect={enemyStatus} />
           ) : (
             <div className="text-slate-600 text-sm">Aucun adversaire</div>
           )}

@@ -175,6 +175,12 @@ pnpm run build
 echo "Génération du client Prisma..."
 npx prisma generate
 
+# Appliquer le rebalancement des prix si le fichier existe
+if [ -f "prisma/rebalance_prices.sql" ]; then
+    echo "Application du rebalancement des prix..."
+    PGPASSWORD='PokeEdu2024Secure!' psql -h localhost -U pokeedu -d poke_edu -f prisma/rebalance_prices.sql 2>/dev/null || echo "Rebalancement des prix: pas de changement nécessaire"
+fi
+
 # Arrêter les anciens processus PM2
 pm2 delete poke-api 2>/dev/null || true
 pm2 delete poke-socket 2>/dev/null || true
