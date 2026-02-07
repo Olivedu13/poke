@@ -111,22 +111,113 @@ function validateDifficulty(diff: string): DifficultyType {
   return (valid.includes(upper) ? upper : 'MEDIUM') as DifficultyType;
 }
 
-// Appel réel à Gemini
+// ============================================================
+// MULTI-PROVIDER AI CHAIN: Gemini → Groq → Mistral → Mock
+// Chaque provider est tenté dans l'ordre. Si l'un échoue
+// (quota, erreur, pas de clé), on passe au suivant.
+// ============================================================
+
+interface AIProvider {
+  name: string;
+  call: (prompt: string) => Promise<string>;
+  isConfigured: () => boolean;
+}
+
+// --- PROVIDER 1: Google Gemini ---
 async function callGemini(prompt: string): Promise<string> {
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error('GEMINI_API_KEY not configured');
-  }
+  if (!apiKey) throw new Error('GEMINI_API_KEY not configured');
 
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
-
   const result = await model.generateContent(prompt);
-  const response = result.response;
-  return response.text();
+  return result.response.text();
 }
 
-// Générer des questions via Gemini
+// --- PROVIDER 2: Groq (Llama 3.3 70B - gratuit: 30 req/min, 14400/jour) ---
+async function callGroq(prompt: string): Promise<string> {
+  const apiKey = process.env.GROQ_API_KEY;
+  if (!apiKey) throw new Error('GROQ_API_KEY not configured');
+
+  const res = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'llama-3.3-70b-versatile',
+      messages: [
+        { role: 'system', content: 'Tu es un générateur de quiz éducatif JSON. Réponds UNIQUEMENT avec du JSON valide, sans markdown.' },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 4096,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Groq API ${res.status}: ${errText.substring(0, 200)}`);
+  }
+
+  const data = await res.json() as any;
+  return data.choices?.[0]?.message?.content || '';
+}
+
+// --- PROVIDER 3: Mistral (mistral-small-latest - gratuit avec API key) ---
+async function callMistral(prompt: string): Promise<string> {
+  const apiKey = process.env.MISTRAL_API_KEY;
+  if (!apiKey) throw new Error('MISTRAL_API_KEY not configured');
+
+  const res = await fetch('https://api.mistral.ai/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'mistral-small-latest',
+      messages: [
+        { role: 'system', content: 'Tu es un générateur de quiz éducatif JSON. Réponds UNIQUEMENT avec du JSON valide, sans markdown.' },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.7,
+      max_tokens: 4096,
+    }),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Mistral API ${res.status}: ${errText.substring(0, 200)}`);
+  }
+
+  const data = await res.json() as any;
+  return data.choices?.[0]?.message?.content || '';
+}
+
+// Liste ordonnée des providers
+function getProviders(): AIProvider[] {
+  return [
+    {
+      name: 'Gemini',
+      call: callGemini,
+      isConfigured: () => !!process.env.GEMINI_API_KEY,
+    },
+    {
+      name: 'Groq',
+      call: callGroq,
+      isConfigured: () => !!process.env.GROQ_API_KEY,
+    },
+    {
+      name: 'Mistral',
+      call: callMistral,
+      isConfigured: () => !!process.env.MISTRAL_API_KEY,
+    },
+  ];
+}
+
+// Générer des questions via la chaîne de providers IA
 export async function generateQuestionsWithAI(
   customPrompt: string,
   gradeLevel: string,
@@ -134,23 +225,34 @@ export async function generateQuestionsWithAI(
   count: number = 10
 ): Promise<AIGeneratedQuestion[]> {
   const prompt = generateAIPrompt(customPrompt, gradeLevel, difficulty, count);
+  const providers = getProviders().filter(p => p.isConfigured());
 
-  try {
-    logger.info(`Generating ${count} questions via Gemini for grade ${gradeLevel}, difficulty ${difficulty}`);
-    const rawResponse = await callGemini(prompt);
-    const questions = parseAIResponse(rawResponse);
-
-    if (questions.length === 0) {
-      logger.warn('Gemini returned 0 parseable questions, falling back to mock');
-      return generateMockQuestions(customPrompt, gradeLevel, count);
-    }
-
-    logger.info(`Successfully parsed ${questions.length} questions from Gemini`);
-    return questions;
-  } catch (error) {
-    logger.error('Gemini API error, falling back to mock:', error);
+  if (providers.length === 0) {
+    logger.warn('No AI provider configured, using mock questions');
     return generateMockQuestions(customPrompt, gradeLevel, count);
   }
+
+  for (const provider of providers) {
+    try {
+      logger.info(`[AI] Trying ${provider.name} for ${count} questions (grade ${gradeLevel}, diff ${difficulty})`);
+      const rawResponse = await provider.call(prompt);
+      const questions = parseAIResponse(rawResponse);
+
+      if (questions.length === 0) {
+        logger.warn(`[AI] ${provider.name} returned 0 parseable questions, trying next provider...`);
+        continue;
+      }
+
+      logger.info(`[AI] ✓ ${provider.name} generated ${questions.length} questions successfully`);
+      return questions;
+    } catch (error: any) {
+      logger.warn(`[AI] ✗ ${provider.name} failed: ${error.message?.substring(0, 150)}`);
+      continue;
+    }
+  }
+
+  logger.warn('[AI] All providers failed, falling back to mock questions');
+  return generateMockQuestions(customPrompt, gradeLevel, count);
 }
 
 // Sauvegarder les questions générées en base
