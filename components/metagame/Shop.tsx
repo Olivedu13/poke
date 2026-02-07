@@ -13,6 +13,7 @@ interface ShopItem {
   effect_type: string;
   rarity: 'COMMON' | 'UNCOMMON' | 'RARE' | 'EPIC' | 'LEGENDARY';
   image?: string;
+  category?: string;
 }
 
 interface ShopPokemon {
@@ -48,6 +49,8 @@ export const Shop: React.FC = () => {
   const [sortBy, setSortBy] = useState<'id' | 'price' | 'name' | 'rarity'>('id');
   const [filterRarity, setFilterRarity] = useState<string>('ALL');
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterItemCategory, setFilterItemCategory] = useState<string>('ALL');
+  const [filterItemRarity, setFilterItemRarity] = useState<string>('ALL');
 
   useEffect(() => {
     if (user) loadShopData();
@@ -160,9 +163,44 @@ export const Shop: React.FC = () => {
 
         <AnimatePresence mode="wait">
             {activeTab === 'ITEMS' && (
-                <motion.div key="items" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
+                <motion.div key="items" initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }}>
+                    {/* Filtres items */}
+                    <div className="mb-4 flex flex-wrap gap-2 items-center bg-slate-900/50 p-3 rounded-xl border border-slate-700">
+                        <select
+                            value={filterItemCategory}
+                            onChange={(e) => setFilterItemCategory(e.target.value)}
+                            className="bg-slate-800 border border-slate-600 text-white text-xs px-2 py-2 rounded-lg focus:outline-none focus:border-cyan-500"
+                        >
+                            <option value="ALL">Toutes catégories</option>
+                            <option value="Soin">Soin</option>
+                            <option value="Attaque">Attaque</option>
+                            <option value="Défense">Défense</option>
+                            <option value="Dégâts">Dégâts</option>
+                            <option value="Statut">Statut</option>
+                            <option value="Spécial">Spécial</option>
+                            <option value="Capture">Capture</option>
+                            <option value="Evolution">Evolution</option>
+                            <option value="Ressources">Ressources</option>
+                        </select>
+                        <select
+                            value={filterItemRarity}
+                            onChange={(e) => setFilterItemRarity(e.target.value)}
+                            className="bg-slate-800 border border-slate-600 text-white text-xs px-2 py-2 rounded-lg focus:outline-none focus:border-cyan-500"
+                        >
+                            <option value="ALL">Toutes raretés</option>
+                            <option value="COMMON">Commun</option>
+                            <option value="UNCOMMON">Peu commun</option>
+                            <option value="RARE">Rare</option>
+                            <option value="EPIC">Épique</option>
+                            <option value="LEGENDARY">Légendaire</option>
+                        </select>
+                    </div>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
                     {(!items || items.length === 0) && !loading && (<div className="col-span-full text-center text-slate-500 py-10 text-sm">Aucun objet disponible.</div>)}
-                    {Array.isArray(items) && items.map(item => (
+                    {Array.isArray(items) && items
+                        .filter(item => filterItemCategory === 'ALL' || item.category === filterItemCategory)
+                        .filter(item => filterItemRarity === 'ALL' || item.rarity === filterItemRarity)
+                        .map(item => (
                         <div key={item.id} className={`bg-slate-900 border-2 ${getRarityColor(item.rarity)} p-3 md:p-4 rounded-xl flex flex-col justify-between relative overflow-hidden group hover:scale-[1.02] transition-transform`}>
                             <div className="absolute top-2 right-2 text-[8px] md:text-[10px] font-bold px-1.5 md:px-2 py-0.5 bg-slate-950 rounded border border-slate-700 text-slate-400">x{item.stock}</div>
                                 <div className="flex justify-center my-2 md:my-4">
@@ -191,6 +229,7 @@ export const Shop: React.FC = () => {
                             </div>
                         </div>
                     ))}
+                    </div>
                 </motion.div>
             )}
 
@@ -227,7 +266,7 @@ export const Shop: React.FC = () => {
                                 <div className="space-y-1.5 md:space-y-2">
                                     <button onClick={() => handleTransaction('buy', 'pokemon', poke.id, poke.computedPrice)} disabled={(user?.gold || 0) < poke.computedPrice} className="w-full bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 disabled:grayscale text-black font-bold py-1.5 md:py-2 rounded flex justify-center items-center gap-1 md:gap-2 font-display text-xs md:text-sm">RECRUTER <span className="bg-black/20 px-1 rounded text-white">{poke.computedPrice}₵</span></button>
                                     {poke.ownedCount > 0 && ![1, 4, 7].includes(poke.pokedexId) && (
-                                        <button onClick={() => handleTransaction('sell', 'pokemon', poke.id, 500)} className="w-full bg-slate-950 hover:bg-red-900/40 border border-slate-800 hover:border-red-500 text-slate-500 hover:text-red-400 font-bold py-1 md:py-1.5 rounded text-[10px] md:text-xs transition-colors">LIBÉRER (+500₵)</button>
+                                        <button onClick={() => handleTransaction('sell', 'pokemon', poke.id, poke.computedPrice)} className="w-full bg-slate-950 hover:bg-red-900/40 border border-slate-800 hover:border-red-500 text-slate-500 hover:text-red-400 font-bold py-1 md:py-1.5 rounded text-[10px] md:text-xs transition-colors">LIBÉRER (+{Math.floor(poke.computedPrice * 0.5)}₵)</button>
                                     )}
                                 </div>
                             </div>

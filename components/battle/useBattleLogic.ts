@@ -248,17 +248,50 @@ export const useBattleLogic = () => {
                 addLog({ message: victoryMsg, type: 'INFO' });
             }
         } else if (battleOver && playerPokemon?.current_hp === 0 && battlePhase === 'FIGHTING') {
+            // Mode TRAINER : vérifier s'il reste des Pokémon dans l'équipe du joueur
+            if (battleMode === 'TRAINER' && enemyPokemon) {
+                const myTeam = useGameStore.getState().collection.filter(p => p.is_team && p.current_hp > 0 && p.id !== playerPokemon.id);
+                if (myTeam.length > 0) {
+                    const nextPokemon = myTeam[0];
+                    addLog({ message: `${playerPokemon.name} est K.O. ! Tu envoies ${nextPokemon.name} !`, type: 'INFO' });
+                    initBattle(nextPokemon, enemyPokemon);
+                    return;
+                }
+            }
             setBattlePhase('FINISHED');
             setRewards(null);
         }
     }, [battleOver, battlePhase, captureAttempted, questionsAnswered]);
 
-    // IA Turn
+    // IA Turn (with status effects)
     useEffect(() => {
         if (battleMode === 'PVP') return;
         if (battlePhase === 'FIGHTING' && !isPlayerTurn && !battleOver && enemyPokemon && playerPokemon) {
             const aiTurn = async () => {
-                await new Promise(r => setTimeout(r, 1000));
+                await new Promise(r => setTimeout(r, 800));
+
+                // Apply poison damage at start of enemy turn
+                if (enemyStatus === 'poison' && enemyPoisonDmg > 0) {
+                    damageEntity('ENEMY', enemyPoisonDmg);
+                    spawnFloatingText(`-${enemyPoisonDmg} ☠️`, 'text-green-500', false);
+                    addLog({ message: `${enemyPokemon.name} subit ${enemyPoisonDmg} dégâts de poison !`, type: 'INFO' });
+                    await new Promise(r => setTimeout(r, 500));
+                }
+
+                // Check if enemy is sleeping
+                if (enemyStatus === 'sleep' && enemySleepTurns > 0) {
+                    setEnemySleepTurns(prev => prev - 1);
+                    spawnFloatingText('💤 Zzz...', 'text-indigo-400', false);
+                    addLog({ message: `${enemyPokemon.name} dort profondément... (${enemySleepTurns - 1} tour${enemySleepTurns - 1 > 1 ? 's' : ''} restant${enemySleepTurns - 1 > 1 ? 's' : ''})`, type: 'INFO' });
+                    if (enemySleepTurns <= 1) {
+                        setEnemyStatus(null);
+                        addLog({ message: `${enemyPokemon.name} se réveille !`, type: 'INFO' });
+                    }
+                    endTurn();
+                    return;
+                }
+
+                // Normal enemy attack
                 await controlsEnemy.start({ x: -100, y: 100, scale: 1.2, transition: { duration: 0.2 } });
                 await controlsEnemy.start({ x: 0, y: 0, scale: 1, transition: { type: "spring", stiffness: 300 } });
                 triggerShake(); triggerFlash('red');
@@ -279,6 +312,22 @@ export const useBattleLogic = () => {
         }
         
         if(selectedPlayer && previewEnemy) {
+            // Reset status effects
+            setEnemyStatus(null);
+            setEnemySleepTurns(0);
+            setEnemyPoisonDmg(0);
+
+            // Pre-generate AI questions if custom prompt is active
+            try {
+                await api.post('/ai/prepare-battle', {
+                    userId: selectedPlayer.id,
+                    gradeLevel: selectedPlayer.grade_level || 'CE1',
+                    difficulty: gradeGauge || 0
+                });
+            } catch (e) {
+                console.warn('AI prepare-battle failed, will use question bank fallback:', e);
+            }
+
             initBattle(selectedPlayer, previewEnemy);
             setBattlePhase('FIGHTING');
         }
@@ -353,15 +402,32 @@ export const useBattleLogic = () => {
         executeAttack(true, true, 'HARD');
     };
 
+    // Status effects on enemy
+    const [enemyStatus, setEnemyStatus] = useState<'sleep' | 'poison' | null>(null);
+    const [enemySleepTurns, setEnemySleepTurns] = useState(0);
+    const [enemyPoisonDmg, setEnemyPoisonDmg] = useState(0);
+
     const handleUseItem = async (item: Item) => {
         // Battle-usable items
-        if (['HEAL', 'HEAL_TEAM', 'BUFF_ATK', 'BUFF_DEF', 'TRAITOR', 'DMG_FLAT'].includes(item.effect_type)) {
+        if (['HEAL', 'HEAL_TEAM', 'BUFF_ATK', 'BUFF_DEF', 'TRAITOR', 'DMG_FLAT', 'STATUS_SLEEP', 'STATUS_POISON'].includes(item.effect_type)) {
             // Apply local effect immediately for instant visual feedback
             if (item.effect_type === 'TRAITOR' || item.effect_type === 'DMG_FLAT') {
                 playSfx('ATTACK');
                 damageEntity('ENEMY', item.value);
                 spawnFloatingText(`-${item.value}!`, 'text-purple-400', false);
                 addLog({ message: `${item.name} ! ${item.value} dégâts infligés !`, type: 'PLAYER' });
+            } else if (item.effect_type === 'STATUS_SLEEP') {
+                playSfx('POTION');
+                setEnemyStatus('sleep');
+                setEnemySleepTurns(2);
+                spawnFloatingText('💤 DODO !', 'text-indigo-400', false);
+                addLog({ message: `${item.name} ! ${enemyPokemon?.name} s'endort pendant 2 tours !`, type: 'PLAYER' });
+            } else if (item.effect_type === 'STATUS_POISON') {
+                playSfx('POTION');
+                setEnemyStatus('poison');
+                setEnemyPoisonDmg(item.value || 10);
+                spawnFloatingText('☠️ POISON !', 'text-green-500', false);
+                addLog({ message: `${item.name} ! ${enemyPokemon?.name} est empoisonné (-${item.value} PV/tour) !`, type: 'PLAYER' });
             } else if (item.effect_type === 'HEAL') {
                 playSfx('POTION');
                 healEntity('PLAYER', item.value);
@@ -512,6 +578,7 @@ export const useBattleLogic = () => {
         controlsPlayer, controlsEnemy,
         captureSuccess,
         captureAnimating,
+        enemyStatus, enemySleepTurns, enemyPoisonDmg,
         
         // PVP State (legacy, non utilisé)
         isPvpMyTurn: false,

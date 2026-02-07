@@ -1,4 +1,6 @@
 import { prisma } from '../config/database.js';
+import { logger } from '../config/logger.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { GradeLevelType, DifficultyType } from '@prisma/client';
 
 // Interface pour les questions générées par IA
@@ -31,7 +33,7 @@ export function generateAIPrompt(
   customPrompt: string,
   gradeLevel: string,
   difficulty: string = 'MEDIUM',
-  count: number = 5
+  count: number = 10
 ): string {
   const gradeDesc = GRADE_DESCRIPTIONS[gradeLevel] || GRADE_DESCRIPTIONS['CE1'];
   const difficultyDesc = difficulty === 'EASY' ? 'facile' : difficulty === 'HARD' ? 'difficile' : 'moyenne';
@@ -41,56 +43,113 @@ export function generateAIPrompt(
 THÈME DEMANDÉ: ${customPrompt}
 
 Génère exactement ${count} questions de difficulté ${difficultyDesc} au format JSON.
-Chaque question doit avoir:
-- Une question claire et adaptée à l'âge
-- 4 options de réponse (une seule correcte)
-- L'index de la bonne réponse (0-3)
-- Une explication pédagogique courte
-- La matière (MATHS, FRANCAIS, ANGLAIS, HISTOIRE, GEOGRAPHIE, SCIENCES)
-- Une catégorie précise
-- Le niveau de difficulté (EASY, MEDIUM, HARD)
+Chaque question DOIT avoir:
+- question_text: question claire et adaptée à l'âge
+- options_json: tableau de EXACTEMENT 4 réponses (une seule correcte), sous forme de strings
+- correct_index: index (0-3) de la bonne réponse
+- explanation: explication pédagogique courte (1-2 phrases)
+- subject: la matière parmi UNIQUEMENT: MATHS, FRANCAIS, ANGLAIS, HISTOIRE, GEOGRAPHIE, SCIENCES
+- difficulty: le niveau parmi UNIQUEMENT: EASY, MEDIUM, HARD (évalue toi-même la difficulté réelle de la question)
+- category: une catégorie précise (ex: "Table de multiplication", "Conjugaison passé composé", "Géographie de l'Europe")
+- grade_level: "${gradeLevel}"
 
-Réponds UNIQUEMENT avec un tableau JSON valide sans commentaires:
-[
-  {
-    "question_text": "...",
-    "options_json": ["option1", "option2", "option3", "option4"],
-    "correct_index": 0,
-    "explanation": "...",
-    "subject": "MATHS",
-    "difficulty": "MEDIUM",
-    "category": "...",
-    "grade_level": "${gradeLevel}"
-  }
-]`;
+IMPORTANT:
+- Les 4 options doivent être plausibles (pas de réponses évidemment fausses)
+- Les questions doivent être variées dans le thème demandé
+- Adapte le vocabulaire et la complexité au niveau ${gradeDesc}
+- Catégorise chaque question de manière précise
+- Évalue honnêtement la difficulté: EASY = basique, MEDIUM = standard, HARD = réflexion nécessaire
+
+Réponds UNIQUEMENT avec un tableau JSON valide, sans markdown, sans commentaires, sans backticks:
+[{"question_text":"...","options_json":["a","b","c","d"],"correct_index":0,"explanation":"...","subject":"MATHS","difficulty":"MEDIUM","category":"...","grade_level":"${gradeLevel}"}]`;
 }
 
 // Parser la réponse de l'IA
 export function parseAIResponse(response: string): AIGeneratedQuestion[] {
   try {
+    // Nettoyer la réponse: enlever les backticks markdown si présents
+    let cleaned = response.trim();
+    cleaned = cleaned.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '');
+
     // Essayer de trouver un tableau JSON dans la réponse
-    const jsonMatch = response.match(/\[[\s\S]*\]/);
+    const jsonMatch = cleaned.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
-      console.error('No JSON array found in AI response');
+      logger.error('No JSON array found in AI response');
       return [];
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
     if (!Array.isArray(parsed)) return [];
 
-    return parsed.map((q: any) => ({
-      question_text: q.question_text || q.questionText || '',
-      options_json: Array.isArray(q.options_json) ? q.options_json : (q.options || []),
-      correct_index: typeof q.correct_index === 'number' ? q.correct_index : (q.correctIndex || 0),
-      explanation: q.explanation || '',
-      subject: (q.subject || 'MATHS').toUpperCase(),
-      difficulty: (['EASY', 'MEDIUM', 'HARD'].includes(q.difficulty?.toUpperCase()) ? q.difficulty.toUpperCase() : 'MEDIUM') as DifficultyType,
-      category: q.category || 'Général',
-      grade_level: q.grade_level || q.gradeLevel || 'CE1',
-    }));
+    return parsed
+      .filter((q: any) => q.question_text && Array.isArray(q.options_json) && q.options_json.length === 4)
+      .map((q: any) => ({
+        question_text: String(q.question_text),
+        options_json: q.options_json.map(String),
+        correct_index: typeof q.correct_index === 'number' ? Math.min(3, Math.max(0, q.correct_index)) : 0,
+        explanation: String(q.explanation || ''),
+        subject: validateSubject(q.subject),
+        difficulty: validateDifficulty(q.difficulty),
+        category: String(q.category || 'Général'),
+        grade_level: q.grade_level || q.gradeLevel || 'CE1',
+      }));
   } catch (e) {
-    console.error('Error parsing AI response:', e);
+    logger.error('Error parsing AI response:', e);
     return [];
+  }
+}
+
+function validateSubject(subject: string): string {
+  const valid = ['MATHS', 'FRANCAIS', 'ANGLAIS', 'HISTOIRE', 'GEOGRAPHIE', 'SCIENCES'];
+  const upper = String(subject || '').toUpperCase();
+  return valid.includes(upper) ? upper : 'MATHS';
+}
+
+function validateDifficulty(diff: string): DifficultyType {
+  const valid = ['EASY', 'MEDIUM', 'HARD'];
+  const upper = String(diff || '').toUpperCase();
+  return (valid.includes(upper) ? upper : 'MEDIUM') as DifficultyType;
+}
+
+// Appel réel à Gemini
+async function callGemini(prompt: string): Promise<string> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error('GEMINI_API_KEY not configured');
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+
+  const result = await model.generateContent(prompt);
+  const response = result.response;
+  return response.text();
+}
+
+// Générer des questions via Gemini
+export async function generateQuestionsWithAI(
+  customPrompt: string,
+  gradeLevel: string,
+  difficulty: string = 'MEDIUM',
+  count: number = 10
+): Promise<AIGeneratedQuestion[]> {
+  const prompt = generateAIPrompt(customPrompt, gradeLevel, difficulty, count);
+
+  try {
+    logger.info(`Generating ${count} questions via Gemini for grade ${gradeLevel}, difficulty ${difficulty}`);
+    const rawResponse = await callGemini(prompt);
+    const questions = parseAIResponse(rawResponse);
+
+    if (questions.length === 0) {
+      logger.warn('Gemini returned 0 parseable questions, falling back to mock');
+      return generateMockQuestions(customPrompt, gradeLevel, count);
+    }
+
+    logger.info(`Successfully parsed ${questions.length} questions from Gemini`);
+    return questions;
+  } catch (error) {
+    logger.error('Gemini API error, falling back to mock:', error);
+    return generateMockQuestions(customPrompt, gradeLevel, count);
   }
 }
 
@@ -118,14 +177,48 @@ export async function saveGeneratedQuestions(
       });
       savedIds.push(saved.id);
     } catch (e) {
-      console.error('Error saving question:', e);
+      logger.error('Error saving question:', e);
     }
   }
 
   return savedIds;
 }
 
-// Récupérer les questions AI préparées pour un utilisateur (avant combat)
+// Préparer les questions avant un combat: génère et stocke en DB
+export async function prepareBattleQuestions(
+  userId: number,
+  count: number = 10
+): Promise<{ questionIds: number[]; source: string }> {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) throw new Error('User not found');
+
+  // Si prompt personnalisé actif → générer avec l'IA
+  if (user.customPromptActive && user.customPromptText) {
+    const questions = await generateQuestionsWithAI(
+      user.customPromptText,
+      user.gradeLevel,
+      'MEDIUM',
+      count
+    );
+
+    if (questions.length > 0) {
+      const savedIds = await saveGeneratedQuestions(questions, userId, 'AI');
+      return { questionIds: savedIds, source: 'AI' };
+    }
+  }
+
+  // Sinon, vérifier qu'on a assez de questions en base
+  const existingCount = await prisma.questionBank.count({
+    where: {
+      gradeLevel: user.gradeLevel,
+      subject: { in: (user.activeSubjects as string[]) || ['MATHS', 'FRANCAIS'] },
+    },
+  });
+
+  return { questionIds: [], source: existingCount > 0 ? 'DB' : 'NONE' };
+}
+
+// Récupérer les questions AI préparées pour un utilisateur
 export async function getAIPreparedQuestions(
   userId: number,
   count: number = 10
@@ -133,7 +226,6 @@ export async function getAIPreparedQuestions(
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return [];
 
-  // Chercher des questions qui correspondent au prompt et niveau de l'utilisateur
   const questions = await prisma.questionBank.findMany({
     where: {
       gradeLevel: user.gradeLevel,
@@ -156,46 +248,44 @@ export async function getAIPreparedQuestions(
   }));
 }
 
-// Générer des questions mock (fallback si pas d'API OpenAI)
+// Générer des questions mock (fallback si pas d'API)
 export function generateMockQuestions(
   prompt: string,
   gradeLevel: string,
   count: number = 5
 ): AIGeneratedQuestion[] {
-  const questions: AIGeneratedQuestion[] = [];
-  
-  // Questions basiques par thème
-  const mathsQuestions = [
-    { q: 'Combien font 3 + 4 ?', o: ['6', '7', '8', '5'], c: 1, e: '3 + 4 = 7' },
-    { q: 'Combien font 5 × 2 ?', o: ['7', '8', '10', '12'], c: 2, e: '5 × 2 = 10' },
-    { q: 'Quel est le double de 6 ?', o: ['10', '8', '12', '14'], c: 2, e: 'Le double de 6 est 12' },
-    { q: 'Combien font 15 - 8 ?', o: ['5', '6', '7', '8'], c: 2, e: '15 - 8 = 7' },
-    { q: 'Combien font 4 × 3 ?', o: ['10', '11', '12', '13'], c: 2, e: '4 × 3 = 12' },
+  const lowerPrompt = prompt.toLowerCase();
+
+  const mathsQuestions: AIGeneratedQuestion[] = [
+    { question_text: 'Combien font 3 + 4 ?', options_json: ['6', '7', '8', '5'], correct_index: 1, explanation: '3 + 4 = 7', subject: 'MATHS', difficulty: 'EASY' as DifficultyType, category: 'Addition', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Combien font 5 × 2 ?', options_json: ['7', '8', '10', '12'], correct_index: 2, explanation: '5 × 2 = 10', subject: 'MATHS', difficulty: 'EASY' as DifficultyType, category: 'Multiplication', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Quel est le double de 6 ?', options_json: ['10', '8', '12', '14'], correct_index: 2, explanation: 'Le double de 6 est 12', subject: 'MATHS', difficulty: 'EASY' as DifficultyType, category: 'Doubles', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Combien font 15 - 8 ?', options_json: ['5', '6', '7', '8'], correct_index: 2, explanation: '15 - 8 = 7', subject: 'MATHS', difficulty: 'MEDIUM' as DifficultyType, category: 'Soustraction', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Combien font 4 × 3 ?', options_json: ['10', '11', '12', '13'], correct_index: 2, explanation: '4 × 3 = 12', subject: 'MATHS', difficulty: 'EASY' as DifficultyType, category: 'Multiplication', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Combien font 7 × 8 ?', options_json: ['56', '49', '55', '63'], correct_index: 0, explanation: '7 × 8 = 56', subject: 'MATHS', difficulty: 'MEDIUM' as DifficultyType, category: 'Table de multiplication', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Combien font 9 + 6 ?', options_json: ['13', '14', '15', '16'], correct_index: 2, explanation: '9 + 6 = 15', subject: 'MATHS', difficulty: 'EASY' as DifficultyType, category: 'Addition', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Combien font 20 - 13 ?', options_json: ['6', '7', '8', '9'], correct_index: 1, explanation: '20 - 13 = 7', subject: 'MATHS', difficulty: 'MEDIUM' as DifficultyType, category: 'Soustraction', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Quel est le triple de 4 ?', options_json: ['8', '10', '12', '16'], correct_index: 2, explanation: 'Le triple de 4 est 12', subject: 'MATHS', difficulty: 'MEDIUM' as DifficultyType, category: 'Triples', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Combien font 6 × 6 ?', options_json: ['30', '32', '36', '42'], correct_index: 2, explanation: '6 × 6 = 36', subject: 'MATHS', difficulty: 'MEDIUM' as DifficultyType, category: 'Table de multiplication', grade_level: gradeLevel as GradeLevelType },
   ];
 
-  const francaisQuestions = [
-    { q: 'Quel est le pluriel de "cheval" ?', o: ['chevals', 'chevaux', 'chevales', 'chevauxs'], c: 1, e: 'Le pluriel de cheval est chevaux' },
-    { q: 'Dans "Je mange une pomme", quel est le verbe ?', o: ['Je', 'mange', 'une', 'pomme'], c: 1, e: 'Le verbe est "mange"' },
-    { q: 'Quel mot est un adjectif ?', o: ['courir', 'maison', 'grand', 'et'], c: 2, e: 'Grand est un adjectif' },
-    { q: 'Comment s\'écrit le son "o" dans bateau ?', o: ['o', 'au', 'eau', 'ô'], c: 2, e: 'Dans bateau, le son "o" s\'écrit "eau"' },
-    { q: 'Quel est le féminin de "acteur" ?', o: ['acteuse', 'actrice', 'acteure', 'actresse'], c: 1, e: 'Le féminin de acteur est actrice' },
+  const francaisQuestions: AIGeneratedQuestion[] = [
+    { question_text: 'Quel est le pluriel de "cheval" ?', options_json: ['chevals', 'chevaux', 'chevales', 'chevauxs'], correct_index: 1, explanation: 'Le pluriel de cheval est chevaux', subject: 'FRANCAIS', difficulty: 'EASY' as DifficultyType, category: 'Pluriel', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Dans "Je mange une pomme", quel est le verbe ?', options_json: ['Je', 'mange', 'une', 'pomme'], correct_index: 1, explanation: 'Le verbe est "mange"', subject: 'FRANCAIS', difficulty: 'EASY' as DifficultyType, category: 'Grammaire', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Quel mot est un adjectif ?', options_json: ['courir', 'maison', 'grand', 'et'], correct_index: 2, explanation: 'Grand est un adjectif', subject: 'FRANCAIS', difficulty: 'EASY' as DifficultyType, category: 'Nature des mots', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Comment s\'écrit le son "o" dans bateau ?', options_json: ['o', 'au', 'eau', 'ô'], correct_index: 2, explanation: 'Dans bateau, le son "o" s\'écrit "eau"', subject: 'FRANCAIS', difficulty: 'MEDIUM' as DifficultyType, category: 'Orthographe', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Quel est le féminin de "acteur" ?', options_json: ['acteuse', 'actrice', 'acteure', 'actresse'], correct_index: 1, explanation: 'Le féminin de acteur est actrice', subject: 'FRANCAIS', difficulty: 'EASY' as DifficultyType, category: 'Féminin', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Conjuguez "finir" au présent avec "nous" :', options_json: ['nous finons', 'nous finissons', 'nous finirons', 'nous finons'], correct_index: 1, explanation: 'Nous finissons (verbe du 2e groupe)', subject: 'FRANCAIS', difficulty: 'MEDIUM' as DifficultyType, category: 'Conjugaison', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Quel est le synonyme de "content" ?', options_json: ['triste', 'heureux', 'fatigué', 'fâché'], correct_index: 1, explanation: 'Content et heureux sont synonymes', subject: 'FRANCAIS', difficulty: 'EASY' as DifficultyType, category: 'Vocabulaire', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Quel est le contraire de "rapide" ?', options_json: ['vite', 'pressé', 'lent', 'fort'], correct_index: 2, explanation: 'Le contraire de rapide est lent', subject: 'FRANCAIS', difficulty: 'EASY' as DifficultyType, category: 'Contraires', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Trouvez l\'erreur : "Les enfant joue dans le jardin"', options_json: ['enfant → enfants', 'joue → jouent', 'Les deux sont faux', 'Pas d\'erreur'], correct_index: 2, explanation: 'Il faut écrire "Les enfants jouent"', subject: 'FRANCAIS', difficulty: 'HARD' as DifficultyType, category: 'Accord', grade_level: gradeLevel as GradeLevelType },
+    { question_text: 'Dans "Le chat dort sur le canapé", quel est le sujet ?', options_json: ['dort', 'le canapé', 'le chat', 'sur'], correct_index: 2, explanation: 'Le sujet est "le chat" (qui fait l\'action)', subject: 'FRANCAIS', difficulty: 'EASY' as DifficultyType, category: 'Grammaire', grade_level: gradeLevel as GradeLevelType },
   ];
 
-  const baseQuestions = prompt.toLowerCase().includes('math') ? mathsQuestions : francaisQuestions;
-  
-  for (let i = 0; i < Math.min(count, baseQuestions.length); i++) {
-    const bq = baseQuestions[i];
-    questions.push({
-      question_text: bq.q,
-      options_json: bq.o,
-      correct_index: bq.c,
-      explanation: bq.e,
-      subject: prompt.toLowerCase().includes('math') ? 'MATHS' : 'FRANCAIS',
-      difficulty: 'MEDIUM' as DifficultyType,
-      category: prompt,
-      grade_level: gradeLevel as GradeLevelType,
-    });
-  }
+  const isMath = lowerPrompt.includes('math') || lowerPrompt.includes('calcul') || lowerPrompt.includes('multiplica')
+    || lowerPrompt.includes('equation') || lowerPrompt.includes('nombre');
+  const baseQuestions = isMath ? mathsQuestions : francaisQuestions;
 
-  return questions;
+  const shuffled = [...baseQuestions].sort(() => Math.random() - 0.5);
+  return shuffled.slice(0, count);
 }
