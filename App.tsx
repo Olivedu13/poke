@@ -241,7 +241,7 @@ const App: React.FC = () => {
                 }`}
               >
                 <img 
-                  src={`${ASSETS_BASE_URL}/${item.icon}`} 
+                  src={`${ASSETS_BASE_URL}/${item.icon}?v=2`} 
                   alt={item.label} 
                   className={`w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 object-contain transition-all ${isActive ? 'brightness-125' : 'brightness-75 opacity-70'}`}
                 />
@@ -254,7 +254,7 @@ const App: React.FC = () => {
             className="flex flex-col items-center px-1 py-0.5 rounded text-slate-500 hover:text-slate-300 active:scale-95 transition-all"
           >
             <img 
-              src={`${ASSETS_BASE_URL}/params_icon.webp`} 
+              src={`${ASSETS_BASE_URL}/params_icon.webp?v=2`} 
               alt="Paramètres" 
               className="w-10 h-10 sm:w-12 sm:h-12 lg:w-16 lg:h-16 object-contain brightness-75 opacity-70"
             />
