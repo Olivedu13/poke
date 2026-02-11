@@ -45,7 +45,8 @@ interface GameState {
   battlePhase: BattlePhase;
   combo: number;         
   specialGauge: number;  
-  seenQuestionIds: (string | number)[]; 
+  seenQuestionIds: (string | number)[];
+  preparedQuestionIds: number[];
   gradeGauge: number; 
   collection: Pokemon[];
   inventory: Item[];
@@ -68,11 +69,12 @@ interface GameState {
   damageEntity: (target: 'PLAYER' | 'ENEMY', amount: number) => void;
   healEntity: (target: 'PLAYER' | 'ENEMY', amount: number) => void;
   endTurn: () => void;
-  claimBattleRewards: (xp: number, gold: number, itemDrop?: string) => Promise<void>;
+  claimBattleRewards: (xp: number, gold: number, tokens: number, itemDrop?: string) => Promise<void>;
   resetCombo: () => void; 
   incrementCombo: () => void; 
   consumeSpecial: () => void; 
   markQuestionAsSeen: (id: string | number) => void;
+  setPreparedQuestionIds: (ids: number[]) => void;
   updateGradeProgress: (correct: boolean, difficulty?: string) => Promise<boolean>;
   fetchCollection: () => Promise<void>;
   fetchInventory: () => Promise<void>;
@@ -100,8 +102,19 @@ export const useGameStore = create<GameState>((set, get) => ({
   battlePhase: 'NONE',
   combo: 0,
   specialGauge: 0,
-  seenQuestionIds: [],
-  gradeGauge: 0,
+  seenQuestionIds: (() => {
+    try {
+      const stored = sessionStorage.getItem('seenQuestionIds');
+      return stored ? JSON.parse(stored) : [];
+    } catch { return []; }
+  })(),
+  preparedQuestionIds: [],
+  gradeGauge: (() => {
+    try {
+      const stored = localStorage.getItem('poke_gradeGauge');
+      return stored ? Math.min(5, Math.max(0, parseInt(stored, 10) || 0)) : 0;
+    } catch { return 0; }
+  })(),
   collection: [],
   inventory: [],
   pvpNotification: null,
@@ -201,7 +214,13 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   resetCombo: () => set({ combo: 0 }),
   consumeSpecial: () => set({ specialGauge: 0 }),
-  markQuestionAsSeen: (id) => set((state) => ({ seenQuestionIds: [...state.seenQuestionIds, id] })),
+  markQuestionAsSeen: (id) => set((state) => {
+    const newSeen = [...state.seenQuestionIds, id];
+    // Persister dans sessionStorage pour survire aux rechargements de page
+    try { sessionStorage.setItem('seenQuestionIds', JSON.stringify(newSeen)); } catch {}
+    return { seenQuestionIds: newSeen };
+  }),
+  setPreparedQuestionIds: (ids) => set({ preparedQuestionIds: ids }),
 
   updateGradeProgress: async (correct, difficulty = 'MEDIUM') => {
       const state = get();
@@ -229,6 +248,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       }
 
       set({ gradeGauge: newGauge });
+      // Persister la jauge dans localStorage pour survie entre combats et rechargements
+      try { localStorage.setItem('poke_gradeGauge', String(newGauge)); } catch {}
       if (gradeChanged) {
           set((s) => ({ user: s.user ? { ...s.user, grade_level: newGrade } : null }));
           try { await api.put('/user/config', { grade_level: newGrade }); } catch (e) {}
@@ -236,13 +257,14 @@ export const useGameStore = create<GameState>((set, get) => ({
       return gradeChanged;
   },
 
-  claimBattleRewards: async (xp, gold, itemDrop) => {
+  claimBattleRewards: async (xp, gold, tokens, itemDrop) => {
       try {
           const safeXp = Math.max(0, xp);
           const safeGold = gold;
-          await api.post('/battle/rewards', { xp: safeXp, gold: safeGold, item_drop: itemDrop });
+          const safeTokens = Math.max(0, tokens);
+          await api.post('/battle/rewards', { xp: safeXp, gold: safeGold, tokens: safeTokens, item_drop: itemDrop });
           set((s) => ({
-              user: s.user ? { ...s.user, global_xp: s.user.global_xp + safeXp, gold: s.user.gold + safeGold, streak: s.user.streak + 1 } : null
+              user: s.user ? { ...s.user, global_xp: s.user.global_xp + safeXp, gold: s.user.gold + safeGold, tokens: s.user.tokens + safeTokens, streak: s.user.streak + 1 } : null
           }));
           if(itemDrop) await get().fetchInventory(); 
       } catch (e) {}
@@ -256,6 +278,7 @@ export const useGameStore = create<GameState>((set, get) => ({
         const collection = res.data.data.map((p: any) => ({
           ...p,
           is_team: p.is_team ?? false,
+          type: p.type || 'Normal',
           sprite_url: p.sprite_url || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${p.tyradex_id}.png`,
         }));
         set({ collection });
