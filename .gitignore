@@ -33,3 +33,6 @@ backend/config.php
 
 # Tyradex local assets (serve from VPS instead of storing in repo)
 assets/tyradex/
+
+# Local VPS backups
+backups/
