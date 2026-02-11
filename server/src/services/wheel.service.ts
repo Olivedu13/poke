@@ -12,11 +12,27 @@ export interface WheelPrize {
   color: string;
 }
 
-// Multiplicateurs par palier de mise
+// Pokémon rares (évolutions finales, puissants)
+const RARE_POKEMON_IDS = [
+  3, 6, 9, // Starters finaux
+  59, 65, 68, 94, // Arcanin, Alakazam, Mackogneur, Ectoplasma
+  112, 115, 128, 130, 131, // Rhinoféros, Kangourex, Tauros, Léviator, Lokhlass
+  132, 134, 135, 136, 137, 142, 143, // Métamorph, Évolitions, Porygon, Ptéra, Ronflex
+  73, 76, 91, 103, 110, 121, 141, // Tentacruel, Grolem, Crustabri, Noadkoko, Smogogo, Staross, Kabutops
+];
+
+// Pokémon épiques (légendaires + pseudo-légendaires)
+const EPIC_POKEMON_IDS = [
+  144, 145, 146, // Oiseaux légendaires
+  147, 148, 149, // Ligne Dracolosse
+  150, 151,       // Mewtwo, Mew
+];
+
+// Multiplicateurs par palier de mise — proportionnels au coût
 const BET_MULTIPLIERS: Record<number, number> = {
   1: 1,
-  5: 5,
-  10: 15
+  5: 8,
+  10: 20
 };
 
 // Configuration des prix de la roue par palier
@@ -40,24 +56,26 @@ function generateWheelPrizes(bet: number = 1): WheelPrize[] {
       ? { value: 'atk_r1' as string | number, id: 'atk_r1', name: 'Boost Attaque', label: 'BOOST ATK' }
       : { value: 'pokeball' as string | number, id: 'pokeball', name: 'Poké Ball', label: 'POKÉBALL' };
 
-  return [
+  const segments: WheelPrize[] = [
     // 0: GOLD
-    { type: 'GOLD', value: 50 * mult, name: `${50 * mult} Or`, label: `${50 * mult} OR`, rarity: 'common', color: '#fbbf24' },
-    // 1: POKEMON
+    { type: 'GOLD', value: 100 * mult, name: `${100 * mult} Or`, label: `${100 * mult} OR`, rarity: 'common', color: '#fbbf24' },
+    // 1: POKEMON (normal)
     { type: 'POKEMON', value: 'random', name: 'Pokémon Mystère', label: 'POKÉMON', rarity: pokemonRarity, color: '#ef4444' },
     // 2: ITEM (basique)
     { type: 'ITEM', ...item1, rarity: 'common', color: '#a855f7' },
     // 3: XP
-    { type: 'XP', value: 100 * mult, name: `${100 * mult} XP`, label: `${100 * mult} XP`, rarity: 'common', color: '#3b82f6' },
+    { type: 'XP', value: 200 * mult, name: `${200 * mult} XP`, label: `${200 * mult} XP`, rarity: 'common', color: '#3b82f6' },
     // 4: GOLD (JACKPOT)
-    { type: 'GOLD', value: 10000 * (bet === 10 ? 3 : bet === 5 ? 1.5 : 1), name: 'JACKPOT', label: 'JACKPOT 💰', rarity: 'legendary', color: '#10b981' },
+    { type: 'GOLD', value: 10000 * (bet === 10 ? 5 : bet === 5 ? 2 : 1), name: 'JACKPOT', label: 'JACKPOT 💰', rarity: 'legendary', color: '#10b981' },
     // 5: ITEM (meilleur)
     { type: 'ITEM', ...item2, rarity: 'uncommon', color: '#a855f7' },
-    // 6: POKEMON
-    { type: 'POKEMON', value: 'random', name: 'Pokémon Mystère', label: 'POKÉMON', rarity: pokemonRarity, color: '#ef4444' },
+    // 6: POKEMON (rare/épique pour bet=10, sinon normal)
+    { type: 'POKEMON', value: bet >= 10 ? 'rare_or_epic' : 'random', name: bet >= 10 ? 'Pokémon Rare ★' : 'Pokémon Mystère', label: bet >= 10 ? 'RARE ★' : 'POKÉMON', rarity: bet >= 10 ? 'rare' : pokemonRarity, color: bet >= 10 ? '#f59e0b' : '#ef4444' },
     // 7: XP
-    { type: 'XP', value: 250 * mult, name: `${250 * mult} XP`, label: `${250 * mult} XP`, rarity: 'uncommon', color: '#3b82f6' },
+    { type: 'XP', value: 500 * mult, name: `${500 * mult} XP`, label: `${500 * mult} XP`, rarity: 'uncommon', color: '#3b82f6' },
   ];
+
+  return segments;
 }
 
 // Probabilités basées sur la rareté
@@ -209,10 +227,25 @@ export async function spin(userId: number, bet: number = 1): Promise<{ prize: Wh
       break;
 
     case 'POKEMON':
-      // Donner un Pokémon aléatoire, niveau basé sur la mise
-      const baseLevel = bet === 10 ? 10 : bet === 5 ? 7 : 5;
-      const tyradexId = Math.floor(Math.random() * 151) + 1;
-      const level = baseLevel + Math.floor(Math.random() * 6);
+      // Choisir le Pokémon selon la rareté du segment
+      let tyradexId: number;
+      let baseLevel: number;
+
+      if (prize.value === 'rare_or_epic') {
+        // 60% rare, 40% épique
+        const isEpic = Math.random() < 0.4;
+        const pool = isEpic ? EPIC_POKEMON_IDS : RARE_POKEMON_IDS;
+        tyradexId = pool[Math.floor(Math.random() * pool.length)];
+        baseLevel = isEpic ? 25 : 18;
+        // Mettre à jour la rareté du prix pour le log
+        prize.rarity = isEpic ? 'epic' : 'rare';
+        prize.name = isEpic ? 'Pokémon Épique ★★' : 'Pokémon Rare ★';
+      } else {
+        tyradexId = Math.floor(Math.random() * 151) + 1;
+        baseLevel = bet === 10 ? 15 : bet === 5 ? 10 : 5;
+      }
+
+      const level = baseLevel + Math.floor(Math.random() * (bet === 10 ? 10 : bet === 5 ? 6 : 3));
       const pokemonName = getPokemonName(tyradexId);
 
       const newPokemonId = `wheel_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;

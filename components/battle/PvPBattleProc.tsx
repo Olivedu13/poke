@@ -231,7 +231,7 @@ export const PvPBattleProc: React.FC = () => {
           onClick={exitMatch}
           className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-white rounded-lg font-bold"
         >
-          RETOUR AU LOBBY
+          RETOUR À L'ARÈNE
         </button>
       </div>
     );
@@ -264,14 +264,14 @@ export const PvPBattleProc: React.FC = () => {
         </h1>
         {iWon && matchState.xpReward && (
           <div className="text-xl text-green-400 font-bold mb-6">
-            +{matchState.xpReward} XP
+            +{matchState.xpReward} EXP
           </div>
         )}
         <button
           onClick={exitMatch}
           className="px-8 py-4 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-display font-bold text-lg"
         >
-          RETOUR AU LOBBY
+          RETOUR À L'ARÈNE
         </button>
       </div>
     );

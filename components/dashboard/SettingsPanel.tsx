@@ -95,6 +95,9 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ onClose }) => {
             ...state.user,
             grade_level: gradeLevel,
             active_subjects: subjects,
+            focus_categories: focusCategories,
+            custom_prompt_active: aiMode,
+            custom_prompt_text: aiTopic,
           } : null,
         }));
         setMessage('✅ Configuration sauvegardée');

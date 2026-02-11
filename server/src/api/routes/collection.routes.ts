@@ -27,6 +27,7 @@ collectionRouter.get('/', async (req: AuthRequest, res: Response) => {
         stats: p.stats || { atk: 0, def: 0, spe: 0 },
         nickname: p.nickname,
         is_team: p.isTeam || false,
+        type: p.type || 'Normal',
       })),
     });
   } catch (error) {
@@ -54,6 +55,7 @@ collectionRouter.get('/team', async (req: AuthRequest, res: Response) => {
         stats: p.stats || { atk: 0, def: 0, spe: 0 },
         nickname: p.nickname,
         is_team: p.isTeam || false,
+        type: p.type || 'Normal',
       })),
     });
   } catch (error) {

@@ -75,7 +75,7 @@ export const BattleModeSelector: React.FC = () => {
                                     POKÉMON SAUVAGE
                                 </h2>
                                 <p className="text-slate-300 text-xs sm:text-sm lg:text-base">
-                                    Capture possible • Questions faciles
+                                    Lancement détecteur pokémon
                                 </p>
                             </div>
                         </div>
@@ -94,10 +94,10 @@ export const BattleModeSelector: React.FC = () => {
                             </div>
                             <div className="flex-1 text-left">
                                 <h2 className="text-lg sm:text-xl md:text-2xl lg:text-3xl font-display font-bold text-red-400 group-hover:text-red-300">
-                                    DRESSEUR (BOT)
+                                    DRESSEUR (ROBOT)
                                 </h2>
                                 <p className="text-slate-300 text-xs sm:text-sm lg:text-base">
-                                    Combat 3v3 • Questions difficiles
+                                    Attente Adversaire
                                 </p>
                             </div>
                         </div>

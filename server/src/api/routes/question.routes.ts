@@ -1,6 +1,6 @@
 import { Router, type IRouter, type Response } from 'express';
 import { authMiddleware, type AuthRequest } from '../middleware/auth.middleware.js';
-import { getRandomQuestion } from '../../services/question.service.js';
+import { getRandomQuestion, getQuestionById } from '../../services/question.service.js';
 import { prisma } from '../../config/database.js';
 import type { GradeLevelType } from '@prisma/client';
 
@@ -18,12 +18,48 @@ questionRouter.get('/', authMiddleware, async (req: AuthRequest, res: Response) 
     const seenIds = req.query.seen 
       ? (req.query.seen as string).split(',').map(Number).filter(n => !isNaN(n))
       : [];
-    
-    const question = await getRandomQuestion(
-      user.gradeLevel as GradeLevelType,
-      (user.activeSubjects as string[]) || ['MATHS', 'FRANCAIS'],
-      seenIds,
-    );
+
+    // IDs préparés par l'IA (prioritaires si custom prompt actif)
+    const preferIds = req.query.prefer
+      ? (req.query.prefer as string).split(',').map(Number).filter(n => !isNaN(n))
+      : [];
+
+    let question = null;
+
+    // Mode: 'ai_only' = uniquement les questions IA préparées (pas de mix avec la DB)
+    const aiOnlyMode = req.query.mode === 'ai_only';
+
+    // Si des IDs préférés sont fournis, piocher dedans en priorité
+    if (preferIds.length > 0) {
+      const availablePreferred = preferIds.filter(id => !seenIds.includes(id));
+      if (availablePreferred.length > 0) {
+        const pickId = availablePreferred[Math.floor(Math.random() * availablePreferred.length)];
+        const candidate = await getQuestionById(pickId);
+        // Vérifier que la question correspond au niveau actuel (la jauge peut avoir changé le niveau en cours de combat)
+        if (candidate && candidate.gradeLevel === user.gradeLevel) {
+          question = candidate;
+        }
+        // Si le niveau ne correspond plus, on tombe dans le fallback DB qui utilise le niveau actuel
+      } else if (aiOnlyMode) {
+        // En mode ai_only, si toutes les préférées ont été vues, recycler les préférées
+        const pickId = preferIds[Math.floor(Math.random() * preferIds.length)];
+        question = await getQuestionById(pickId);
+      }
+    }
+
+    // Fallback: question aléatoire du pool (sauf en mode ai_only)
+    if (!question && !aiOnlyMode) {
+      // Récupérer les catégories focus de l'utilisateur (ex: { MATHS: "MULTIPLICATION" })
+      const focusCategories = (user.focusCategories as Record<string, string>) || {};
+      // Si aucune matière sélectionnée, passer un tableau vide → question.service prendra n'importe quelle question du niveau
+      const subjects = (user.activeSubjects as string[]) || [];
+      question = await getRandomQuestion(
+        user.gradeLevel as GradeLevelType,
+        subjects,
+        seenIds,
+        focusCategories,
+      );
+    }
     
     if (!question) {
       return res.status(404).json({ success: false, message: 'Aucune question disponible' });

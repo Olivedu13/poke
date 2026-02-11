@@ -33,35 +33,47 @@ export function generateAIPrompt(
   customPrompt: string,
   gradeLevel: string,
   difficulty: string = 'MEDIUM',
-  count: number = 10
+  count: number = 5
 ): string {
   const gradeDesc = GRADE_DESCRIPTIONS[gradeLevel] || GRADE_DESCRIPTIONS['CE1'];
   const difficultyDesc = difficulty === 'EASY' ? 'facile' : difficulty === 'HARD' ? 'difficile' : 'moyenne';
+  const minCount = Math.max(5, count); // Toujours au moins 5 questions
 
-  return `Tu es un professeur créant des quiz éducatifs pour ${gradeDesc}.
+  return `Tu es un professeur expert créant des quiz éducatifs pour ${gradeDesc}.
 
 THÈME DEMANDÉ: ${customPrompt}
 
-Génère exactement ${count} questions de difficulté ${difficultyDesc} au format JSON.
+Génère exactement ${minCount} questions UNIQUES et ORIGINALES de difficulté ${difficultyDesc} au format JSON.
+
+CATÉGORIES POSSIBLES PAR MATIÈRE:
+- MATHS: NUMERATION, CALCUL, ADDITION, SOUSTRACTION, MULTIPLICATION, DIVISION, GEOMETRIE, MESURES, FRACTIONS, DECIMAUX, PROBLEMES
+- FRANCAIS: CONJUGAISON, GRAMMAIRE, ORTHOGRAPHE, VOCABULAIRE, LECTURE, EXPRESSION
+- ANGLAIS: VOCABULAIRE, GRAMMAIRE, NOMBRES, COULEURS, ANIMAUX, CORPS HUMAIN, FAMILLE, SALUTATIONS, VERBES, TEMPS, METEO, NOURRITURE
+- HISTOIRE: ANTIQUITE, MOYEN AGE, TEMPS MODERNES, REVOLUTION, XIX SIECLE, XX SIECLE, GUERRES
+- GEOGRAPHIE: FRANCE, MONDE, PAYSAGE, CLIMAT, CONTINENTS, TRANSPORTS, POPULATION
+- GEO: FRANCE, MONDE, PAYSAGE, CLIMAT, CONTINENTS, TRANSPORTS, POPULATION
+- SCIENCES: CORPS HUMAIN, ANIMAUX, PLANTES, MATERIAUX, ENERGIE, ESPACE
+
 Chaque question DOIT avoir:
-- question_text: question claire et adaptée à l'âge
+- question_text: question claire, originale et adaptée à l'âge (NE JAMAIS répéter une question classique type "combien font 3+4")
 - options_json: tableau de EXACTEMENT 4 réponses (une seule correcte), sous forme de strings
 - correct_index: index (0-3) de la bonne réponse
 - explanation: explication pédagogique courte (1-2 phrases)
-- subject: la matière parmi UNIQUEMENT: MATHS, FRANCAIS, ANGLAIS, HISTOIRE, GEOGRAPHIE, SCIENCES
-- difficulty: le niveau parmi UNIQUEMENT: EASY, MEDIUM, HARD (évalue toi-même la difficulté réelle de la question)
-- category: une catégorie précise (ex: "Table de multiplication", "Conjugaison passé composé", "Géographie de l'Europe")
+- subject: la matière parmi UNIQUEMENT: MATHS, FRANCAIS, ANGLAIS, HISTOIRE, GEO, SCIENCES
+- difficulty: EXACTEMENT "${difficulty}" pour toutes les questions
+- category: une catégorie parmi celles listées ci-dessus (EN MAJUSCULES)
 - grade_level: "${gradeLevel}"
 
-IMPORTANT:
+RÈGLES STRICTES:
 - Les 4 options doivent être plausibles (pas de réponses évidemment fausses)
-- Les questions doivent être variées dans le thème demandé
+- Chaque question doit être DIFFÉRENTE et ORIGINALE (pas de questions basiques récurrentes)
+- Varie les catégories au maximum (ne pas mettre 5 questions de la même catégorie)
 - Adapte le vocabulaire et la complexité au niveau ${gradeDesc}
-- Catégorise chaque question de manière précise
-- Évalue honnêtement la difficulté: EASY = basique, MEDIUM = standard, HARD = réflexion nécessaire
+- EASY = connaissance directe, MEDIUM = réflexion simple, HARD = raisonnement nécessaire
+- La catégorie DOIT être en MAJUSCULES et correspondre à la liste ci-dessus
 
 Réponds UNIQUEMENT avec un tableau JSON valide, sans markdown, sans commentaires, sans backticks:
-[{"question_text":"...","options_json":["a","b","c","d"],"correct_index":0,"explanation":"...","subject":"MATHS","difficulty":"MEDIUM","category":"...","grade_level":"${gradeLevel}"}]`;
+[{"question_text":"...","options_json":["a","b","c","d"],"correct_index":0,"explanation":"...","subject":"MATHS","difficulty":"${difficulty}","category":"CALCUL","grade_level":"${gradeLevel}"}]`;
 }
 
 // Parser la réponse de l'IA
@@ -100,8 +112,10 @@ export function parseAIResponse(response: string): AIGeneratedQuestion[] {
 }
 
 function validateSubject(subject: string): string {
-  const valid = ['MATHS', 'FRANCAIS', 'ANGLAIS', 'HISTOIRE', 'GEOGRAPHIE', 'SCIENCES'];
+  const valid = ['MATHS', 'FRANCAIS', 'ANGLAIS', 'HISTOIRE', 'GEOGRAPHIE', 'GEO', 'SCIENCES'];
   const upper = String(subject || '').toUpperCase();
+  // Normaliser GEOGRAPHIE → GEO pour consistance avec la DB
+  if (upper === 'GEOGRAPHIE') return 'GEO';
   return valid.includes(upper) ? upper : 'MATHS';
 }
 
@@ -222,9 +236,10 @@ export async function generateQuestionsWithAI(
   customPrompt: string,
   gradeLevel: string,
   difficulty: string = 'MEDIUM',
-  count: number = 10
+  count: number = 5
 ): Promise<AIGeneratedQuestion[]> {
-  const prompt = generateAIPrompt(customPrompt, gradeLevel, difficulty, count);
+  const minCount = Math.max(5, count); // Toujours au moins 5
+  const prompt = generateAIPrompt(customPrompt, gradeLevel, difficulty, minCount);
   const providers = getProviders().filter(p => p.isConfigured());
 
   if (providers.length === 0) {
@@ -252,10 +267,10 @@ export async function generateQuestionsWithAI(
   }
 
   logger.warn('[AI] All providers failed, falling back to mock questions');
-  return generateMockQuestions(customPrompt, gradeLevel, count);
+  return generateMockQuestions(customPrompt, gradeLevel, minCount);
 }
 
-// Sauvegarder les questions générées en base
+// Sauvegarder les questions générées en base (avec vérification doublon)
 export async function saveGeneratedQuestions(
   questions: AIGeneratedQuestion[],
   userId: number,
@@ -265,19 +280,54 @@ export async function saveGeneratedQuestions(
 
   for (const q of questions) {
     try {
-      const saved = await prisma.questionBank.create({
-        data: {
+      // Vérifier si une question identique existe déjà
+      const existing = await prisma.questionBank.findFirst({
+        where: {
           questionText: q.question_text,
-          optionsJson: q.options_json,
-          correctIndex: q.correct_index,
-          explanation: q.explanation,
-          subject: q.subject,
-          difficulty: q.difficulty as DifficultyType,
-          category: q.category,
           gradeLevel: q.grade_level as GradeLevelType,
         },
+        select: { id: true },
       });
-      savedIds.push(saved.id);
+      
+      if (existing) {
+        // La question existe déjà, on réutilise son ID
+        logger.info(`[AI Save] Question "${q.question_text.substring(0, 40)}..." déjà en DB (id=${existing.id}), réutilisée`);
+        savedIds.push(existing.id);
+        continue;
+      }
+
+      // Tenter la création, avec retry si conflit de séquence
+      let retries = 3;
+      let saved = null;
+      while (retries > 0) {
+        try {
+          saved = await prisma.questionBank.create({
+            data: {
+              questionText: q.question_text,
+              optionsJson: q.options_json,
+              correctIndex: q.correct_index,
+              explanation: q.explanation,
+              subject: q.subject,
+              difficulty: q.difficulty as DifficultyType,
+              category: q.category,
+              gradeLevel: q.grade_level as GradeLevelType,
+            },
+          });
+          break;
+        } catch (createErr: any) {
+          if (createErr.code === 'P2002' && retries > 1) {
+            // Conflit de séquence: recaler la séquence et réessayer
+            logger.warn('[AI Save] Sequence conflict, resetting sequence...');
+            await prisma.$executeRawUnsafe(
+              `SELECT setval('question_bank_id_seq', (SELECT COALESCE(MAX(id), 0) FROM question_bank))`
+            );
+            retries--;
+          } else {
+            throw createErr;
+          }
+        }
+      }
+      if (saved) savedIds.push(saved.id);
     } catch (e) {
       logger.error('Error saving question:', e);
     }
@@ -286,38 +336,124 @@ export async function saveGeneratedQuestions(
   return savedIds;
 }
 
-// Préparer les questions avant un combat: génère et stocke en DB
+// Préparer les questions avant un combat: TOUJOURS générer de nouvelles questions IA
 export async function prepareBattleQuestions(
   userId: number,
-  count: number = 10
+  count: number = 5
 ): Promise<{ questionIds: number[]; source: string }> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) throw new Error('User not found');
 
-  // Si prompt personnalisé actif → générer avec l'IA
+  // Si aucune matière sélectionnée, utiliser toutes les matières disponibles
+  const subjects = ((user.activeSubjects as string[]) && (user.activeSubjects as string[]).length > 0)
+    ? (user.activeSubjects as string[])
+    : ['MATHS', 'FRANCAIS', 'ANGLAIS', 'HISTOIRE', 'GEOGRAPHIE', 'SCIENCES'];
+  const focusCategories = (user.focusCategories as Record<string, string>) || {};
+  const minCount = Math.max(5, count); // Toujours au moins 5 questions
+
+  // Construire un prompt automatique basé sur les matières de l'utilisateur
+  let prompt: string;
   if (user.customPromptActive && user.customPromptText) {
+    prompt = user.customPromptText;
+    // Ajouter les catégories focus au prompt personnalisé si disponibles
+    const categoryHints = Object.entries(focusCategories)
+      .filter(([_, cat]) => cat && cat.length > 0)
+      .map(([subj, cat]) => `${subj}: concentre-toi sur ${cat}`)
+      .join(', ');
+    if (categoryHints) {
+      prompt += `\nFocus catégories: ${categoryHints}`;
+    }
+  } else {
+    // Génération automatique: mélanger les matières actives
+    const subjectDescriptions: Record<string, string> = {
+      MATHS: 'Mathématiques (numération, calcul, géométrie, mesures, problèmes, fractions)',
+      FRANCAIS: 'Français (conjugaison, grammaire, orthographe, vocabulaire, lecture)',
+      ANGLAIS: 'Anglais (vocabulaire, grammaire simple, expressions courantes)',
+      HISTOIRE: 'Histoire (événements, personnages, chronologie)',
+      GEOGRAPHIE: 'Géographie (pays, continents, paysages, climat)',
+      GEO: 'Géographie (pays, continents, paysages, climat)',
+      SCIENCES: 'Sciences (nature, corps humain, expériences, animaux)',
+    };
+    // Appliquer les catégories focus dans les descriptions
+    const subjectsList = subjects.map(s => {
+      const base = subjectDescriptions[s] || s;
+      const cat = focusCategories[s];
+      if (cat) return `${base} — FOCUS SUR: ${cat}`;
+      return base;
+    }).join(', ');
+    prompt = `Génère des questions variées couvrant ces matières: ${subjectsList}. 
+Assure-toi de bien varier les catégories au sein de chaque matière. 
+Ne répète jamais la même question. Sois créatif et original dans tes formulations.`;
+  }
+
+  // Varier la difficulté aléatoirement
+  const difficulties = ['EASY', 'MEDIUM', 'HARD'];
+  const randomDifficulty = difficulties[Math.floor(Math.random() * difficulties.length)];
+
+  try {
     const questions = await generateQuestionsWithAI(
-      user.customPromptText,
+      prompt,
       user.gradeLevel,
-      'MEDIUM',
-      count
+      randomDifficulty,
+      minCount
     );
 
     if (questions.length > 0) {
+      // saveGeneratedQuestions gère la déduplication: réutilise les IDs existants si doublon
       const savedIds = await saveGeneratedQuestions(questions, userId, 'AI');
-      return { questionIds: savedIds, source: 'AI' };
+      if (savedIds.length > 0) {
+        logger.info(`[Battle Prep] Prepared ${savedIds.length} questions for user ${userId} (grade ${user.gradeLevel})`);
+        return { questionIds: savedIds, source: 'AI' };
+      }
     }
+  } catch (error: any) {
+    logger.warn(`[Battle Prep] AI generation failed, using existing DB questions: ${error.message}`);
   }
 
-  // Sinon, vérifier qu'on a assez de questions en base
+  // Fallback: vérifier qu'on a assez de questions en base
   const existingCount = await prisma.questionBank.count({
     where: {
       gradeLevel: user.gradeLevel,
-      subject: { in: (user.activeSubjects as string[]) || ['MATHS', 'FRANCAIS'] },
+      subject: { in: subjects },
     },
   });
 
   return { questionIds: [], source: existingCount > 0 ? 'DB' : 'NONE' };
+}
+
+// Dédoublonner les questions IA par rapport à la DB existante
+async function deduplicateQuestions(
+  questions: AIGeneratedQuestion[],
+  gradeLevel: string
+): Promise<AIGeneratedQuestion[]> {
+  // Chercher les textes de questions existantes pour éviter les doublons
+  const existing = await prisma.questionBank.findMany({
+    where: { gradeLevel: gradeLevel as GradeLevelType },
+    select: { questionText: true },
+  });
+  
+  const existingTexts = new Set(
+    existing.map(q => q.questionText.toLowerCase().trim().replace(/\s+/g, ' '))
+  );
+
+  return questions.filter(q => {
+    const normalized = q.question_text.toLowerCase().trim().replace(/\s+/g, ' ');
+    // Exclure si le texte exact existe déjà
+    if (existingTexts.has(normalized)) return false;
+    // Exclure si très similaire (80%+ des mots en commun)
+    for (const existing of existingTexts) {
+      if (textSimilarity(normalized, existing) > 0.8) return false;
+    }
+    return true;
+  });
+}
+
+// Calcul simple de similarité entre deux textes
+function textSimilarity(a: string, b: string): number {
+  const wordsA = new Set(a.split(/\s+/));
+  const wordsB = new Set(b.split(/\s+/));
+  const intersection = [...wordsA].filter(w => wordsB.has(w)).length;
+  return intersection / Math.max(wordsA.size, wordsB.size);
 }
 
 // Récupérer les questions AI préparées pour un utilisateur

@@ -18,7 +18,7 @@ import { socketService } from './services/socket';
 const NAV_ITEMS = [
   { id: 'GAME', label: 'Combat', icon: 'fight_icon.webp' },
   { id: 'COLLECTION', label: 'Équipe', icon: 'team_icon.webp' },
-  { id: 'SHOP', label: 'Shop', icon: 'shop_icon.webp' },
+  { id: 'SHOP', label: 'Boutique', icon: 'shop_icon.webp' },
   { id: 'WHEEL', label: 'Roue', icon: 'wheel_icon.webp' },
 ];
 
@@ -197,6 +197,8 @@ const App: React.FC = () => {
 
           {/* User Stats + Admin + XP + Logout */}
           <div className="flex items-center gap-2">
+            {/* Player name */}
+            <span className="text-xs text-white/80 font-bold truncate max-w-[60px] sm:max-w-[100px]">{user.username}</span>
             {/* Gold */}
             <div className="flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded-full border border-slate-700/50">
               <img src={`${ASSETS_BASE_URL}/credits.webp`} alt="Or" className="w-4 h-4" />
@@ -209,20 +211,20 @@ const App: React.FC = () => {
             </div>
             {/* XP */}
             <div className="flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded-full border border-slate-700/50">
-              <img src={`${ASSETS_BASE_URL}/xp.webp`} alt="XP" className="w-4 h-4" />
-              <span className="text-xs text-cyan-300 font-mono font-bold">{user.global_xp ?? 0} XP</span>
+              <img src={`${ASSETS_BASE_URL}/xp.webp`} alt="EXP" className="w-4 h-4" />
+              <span className="text-xs text-cyan-300 font-mono font-bold">{user.global_xp ?? 0} EXP</span>
             </div>
             {/* Admin button - long press */}
             <button
               onClick={() => setShowAdmin(true)}
               onContextMenu={(e) => { e.preventDefault(); setShowAdmin(true); }}
               className="w-6 h-6 flex items-center justify-center rounded-full bg-slate-800 border border-slate-700 text-slate-500 hover:text-red-400 hover:border-red-500/50 active:scale-90 transition-all"
-              title="Admin"
+              title="Administrateur"
             >
               <span className="text-[10px]">⚙</span>
             </button>
             {/* Logout button */}
-            <button onClick={handleLogout} className="ml-1 px-3 py-1 rounded-full bg-red-700 hover:bg-red-800 text-white text-xs font-bold">Déconnexion</button>
+            <button onClick={handleLogout} className="ml-1 px-3 py-1 rounded-full bg-red-700 hover:bg-red-800 text-white text-xs font-bold">Sortie</button>
           </div>
         </div>
         

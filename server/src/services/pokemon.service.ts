@@ -13,6 +13,7 @@ export interface PokemonData {
   nextLevelXp?: number;
   isTeam?: boolean;
   stats?: { hp: number; atk: number; def: number; spe: number };
+  type?: string;
 }
 
 // Noms français des 151 premiers Pokémon (Génération 1)
@@ -48,6 +49,37 @@ const POKEMON_NAMES: Record<number, string> = {
   141: 'Kabutops', 142: 'Ptéra', 143: 'Ronflex', 144: 'Artikodin', 145: 'Électhor',
   146: 'Sulfura', 147: 'Minidraco', 148: 'Draco', 149: 'Dracolosse', 150: 'Mewtwo', 151: 'Mew',
 };
+
+// Types principaux des 151 Pokémon (Gen 1, noms français Tyradex)
+const POKEMON_TYPES: Record<number, string> = {
+  1:'Plante',2:'Plante',3:'Plante',4:'Feu',5:'Feu',6:'Feu',7:'Eau',8:'Eau',9:'Eau',
+  10:'Insecte',11:'Insecte',12:'Insecte',13:'Insecte',14:'Insecte',15:'Insecte',
+  16:'Normal',17:'Normal',18:'Normal',19:'Normal',20:'Normal',
+  21:'Normal',22:'Normal',23:'Poison',24:'Poison',25:'Électrik',26:'Électrik',
+  27:'Sol',28:'Sol',29:'Poison',30:'Poison',31:'Poison',32:'Poison',33:'Poison',34:'Poison',
+  35:'Fée',36:'Fée',37:'Feu',38:'Feu',39:'Normal',40:'Normal',
+  41:'Poison',42:'Poison',43:'Plante',44:'Plante',45:'Plante',46:'Insecte',47:'Insecte',
+  48:'Insecte',49:'Insecte',50:'Sol',51:'Sol',52:'Normal',53:'Normal',
+  54:'Eau',55:'Eau',56:'Combat',57:'Combat',58:'Feu',59:'Feu',60:'Eau',
+  61:'Eau',62:'Eau',63:'Psy',64:'Psy',65:'Psy',66:'Combat',67:'Combat',68:'Combat',
+  69:'Plante',70:'Plante',71:'Plante',72:'Eau',73:'Eau',74:'Roche',75:'Roche',76:'Roche',
+  77:'Feu',78:'Feu',79:'Eau',80:'Eau',81:'Électrik',82:'Électrik',83:'Normal',
+  84:'Normal',85:'Normal',86:'Eau',87:'Eau',88:'Poison',89:'Poison',90:'Eau',
+  91:'Eau',92:'Spectre',93:'Spectre',94:'Spectre',95:'Roche',96:'Psy',97:'Psy',
+  98:'Eau',99:'Eau',100:'Électrik',101:'Électrik',102:'Plante',103:'Plante',
+  104:'Sol',105:'Sol',106:'Combat',107:'Combat',108:'Normal',109:'Poison',110:'Poison',
+  111:'Sol',112:'Sol',113:'Normal',114:'Plante',115:'Normal',116:'Eau',117:'Eau',
+  118:'Eau',119:'Eau',120:'Eau',121:'Eau',122:'Psy',123:'Insecte',124:'Glace',
+  125:'Électrik',126:'Feu',127:'Insecte',128:'Normal',129:'Eau',130:'Eau',
+  131:'Eau',132:'Normal',133:'Normal',134:'Eau',135:'Électrik',136:'Feu',
+  137:'Normal',138:'Roche',139:'Roche',140:'Roche',141:'Roche',142:'Roche',
+  143:'Normal',144:'Glace',145:'Électrik',146:'Feu',147:'Dragon',148:'Dragon',149:'Dragon',
+  150:'Psy',151:'Psy',
+};
+
+export function getPokemonType(tyradexId: number): string {
+  return POKEMON_TYPES[tyradexId] || 'Normal';
+}
 
 export function getPokemonName(tyradexId: number): string {
   return POKEMON_NAMES[tyradexId] || `Pokémon #${tyradexId}`;
@@ -107,6 +139,7 @@ export async function getUserTeam(userId: number): Promise<PokemonData[]> {
       currentXp: p.currentXp,
       nextLevelXp: p.level * 100,
       stats: computeStatsForLevel(p.level, p.tyradexId),
+      type: getPokemonType(p.tyradexId),
     };
   });
 }
@@ -136,6 +169,7 @@ export async function getUserCollection(userId: number): Promise<PokemonData[]> 
       currentXp: p.currentXp,
       nextLevelXp: p.level * 100,
       stats: computeStatsForLevel(p.level, p.tyradexId),
+      type: getPokemonType(p.tyradexId),
     };
   });
 }

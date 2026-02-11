@@ -130,7 +130,7 @@ export const PvPTurnDisplay: React.FC<Props> = ({ matchId, onMatchEnd }) => {
                                 {lastTurn.damage_dealt > 0 && (
                                     <div className="flex items-center gap-2">
                                         <span className="text-red-400 font-bold">
-                                            -{lastTurn.damage_dealt} HP
+                                            -{lastTurn.damage_dealt} PV
                                         </span>
                                         <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
                                             <motion.div

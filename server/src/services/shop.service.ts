@@ -127,18 +127,33 @@ export async function buyPokemon(userId: number, pokedexId: number, price: numbe
 
 // Vendre un Pokémon
 export async function sellPokemon(userId: number, pokemonId: string): Promise<{ success: boolean; message: string; newGold?: number }> {
-  const pokemon = await prisma.userPokemon.findFirst({
-    where: { id: pokemonId, userId },
-  });
+  // pokemonId peut être un tyradexId (numérique) envoyé depuis la boutique
+  const numId = parseInt(pokemonId, 10);
+  let pokemon = null;
+  
+  if (!isNaN(numId) && numId > 0 && numId < 10000) {
+    // Chercher par tyradexId (vente depuis la boutique)
+    pokemon = await prisma.userPokemon.findFirst({
+      where: { tyradexId: numId, userId },
+    });
+  }
+  
+  if (!pokemon) {
+    // Fallback: chercher par id exact (vente depuis la collection)
+    pokemon = await prisma.userPokemon.findFirst({
+      where: { id: pokemonId, userId },
+    });
+  }
   
   if (!pokemon) return { success: false, message: 'Pokémon non trouvé' };
   
-  // Prix de vente = 50% du prix de base
+  // Prix de vente = 25% du prix d'achat de base (jamais rentable de revendre)
   const rarity = getRarity(pokemon.tyradexId);
-  const sellPrice = Math.floor(500 * rarity.priceMultiplier * 0.5);
+  const baseBuyPrice = 500 * rarity.priceMultiplier;
+  const sellPrice = Math.floor(baseBuyPrice * 0.25);
   
-  // Supprimer le Pokémon
-  await prisma.userPokemon.delete({ where: { id: pokemonId } });
+  // Supprimer le Pokémon (utiliser pokemon.id trouvé en DB, pas pokemonId du param)
+  await prisma.userPokemon.delete({ where: { id: pokemon.id } });
   
   // Ajouter l'or
   const updatedUser = await prisma.user.update({

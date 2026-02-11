@@ -79,8 +79,14 @@ authRouter.post('/register', async (req, res) => {
         id: user.id,
         username: user.username,
         gradeLevel: user.gradeLevel,
+        activeSubjects: user.activeSubjects,
+        focusCategories: user.focusCategories,
+        customPromptActive: user.customPromptActive,
+        customPromptText: user.customPromptText,
         gold: user.gold,
-        tokens: user.tokens
+        tokens: user.tokens,
+        streak: user.streak,
+        globalXp: user.globalXp
       }
     });
   } catch (error) {
@@ -116,8 +122,13 @@ authRouter.post('/login', async (req, res) => {
         id: user.id,
         username: user.username,
         gradeLevel: user.gradeLevel,
+        activeSubjects: user.activeSubjects,
+        focusCategories: user.focusCategories,
+        customPromptActive: user.customPromptActive,
+        customPromptText: user.customPromptText,
         gold: user.gold,
         tokens: user.tokens,
+        streak: user.streak,
         globalXp: user.globalXp
       }
     });
@@ -141,8 +152,13 @@ authRouter.get('/verify', authMiddleware, async (req: AuthRequest, res) => {
         id: user.id,
         username: user.username,
         gradeLevel: user.gradeLevel,
+        activeSubjects: user.activeSubjects,
+        focusCategories: user.focusCategories,
+        customPromptActive: user.customPromptActive,
+        customPromptText: user.customPromptText,
         gold: user.gold,
         tokens: user.tokens,
+        streak: user.streak,
         globalXp: user.globalXp
       }
     });

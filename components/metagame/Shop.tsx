@@ -40,7 +40,7 @@ const getRarityColor = (rarity: string) => {
 };
 
 export const Shop: React.FC = () => {
-  const { user, spendCurrency, fetchInventory, inventory } = useGameStore();
+  const { user, spendCurrency, fetchInventory, fetchUser, inventory } = useGameStore();
   const [activeTab, setActiveTab] = useState<'ITEMS' | 'POKEMON'>('ITEMS');
   const [items, setItems] = useState<ShopItem[]>([]);
   const [pokemons, setPokemons] = useState<ShopPokemon[]>([]);
@@ -93,7 +93,13 @@ export const Shop: React.FC = () => {
           if (res.data && res.data.success) {
               setFeedback(res.data.message || 'Succès !');
               if (action === 'buy') spendCurrency('GOLD', price);
-              else spendCurrency('GOLD', -Math.floor(price * 0.5));
+              else spendCurrency('GOLD', -Math.floor(price * 0.25));
+              // Si achat d'un pack de jetons, mettre à jour les jetons localement
+              if (res.data.newTokens !== undefined) {
+                useGameStore.setState((s) => ({
+                  user: s.user ? { ...s.user, tokens: res.data.newTokens } : null
+                }));
+              }
               await loadShopData();
               if (type === 'item') fetchInventory(); 
           } else {
@@ -107,13 +113,17 @@ export const Shop: React.FC = () => {
     <div className="w-full max-w-6xl mx-auto min-h-[80vh] pb-20">
         <div className="flex flex-col md:flex-row justify-between items-center mb-6 gap-4 bg-slate-900/80 p-4 md:p-6 rounded-2xl border border-slate-700 shadow-xl backdrop-blur-sm">
             <div>
-                <h2 className="text-2xl md:text-4xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600">MARKETPLACE</h2>
+                <h2 className="text-2xl md:text-4xl font-display font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-300 to-yellow-600">BOUTIQUE</h2>
                 <p className="text-slate-400 font-mono text-xs md:text-sm">Équipez-vous pour l'aventure</p>
             </div>
             <div className="flex items-center gap-4">
                 <div className="flex items-center gap-2 bg-slate-950 px-3 md:px-4 py-2 rounded-xl border border-yellow-600/30">
                     <img src={`${ASSETS_BASE_URL}/credits.webp`} className="w-6 h-6 md:w-8 md:h-8 object-contain" />
                     <span className="text-xl md:text-2xl font-mono text-yellow-400 font-bold">{user?.gold}</span>
+                </div>
+                <div className="flex items-center gap-2 bg-slate-950 px-3 md:px-4 py-2 rounded-xl border border-purple-600/30">
+                    <span className="text-lg md:text-xl">🎟️</span>
+                    <span className="text-xl md:text-2xl font-mono text-purple-400 font-bold">{user?.tokens}</span>
                 </div>
                 {feedback && (
                     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="text-cyan-400 text-xs md:text-sm font-bold bg-cyan-900/20 px-2 md:px-3 py-1 rounded border border-cyan-500/30">{feedback}</motion.div>
@@ -225,7 +235,7 @@ export const Shop: React.FC = () => {
                             </div>
                             <div className="space-y-1.5 md:space-y-2">
                                 <button onClick={() => handleTransaction('buy', 'item', item.id, item.price)} disabled={(user?.gold || 0) < item.price} className="w-full bg-cyan-700 hover:bg-cyan-600 disabled:opacity-50 disabled:grayscale text-white font-bold py-1.5 md:py-2 rounded flex justify-center items-center gap-1 md:gap-2 text-xs md:text-sm">ACHETER <span className="text-yellow-300">{item.price}₵</span></button>
-                                {item.stock > 0 && (<button onClick={() => handleTransaction('sell', 'item', item.id, item.price)} className="w-full bg-slate-800 hover:bg-red-900/50 border border-slate-700 hover:border-red-500 text-slate-300 hover:text-red-300 font-bold py-1 md:py-1.5 rounded text-[10px] md:text-xs transition-colors">VENDRE ({Math.floor(item.price * 0.5)}₵)</button>)}
+                                {item.stock > 0 && (<button onClick={() => handleTransaction('sell', 'item', item.id, item.price)} className="w-full bg-slate-800 hover:bg-red-900/50 border border-slate-700 hover:border-red-500 text-slate-300 hover:text-red-300 font-bold py-1 md:py-1.5 rounded text-[10px] md:text-xs transition-colors">VENDRE ({Math.floor(item.price * 0.25)}₵)</button>)}
                             </div>
                         </div>
                     ))}
@@ -266,7 +276,7 @@ export const Shop: React.FC = () => {
                                 <div className="space-y-1.5 md:space-y-2">
                                     <button onClick={() => handleTransaction('buy', 'pokemon', poke.id, poke.computedPrice)} disabled={(user?.gold || 0) < poke.computedPrice} className="w-full bg-yellow-600 hover:bg-yellow-500 disabled:opacity-50 disabled:grayscale text-black font-bold py-1.5 md:py-2 rounded flex justify-center items-center gap-1 md:gap-2 font-display text-xs md:text-sm">RECRUTER <span className="bg-black/20 px-1 rounded text-white">{poke.computedPrice}₵</span></button>
                                     {poke.ownedCount > 0 && ![1, 4, 7].includes(poke.pokedexId) && (
-                                        <button onClick={() => handleTransaction('sell', 'pokemon', poke.id, poke.computedPrice)} className="w-full bg-slate-950 hover:bg-red-900/40 border border-slate-800 hover:border-red-500 text-slate-500 hover:text-red-400 font-bold py-1 md:py-1.5 rounded text-[10px] md:text-xs transition-colors">LIBÉRER (+{Math.floor(poke.computedPrice * 0.5)}₵)</button>
+                                        <button onClick={() => handleTransaction('sell', 'pokemon', poke.pokedexId.toString(), poke.computedPrice)} className="w-full bg-slate-950 hover:bg-red-900/40 border border-slate-800 hover:border-red-500 text-slate-500 hover:text-red-400 font-bold py-1 md:py-1.5 rounded text-[10px] md:text-xs transition-colors">LIBÉRER (+{Math.floor(poke.computedPrice * 0.25)}₵)</button>
                                     )}
                                 </div>
                             </div>

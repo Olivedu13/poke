@@ -9,6 +9,7 @@ import { Pokemon, Item } from '../../types';
 import { playSfx } from '../../utils/soundEngine';
 import { getPokemonNameFr } from '../../utils/pokemonNames';
 import { ASSETS_BASE_URL } from '../../config';
+import { getTypeEffectiveness, getMatchupHint } from '../../utils/typeEffectiveness';
 
 export const useBattleLogic = () => {
     const { 
@@ -18,7 +19,7 @@ export const useBattleLogic = () => {
         gradeGauge, updateGradeProgress, combo, specialGauge, consumeSpecial,
         battlePhase, setBattlePhase, previewEnemy, selectedPlayer,
         setPreviewEnemy, setPreviewEnemyTeam, setSelectedPlayer, battleMode, trainerOpponent,
-        setTrainerOpponent
+        setTrainerOpponent, setPreparedQuestionIds
     } = useGameStore();
 
     // --- LOCAL STATE ---
@@ -26,11 +27,14 @@ export const useBattleLogic = () => {
     const [showInventory, setShowInventory] = useState(false);
     const [showTeam, setShowTeam] = useState(false);
     const [lootRevealed, setLootRevealed] = useState(false);
-    const [rewards, setRewards] = useState<{xp: number, gold: number, loot?: string} | null>(null);
+    const [rewards, setRewards] = useState<{xp: number, gold: number, tokens?: number, loot?: string} | null>(null);
     const [captureAttempted, setCaptureAttempted] = useState(false);
     const [captureSuccess, setCaptureSuccess] = useState(false);
     const [captureAnimating, setCaptureAnimating] = useState(false);
     
+    // Type matchup hint (shown in battle UI)
+    const [typeMatchup, setTypeMatchup] = useState<{text: string, color: string, icon: string} | null>(null);
+
     // Combat stats tracking (minimum 5 questions, XP based on performance)
     const [questionsAnswered, setQuestionsAnswered] = useState(0);
     const [correctAnswers, setCorrectAnswers] = useState(0);
@@ -186,14 +190,18 @@ export const useBattleLogic = () => {
                     const updatedTeam = trainerOpponent.team.map((poke, idx) =>
                         idx === trainerOpponent.currentPokemonIndex ? { ...poke, current_hp: 0 } : poke
                     );
-                    addLog({ message: `${trainerOpponent.name} envoie ${updatedTeam[nextIndex].name} !`, type: 'INFO' });
                     setTrainerOpponent({
                         ...trainerOpponent,
                         team: updatedTeam,
                         currentPokemonIndex: nextIndex
                     });
-                    // Passe le suivant avec ses PV réels
-                    initBattle(playerPokemon!, updatedTeam[nextIndex]);
+                    // Switch direct sans passer par PREVIEW (sinon startBattle() réutilise previewEnemy)
+                    addLog({ message: `${trainerOpponent.name} envoie ${updatedTeam[nextIndex].name} !`, type: 'INFO' });
+                    useGameStore.setState({
+                        enemyPokemon: updatedTeam[nextIndex],
+                        battleOver: false,
+                        isPlayerTurn: true,
+                    });
                     return;
                 }
             }
@@ -231,6 +239,12 @@ export const useBattleLogic = () => {
                 let goldGain = Math.floor(baseGold * correctBonus);
                 if (isBoss) { xpGain *= 3; goldGain *= 3; }
                 if (isTrainerMode) { xpGain *= 2; goldGain *= 2; }
+                // Gain de tokens : 1 par combat sauvage, 2 par dresseur, 3 si boss
+                let tokenGain = 1;
+                if (isTrainerMode) tokenGain = 2;
+                if (isBoss) tokenGain = 3;
+                // Bonus token si bon combo
+                if (maxCombo >= 3) tokenGain += 1;
                 let loot: string | undefined = undefined;
                 const lootChance = Math.min(0.8, 0.20 + (maxCombo * 0.1));
                 if (Math.random() < lootChance || isBoss || isTrainerMode) { 
@@ -240,8 +254,8 @@ export const useBattleLogic = () => {
                     loot = items[Math.floor(Math.random() * items.length)];
                     if (isBoss) loot = 'heal_r2'; 
                 }
-                setRewards({ xp: xpGain, gold: goldGain, loot });
-                claimBattleRewards(xpGain, goldGain, loot);
+                setRewards({ xp: xpGain, gold: goldGain, tokens: tokenGain, loot });
+                claimBattleRewards(xpGain, goldGain, tokenGain, loot);
                 const victoryMsg = isTrainerMode && trainerOpponent 
                     ? `Tu as battu le dresseur ${trainerOpponent.name} !` 
                     : 'VICTOIRE !';
@@ -254,7 +268,12 @@ export const useBattleLogic = () => {
                 if (myTeam.length > 0) {
                     const nextPokemon = myTeam[0];
                     addLog({ message: `${playerPokemon.name} est K.O. ! Tu envoies ${nextPokemon.name} !`, type: 'INFO' });
-                    initBattle(nextPokemon, enemyPokemon);
+                    // Switch direct sans passer par PREVIEW pour ne pas réinitialiser le combat
+                    useGameStore.setState({
+                        playerPokemon: nextPokemon,
+                        battleOver: false,
+                        isPlayerTurn: true,
+                    });
                     return;
                 }
             }
@@ -291,14 +310,24 @@ export const useBattleLogic = () => {
                     return;
                 }
 
-                // Normal enemy attack
+                // Normal enemy attack with type effectiveness
                 await controlsEnemy.start({ x: -100, y: 100, scale: 1.2, transition: { duration: 0.2 } });
                 await controlsEnemy.start({ x: 0, y: 0, scale: 1, transition: { type: "spring", stiffness: 300 } });
                 triggerShake(); triggerFlash('red');
-                const dmg = Math.max(1, Math.floor((enemyPokemon.stats?.atk || 10) / 6) + Math.floor(Math.random() * 3));
+                const baseDmg = Math.max(1, Math.floor((enemyPokemon.stats?.atk || 10) / 6) + Math.floor(Math.random() * 3));
+                // Appliquer l'efficacité de type ennemi → joueur
+                const enemyTypeResult = getTypeEffectiveness(
+                    enemyPokemon.type || 'Normal',
+                    playerPokemon.type || 'Normal'
+                );
+                const dmg = Math.max(1, Math.floor(baseDmg * enemyTypeResult.multiplier));
                 damageEntity('PLAYER', dmg);
                 spawnFloatingText(`-${dmg}`, 'text-red-500', true);
-                addLog({ message: `${enemyPokemon.name} attaque !`, type: 'ENEMY' });
+                if (enemyTypeResult.label) {
+                    spawnFloatingText(`${enemyTypeResult.emoji}`, enemyTypeResult.color, true);
+                }
+                const enemyTypeInfo = enemyTypeResult.label ? ` ${enemyTypeResult.emoji} ${enemyTypeResult.label}` : '';
+                addLog({ message: `${enemyPokemon.name} attaque ! -${dmg}${enemyTypeInfo}`, type: 'ENEMY' });
                 endTurn();
             };
             aiTurn();
@@ -317,19 +346,39 @@ export const useBattleLogic = () => {
             setEnemySleepTurns(0);
             setEnemyPoisonDmg(0);
 
-            // Pre-generate AI questions if custom prompt is active
+            // Adapter le message de début de combat selon le mode
+            const startMsg = battleMode === 'TRAINER' && trainerOpponent
+                ? `${trainerOpponent.name} envoie ${previewEnemy.name} !`
+                : `Un ${previewEnemy.name} sauvage apparaît !`;
+
+            // Pre-generate AI questions (bloquant pour garantir les IDs dès la 1ère question)
             try {
-                await api.post('/ai/prepare-battle', {
-                    userId: selectedPlayer.id,
-                    gradeLevel: selectedPlayer.grade_level || 'CE1',
+                const res = await api.post('/ai/prepare-battle', {
+                    userId: user?.id,
+                    gradeLevel: user?.grade_level || 'CE1',
                     difficulty: gradeGauge || 0
                 });
+                if (res.data?.question_ids?.length > 0) {
+                    setPreparedQuestionIds(res.data.question_ids);
+                } else {
+                    setPreparedQuestionIds([]);
+                }
             } catch (e) {
                 console.warn('AI prepare-battle failed, will use question bank fallback:', e);
+                setPreparedQuestionIds([]);
             }
 
-            initBattle(selectedPlayer, previewEnemy);
+            initBattle(selectedPlayer, previewEnemy, startMsg);
             setBattlePhase('FIGHTING');
+
+            // Calculer le matchup de type et afficher un hint
+            const hint = getMatchupHint(selectedPlayer.type || 'Normal', previewEnemy.type || 'Normal');
+            setTypeMatchup(hint);
+            if (hint) {
+                setTimeout(() => {
+                    addLog({ message: `${hint.icon} ${hint.text}`, type: hint.color.includes('red') || hint.color.includes('orange') ? 'ENEMY' : 'CRITICAL' });
+                }, 600);
+            }
         }
     };
 
@@ -338,14 +387,22 @@ export const useBattleLogic = () => {
     const calculateDamage = (isCorrect: boolean, attackerLevel: number, comboCount: number, isUltimate: boolean, difficulty: string = 'MEDIUM'): number => {
         if (!isCorrect) return 0;
         
-        const baseDamage = 10 + attackerLevel * 2;
+        const baseDamage = 15 + attackerLevel * 3;
         const comboBonus = 1 + (comboCount * 0.1);
-        const gaugeBonus = 1 + (gradeGauge * 0.1); // Bonus basé sur la jauge de niveau
+        // En PvP, pas de bonus de jauge (équité entre joueurs)
+        const gaugeBonus = battleMode === 'PVP' ? 1 : 1 + (gradeGauge * 0.1);
         const difficultyBonus = difficulty === 'HARD' ? 1.3 : difficulty === 'MEDIUM' ? 1.15 : 1.0;
         const ultimateMultiplier = isUltimate ? 3 : 1;
         const randomVariance = 0.9 + Math.random() * 0.2;
         
-        return Math.floor(baseDamage * comboBonus * gaugeBonus * difficultyBonus * ultimateMultiplier * randomVariance);
+        // Efficacité de type : attaquant (joueur) → défenseur (ennemi)
+        const typeResult = getTypeEffectiveness(
+            playerPokemon?.type || 'Normal',
+            enemyPokemon?.type || 'Normal'
+        );
+        const typeMultiplier = typeResult.multiplier;
+        
+        return Math.floor(baseDamage * comboBonus * gaugeBonus * difficultyBonus * ultimateMultiplier * typeMultiplier * randomVariance);
     };
 
     const executeAttack = async (isUltimate = false, isCorrect = true, difficulty = 'HARD', forcedDamage?: number) => {
@@ -356,6 +413,12 @@ export const useBattleLogic = () => {
             damage = calculateDamage(isCorrect, playerPokemon?.level || 1, combo, isUltimate);
         }
 
+        // Afficher le message d'efficacité de type
+        const typeResult = getTypeEffectiveness(
+            playerPokemon?.type || 'Normal',
+            enemyPokemon?.type || 'Normal'
+        );
+
         if (isCorrect) {
             await controlsPlayer.start({ x: 100, y: -100, scale: isUltimate ? 1.5 : 1.2, transition: { duration: 0.2 } });
             controlsPlayer.start({ x: 0, y: 0, scale: 1, transition: { type: "spring", stiffness: 300 } });
@@ -364,13 +427,21 @@ export const useBattleLogic = () => {
             damageEntity('ENEMY', damage);
             spawnFloatingText(`-${damage}`, isUltimate ? 'text-purple-400 text-6xl' : 'text-yellow-400', false);
             
+            // Afficher le feedback d'efficacité de type
+            if (typeResult.label) {
+                spawnFloatingText(`${typeResult.emoji} ${typeResult.label}`, typeResult.color, false);
+            }
+            
             if (isUltimate) {
-                spawnFloatingText("ULTIMATE!", "text-cyan-300", false);
+                spawnFloatingText("ULTIME !", "text-cyan-300", false);
                 triggerShake(2);
             } else if (damage > 20) {
                 spawnFloatingText("CRITIQUE!", "text-yellow-300", false);
             }
-            addLog({ message: isUltimate ? `FRAPPE ULTIME -${damage}!` : `Coup réussi ! -${damage}`, type: 'PLAYER' });
+            
+            // Message de log avec info type
+            const typeInfo = typeResult.label ? ` ${typeResult.emoji} ${typeResult.label}` : '';
+            addLog({ message: isUltimate ? `FRAPPE ULTIME -${damage}!${typeInfo}` : `Coup réussi ! -${damage}${typeInfo}`, type: 'PLAYER' });
             endTurn();
         } else {
             addLog({ message: `Raté...`, type: 'INFO' });
@@ -409,20 +480,20 @@ export const useBattleLogic = () => {
 
     const handleUseItem = async (item: Item) => {
         // Battle-usable items
-        if (['HEAL', 'HEAL_TEAM', 'BUFF_ATK', 'BUFF_DEF', 'TRAITOR', 'DMG_FLAT', 'STATUS_SLEEP', 'STATUS_POISON'].includes(item.effect_type)) {
+        if (['HEAL', 'HEAL_TEAM', 'BUFF_ATK', 'BUFF_DEF', 'TRAITOR', 'DMG_FLAT', 'SLEEP', 'POISON', 'QUESTION_SUCCESS'].includes(item.effect_type)) {
             // Apply local effect immediately for instant visual feedback
             if (item.effect_type === 'TRAITOR' || item.effect_type === 'DMG_FLAT') {
                 playSfx('ATTACK');
                 damageEntity('ENEMY', item.value);
                 spawnFloatingText(`-${item.value}!`, 'text-purple-400', false);
                 addLog({ message: `${item.name} ! ${item.value} dégâts infligés !`, type: 'PLAYER' });
-            } else if (item.effect_type === 'STATUS_SLEEP') {
+            } else if (item.effect_type === 'SLEEP') {
                 playSfx('POTION');
                 setEnemyStatus('sleep');
                 setEnemySleepTurns(2);
                 spawnFloatingText('💤 DODO !', 'text-indigo-400', false);
                 addLog({ message: `${item.name} ! ${enemyPokemon?.name} s'endort pendant 2 tours !`, type: 'PLAYER' });
-            } else if (item.effect_type === 'STATUS_POISON') {
+            } else if (item.effect_type === 'POISON') {
                 playSfx('POTION');
                 setEnemyStatus('poison');
                 setEnemyPoisonDmg(item.value || 10);
@@ -440,11 +511,11 @@ export const useBattleLogic = () => {
                 addLog({ message: `${item.name} soigne toute l'équipe !`, type: 'PLAYER' });
             } else if (item.effect_type === 'BUFF_ATK') {
                 playSfx('POTION');
-                spawnFloatingText('ATK ↑', 'text-orange-400', true);
+                spawnFloatingText('ATQ ↑', 'text-orange-400', true);
                 addLog({ message: `${item.name} : Attaque augmentée !`, type: 'PLAYER' });
             } else if (item.effect_type === 'BUFF_DEF') {
                 playSfx('POTION');
-                spawnFloatingText('DEF ↑', 'text-blue-400', true);
+                spawnFloatingText('DÉF ↑', 'text-blue-400', true);
                 addLog({ message: `${item.name} : Défense augmentée !`, type: 'PLAYER' });
             }
 
@@ -457,7 +528,10 @@ export const useBattleLogic = () => {
             }
 
             setShowInventory(false);
-            endTurn();
+            // Potions (HEAL / HEAL_TEAM) ne consomment pas le tour du joueur
+            if (!['HEAL', 'HEAL_TEAM', 'TEAM_HEAL'].includes(item.effect_type)) {
+                endTurn();
+            }
         }
     };
 
@@ -466,7 +540,7 @@ export const useBattleLogic = () => {
         if (newPoke && newPoke.current_hp > 0) {
             useGameStore.setState({ playerPokemon: newPoke, isPlayerTurn: false });
             setShowTeam(false);
-            addLog({ message: `Go ${newPoke.name} !`, type: 'PLAYER' });
+            addLog({ message: `En avant ${newPoke.name} !`, type: 'PLAYER' });
         }
     };
 
@@ -495,7 +569,8 @@ export const useBattleLogic = () => {
             previewEnemy: null,
             previewEnemyTeam: [],
             selectedPlayer: null,
-            currentView: 'COLLECTION'
+            currentView: 'COLLECTION',
+            preparedQuestionIds: [],
         });
     };
 
@@ -521,12 +596,15 @@ export const useBattleLogic = () => {
             addLog({ message: 'Pas de Pokéball !', type: 'INFO' });
             return;
         }
-        // Calcul de la probabilité de capture
+        // Calcul de la probabilité de capture (plus difficile pour hauts niveaux)
         const hpPercent = (enemyPokemon?.current_hp || 0) / (enemyPokemon?.max_hp || 1);
         let rarityBonus = 1;
-        if (enemyPokemon.isBoss) rarityBonus = 0.5;
-        const baseRate = 0.4;
-        const captureChance = Math.max(0.05, Math.min(0.95, baseRate * rarityBonus + (1 - hpPercent) * 0.5));
+        if (enemyPokemon.isBoss) rarityBonus = 0.35;
+        const baseRate = 0.25;
+        // Pénalité de niveau : un pokémon nv100 est ~2x plus dur qu'un nv1
+        const levelPenalty = Math.max(0.3, 1 - (enemyPokemon.level / 100) * 0.7);
+        const captureChance = Math.max(0.05, Math.min(0.75,
+            baseRate * rarityBonus * levelPenalty + (1 - hpPercent) * 0.35));
         const success = Math.random() < captureChance;
 
         // Set result immediately then start animation
@@ -579,6 +657,7 @@ export const useBattleLogic = () => {
         captureSuccess,
         captureAnimating,
         enemyStatus, enemySleepTurns, enemyPoisonDmg,
+        typeMatchup,
         
         // PVP State (legacy, non utilisé)
         isPvpMyTurn: false,

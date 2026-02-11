@@ -126,6 +126,7 @@ shopRouter.post('/buy', authMiddleware, async (req: AuthRequest, res: Response) 
       success: result.success,
       message: result.message,
       new_gold: result.newGold,
+      newTokens: result.newTokens,
     });
   } catch (error) {
     console.error('Error buying item:', error);
@@ -146,6 +147,7 @@ shopRouter.post('/buy-item', authMiddleware, async (req: AuthRequest, res: Respo
       success: result.success,
       message: result.message,
       new_gold: result.newGold,
+      newTokens: result.newTokens,
     });
   } catch (error) {
     console.error('Error buying item:', error);

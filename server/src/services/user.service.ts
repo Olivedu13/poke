@@ -5,6 +5,12 @@ export async function getUserById(id: number) {
   return prisma.user.findUnique({ where: { id } });
 }
 
+// Map frontend grade values to Prisma enum names
+const GRADE_TO_PRISMA: Record<string, string> = {
+  'CP': 'CP', 'CE1': 'CE1', 'CE2': 'CE2', 'CM1': 'CM1', 'CM2': 'CM2',
+  '6EME': 'SIXIEME', '5EME': 'CINQUIEME', '4EME': 'QUATRIEME', '3EME': 'TROISIEME',
+};
+
 export async function updateUserConfig(userId: number, config: {
   gradeLevel?: string;
   activeSubjects?: string[];
@@ -15,7 +21,8 @@ export async function updateUserConfig(userId: number, config: {
   const updateData: Prisma.UserUpdateInput = {};
   
   if (config.gradeLevel) {
-    updateData.gradeLevel = config.gradeLevel as any;
+    const prismaGrade = GRADE_TO_PRISMA[config.gradeLevel] || config.gradeLevel;
+    updateData.gradeLevel = prismaGrade as any;
   }
   if (config.activeSubjects) {
     updateData.activeSubjects = config.activeSubjects;

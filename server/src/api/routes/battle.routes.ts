@@ -141,17 +141,19 @@ battleRouter.post('/use-item', authMiddleware, async (req: AuthRequest, res: Res
 battleRouter.post('/rewards', authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const userId = req.userId!;
-    const { xp, gold, item_drop } = req.body;
+    const { xp, gold, tokens, item_drop } = req.body;
 
     const safeXp = Math.max(0, Math.floor(Number(xp) || 0));
     const safeGold = Math.max(0, Math.floor(Number(gold) || 0));
+    const safeTokens = Math.max(0, Math.floor(Number(tokens) || 0));
 
-    // Update user XP, gold, and streak
+    // Update user XP, gold, tokens, and streak
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
         globalXp: { increment: safeXp },
         gold: { increment: safeGold },
+        tokens: { increment: safeTokens },
         streak: { increment: 1 },
       },
     });
@@ -173,6 +175,7 @@ battleRouter.post('/rewards', authMiddleware, async (req: AuthRequest, res: Resp
       data: {
         gold: updatedUser.gold,
         globalXp: updatedUser.globalXp,
+        tokens: updatedUser.tokens,
         streak: updatedUser.streak,
       },
     });

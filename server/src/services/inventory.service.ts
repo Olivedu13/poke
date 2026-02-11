@@ -59,7 +59,7 @@ export async function buyItem(
   userId: number,
   itemId: string,
   quantity: number = 1,
-): Promise<{ success: boolean; message: string; newGold?: number }> {
+): Promise<{ success: boolean; message: string; newGold?: number; newTokens?: number }> {
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (!user) return { success: false, message: 'Utilisateur non trouvé' };
 
@@ -69,6 +69,19 @@ export async function buyItem(
   const totalCost = item.price * quantity;
   if ((user.gold ?? 0) < totalCost) {
     return { success: false, message: 'Pas assez d\'or' };
+  }
+
+  // Cas spécial: TOKEN_PACK — ajouter des tokens directement au lieu de l'inventaire
+  if (item.effectType === 'TOKEN_PACK') {
+    const tokensToAdd = item.value * quantity;
+    await prisma.$transaction([
+      prisma.user.update({
+        where: { id: userId },
+        data: { gold: { decrement: totalCost }, tokens: { increment: tokensToAdd } },
+      }),
+    ]);
+    const updatedUser = await prisma.user.findUnique({ where: { id: userId } });
+    return { success: true, message: `+${tokensToAdd} jetons !`, newGold: updatedUser?.gold ?? 0, newTokens: updatedUser?.tokens ?? 0 };
   }
 
   // Transaction: déduire l'or et ajouter l'item
@@ -353,8 +366,8 @@ export async function sellItem(
     return { success: false, message: 'Quantité insuffisante' };
   }
 
-  // Prix de vente = 50% du prix d'achat
-  const sellPrice = Math.floor(inventory.item.price * 0.5 * quantity);
+  // Prix de vente = 25% du prix d'achat (jamais rentable de revendre)
+  const sellPrice = Math.floor(inventory.item.price * 0.25 * quantity);
 
   // Transaction: réduire la quantité et ajouter l'or
   await prisma.$transaction([

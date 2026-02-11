@@ -20,7 +20,7 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
   const [result, setResult] = useState<{correct: boolean, explanation: string} | null>(null);
   const [error, setError] = useState<string>('');
   
-  const { seenQuestionIds, markQuestionAsSeen, inventory, fetchInventory, playerPokemon } = useGameStore();
+  const { seenQuestionIds, markQuestionAsSeen, inventory, fetchInventory, playerPokemon, preparedQuestionIds } = useGameStore();
   
   const submitting = useRef(false);
   const [isUsingJoker, setIsUsingJoker] = useState(false);
@@ -54,8 +54,20 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
 
       try {
         // TOKEN HANDLED BY INTERCEPTOR
+        const preferParam = preparedQuestionIds.length > 0 ? preparedQuestionIds.join(',') : '';
+        // Si IA active et des questions IA préparées → mode ai_only (priorité aux questions IA)
+        // Combinaisons supportées:
+        // - IA active + aucune matière → ai_only (questions 100% IA)
+        // - IA active + matières → ai_only (questions IA basées sur matières+catégories)
+        // - IA inactive + matières → fallback DB filtré par matières+catégories
+        // - IA inactive + aucune matière → fallback DB général
+        const aiOnly = user.custom_prompt_active && preparedQuestionIds.length > 0;
         const res = await api.get<ApiResponse<Question>>(`/question`, {
-            params: { seen: excludedIdsParam },
+            params: { 
+              seen: excludedIdsParam, 
+              ...(preferParam ? { prefer: preferParam } : {}),
+              ...(aiOnly ? { mode: 'ai_only' } : {})
+            },
             timeout: 8000 
         });
         
@@ -78,7 +90,7 @@ export const QuizOverlay: React.FC<QuizOverlayProps> = ({ user, onComplete, onCl
       } finally {
         setLoading(false);
       }
-  }, [seenQuestionIds, preloadedQuestion]);
+  }, [seenQuestionIds, preloadedQuestion, preparedQuestionIds]);
 
   useEffect(() => {
     fetchQuestion();

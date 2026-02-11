@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Pokemon, Item } from '../../types';
 import { ASSETS_BASE_URL } from '../../config';
 import { playSfx } from '../../utils/soundEngine';
+import { getTypeBadgeClass } from '../../utils/typeEffectiveness';
 
 /* ─────────────────── SMALL UI HELPERS ─────────────────── */
 
@@ -94,9 +95,14 @@ const BattlePokemonCard: React.FC<{
       draggable={false}
     />
     <div className="w-full mt-1 text-center">
-      <div className="text-white font-display font-bold text-xs sm:text-sm truncate">
+      <div className="text-white font-display font-bold text-xs sm:text-sm truncate flex items-center justify-center gap-1.5">
         {pokemon.name}{' '}
         <span className="text-slate-400 font-mono text-[10px]">Nv.{pokemon.level}</span>
+        {pokemon.type && (
+          <span className={`text-[8px] font-bold px-1.5 py-0.5 rounded-full text-white ${getTypeBadgeClass(pokemon.type)}`}>
+            {pokemon.type}
+          </span>
+        )}
       </div>
       {statusEffect && (
         <span className={`text-[9px] font-bold uppercase tracking-wider ${
@@ -315,7 +321,7 @@ const CaptureScreen: React.FC<{
 
 const FinishedScreen: React.FC<{
   isVictory: boolean;
-  rewards: { xp: number; gold: number; loot?: string } | null;
+  rewards: { xp: number; gold: number; tokens?: number; loot?: string } | null;
   onExit: () => void;
 }> = ({ isVictory, rewards, onExit }) => (
   <motion.div
@@ -348,13 +354,19 @@ const FinishedScreen: React.FC<{
           </div>
           <div className="flex items-center justify-center gap-6">
             <div className="flex items-center gap-2">
-              <img src={`${ASSETS_BASE_URL}/xp.webp`} alt="XP" className="w-5 h-5" />
-              <span className="text-cyan-400 font-mono font-bold">+{rewards.xp} XP</span>
+              <img src={`${ASSETS_BASE_URL}/xp.webp`} alt="EXP" className="w-5 h-5" />
+              <span className="text-cyan-400 font-mono font-bold">+{rewards.xp} EXP</span>
             </div>
             <div className="flex items-center gap-2">
               <img src={`${ASSETS_BASE_URL}/credits.webp`} alt="Or" className="w-5 h-5" />
               <span className="text-yellow-400 font-mono font-bold">+{rewards.gold} Or</span>
             </div>
+            {rewards.tokens && rewards.tokens > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-lg">🎟️</span>
+                <span className="text-purple-400 font-mono font-bold">+{rewards.tokens} Jeton{rewards.tokens > 1 ? 's' : ''}</span>
+              </div>
+            )}
           </div>
           {rewards.loot && (() => {
             const lootId = rewards.loot!;
@@ -440,6 +452,7 @@ export const BattleScene: React.FC = () => {
     captureSuccess,
     captureAnimating,
     enemyStatus,
+    typeMatchup,
     handleQuizComplete,
     handleUltimate,
     handleFlee,
@@ -491,7 +504,7 @@ export const BattleScene: React.FC = () => {
     if (item.quantity <= 0) return false;
     if (item.effect_type === 'CAPTURE') return false;
     if (item.effect_type === 'TRAITOR' && battleMode === 'WILD') return false;
-    return ['HEAL', 'HEAL_TEAM', 'BUFF_ATK', 'BUFF_DEF', 'DMG_FLAT', 'TRAITOR'].includes(
+    return ['HEAL', 'HEAL_TEAM', 'BUFF_ATK', 'BUFF_DEF', 'DMG_FLAT', 'TRAITOR', 'SLEEP', 'POISON', 'QUESTION_SUCCESS'].includes(
       item.effect_type,
     );
   });
@@ -618,9 +631,30 @@ export const BattleScene: React.FC = () => {
           {enemyPokemon ? (
             <BattlePokemonCard pokemon={enemyPokemon} isEnemy controls={controlsEnemy} statusEffect={enemyStatus} />
           ) : (
-            <div className="text-slate-600 text-sm">Aucun adversaire</div>
+            <div className="flex items-center gap-2 text-slate-500 text-sm animate-pulse">
+              <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+              Recherche adversaire...
+            </div>
           )}
         </div>
+
+        {/* Type matchup indicator */}
+        {typeMatchup && phase === 'FIGHTING' && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className={`flex items-center gap-1.5 px-3 py-1 rounded-full border backdrop-blur-sm text-xs font-bold ${
+              typeMatchup.color.includes('green')
+                ? 'bg-green-950/60 border-green-500/40'
+                : typeMatchup.color.includes('red')
+                  ? 'bg-red-950/60 border-red-500/40'
+                  : 'bg-orange-950/60 border-orange-500/40'
+            } ${typeMatchup.color}`}
+          >
+            <span>{typeMatchup.icon}</span>
+            <span>{typeMatchup.text}</span>
+          </motion.div>
+        )}
 
         {/* Battle logs */}
         <div className="w-full max-w-md">
@@ -652,7 +686,10 @@ export const BattleScene: React.FC = () => {
           {playerPokemon ? (
             <BattlePokemonCard pokemon={playerPokemon} controls={controlsPlayer} />
           ) : (
-            <div className="text-slate-600 text-sm">Aucun Pokemon</div>
+            <div className="flex items-center gap-2 text-slate-500 text-sm animate-pulse">
+              <div className="w-4 h-4 border-2 border-slate-500 border-t-transparent rounded-full animate-spin" />
+              Recherche Pokémon...
+            </div>
           )}
         </div>
       </div>

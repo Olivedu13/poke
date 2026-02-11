@@ -30,7 +30,7 @@ const getItemIcon = (id: string | number | undefined) => {
 };
 
 const generatePreviewSegments = (bet: number): WheelSegment[] => {
-  const mult = bet === 10 ? 15 : bet === 5 ? 5 : 1;
+  const mult = bet === 10 ? 20 : bet === 5 ? 8 : 1;
 
   // Items varient selon le palier
   const item1 = bet >= 5
@@ -40,20 +40,19 @@ const generatePreviewSegments = (bet: number): WheelSegment[] => {
   const item2 = bet >= 10
     ? { id: 'traitor_r1', label: 'TRAÎTRE', img: `${ASSETS_BASE_URL}/traitre.webp` }
     : bet >= 5
-      ? { id: 'atk_r1', label: 'BOOST ATK', img: `${ASSETS_BASE_URL}/attaque.webp` }
+      ? { id: 'atk_r1', label: 'BOOST ATQ', img: `${ASSETS_BASE_URL}/attaque.webp` }
       : { id: 'pokeball', label: 'POKÉBALL', img: `${ASSETS_BASE_URL}/pokeball.webp` };
 
   // Alternance stricte : GOLD → POKEMON → ITEM → XP → GOLD → ITEM → POKEMON → XP
-  // Aucun type adjacent identique (y compris wrap-around)
   return [
-    { type: 'GOLD', value: 50 * mult, label: `${50 * mult} OR`, img: `${ASSETS_BASE_URL}/credits.webp`, color: '#fbbf24' },
+    { type: 'GOLD', value: 100 * mult, label: `${100 * mult} OR`, img: `${ASSETS_BASE_URL}/credits.webp`, color: '#fbbf24' },
     { type: 'POKEMON', label: 'POKÉMON', img: `${ASSETS_BASE_URL}/pokeball.webp`, color: '#ef4444', isMystery: true },
     { type: 'ITEM', ...item1, color: '#a855f7' },
-    { type: 'XP', value: 100 * mult, label: `${100 * mult} XP`, img: `${ASSETS_BASE_URL}/xp.webp`, color: '#3b82f6' },
-    { type: 'GOLD', value: 10000 * (bet === 10 ? 3 : bet === 5 ? 1.5 : 1), label: 'JACKPOT 💰', img: `${ASSETS_BASE_URL}/credits.webp`, color: '#10b981' },
+    { type: 'XP', value: 200 * mult, label: `${200 * mult} EXP`, img: `${ASSETS_BASE_URL}/xp.webp`, color: '#3b82f6' },
+    { type: 'GOLD', value: 10000 * (bet === 10 ? 5 : bet === 5 ? 2 : 1), label: 'JACKPOT 💰', img: `${ASSETS_BASE_URL}/credits.webp`, color: '#10b981' },
     { type: 'ITEM', ...item2, color: '#a855f7' },
-    { type: 'POKEMON', label: 'POKÉMON', img: `${ASSETS_BASE_URL}/pokeball.webp`, color: '#ef4444', isMystery: true },
-    { type: 'XP', value: 250 * mult, label: `${250 * mult} XP`, img: `${ASSETS_BASE_URL}/xp.webp`, color: '#3b82f6' },
+    { type: 'POKEMON', label: bet >= 10 ? 'RARE ★' : 'POKÉMON', img: `${ASSETS_BASE_URL}/pokeball.webp`, color: bet >= 10 ? '#f59e0b' : '#ef4444', isMystery: true },
+    { type: 'XP', value: 500 * mult, label: `${500 * mult} EXP`, img: `${ASSETS_BASE_URL}/xp.webp`, color: '#3b82f6' },
   ];
 };
 
@@ -190,12 +189,12 @@ export const Wheel: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col items-center justify-start min-h-screen px-4 py-6 pb-28 relative overflow-hidden">
+    <div className="flex flex-col items-center justify-start min-h-[100dvh] px-4 py-2 pb-16 relative overflow-x-hidden overflow-y-auto">
       {/* Background glow */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-cyan-900/20 via-slate-950 to-slate-950 pointer-events-none" />
 
       {/* Title */}
-      <div className="text-center z-10 mb-4">
+      <div className="text-center z-10 mb-2">
         <h2 className="text-2xl sm:text-4xl font-display font-black text-transparent bg-clip-text bg-gradient-to-b from-yellow-300 to-yellow-600 mb-1">
           ROUE MYSTÈRE
         </h2>
@@ -209,7 +208,7 @@ export const Wheel: React.FC = () => {
       </div>
 
       {/* Wheel */}
-      <div className="relative w-[75vw] h-[75vw] max-w-[320px] max-h-[320px] sm:max-w-[400px] sm:max-h-[400px] z-10 mb-6">
+      <div className="relative w-[60vw] h-[60vw] max-w-[250px] max-h-[250px] sm:max-w-[300px] sm:max-h-[300px] z-10 mb-3">
         {/* Arrow */}
         <div className="absolute -top-3 sm:-top-4 left-1/2 -translate-x-1/2 z-30 w-0 h-0 border-l-[12px] sm:border-l-[16px] border-l-transparent border-r-[12px] sm:border-r-[16px] border-r-transparent border-t-[24px] sm:border-t-[32px] border-t-white drop-shadow-xl" />
 
@@ -277,7 +276,7 @@ export const Wheel: React.FC = () => {
         <button
           onClick={spin}
           disabled={spinning || (user?.tokens || 0) < bet}
-          className={`w-full py-4 rounded-xl font-display font-black text-lg tracking-widest text-black shadow-2xl transition-all active:scale-[0.98] ${
+          className={`w-full py-3 rounded-xl font-display font-black text-lg tracking-widest text-black shadow-2xl transition-all active:scale-[0.98] ${
             spinning || (user?.tokens || 0) < bet
               ? 'bg-slate-700 cursor-not-allowed opacity-50'
               : 'bg-gradient-to-r from-yellow-400 to-yellow-600 shadow-[0_0_30px_rgba(234,179,8,0.4)]'

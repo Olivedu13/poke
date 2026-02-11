@@ -122,7 +122,7 @@ export const PvPLobby: React.FC = () => {
       <div className="p-4 border-b border-purple-500/30">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-display font-black bg-gradient-to-r from-purple-400 to-pink-500 bg-clip-text text-transparent">
-            ⚔️ LOBBY PVP
+            ⚔️ ARÈNE
           </h1>
           <div className="flex gap-2">
             <button

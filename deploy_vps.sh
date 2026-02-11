@@ -109,6 +109,7 @@ rsync -avz --delete \
     --exclude 'dist' \
     --exclude '.git' \
     --exclude '.env' \
+    --exclude 'data' \
     server/ ${VPS_USER}@${VPS_HOST}:${REMOTE_DIR}/backend/
 
 log_success "Fichiers synchronisés"
